@@ -26,7 +26,8 @@ context-oriented programming.
 Some areas of focus that this project hopes to tackle are:
 
 - The application of context-oriented programming to tackle metaprogramming challenges
-- The application of context-oriented programming to model other context dependent fields such as mathematical proofs
+- The application of context-oriented programming to model other context dependent fields such as mathematical
+  correctness
 - The application of context-oriented programming to model real world contextual dependent situations in code with
   minimal boilerplate
 - The application of context-oriented programming to the creation and modelling of domain specific languages
