@@ -77,7 +77,7 @@ Kotlin standard library are
 [DeepRecursiveFunction](https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-deep-recursive-function/) and 
 [Sequences](https://kotlinlang.org/docs/sequences.html). This allows for users and library developers to fully take 
 advantage of the possibilities that come with CPS 
-([Continuation-Passing Style](https://en.wikipedia.org/wiki/Continuation-passing_style) without needing to suffer the 
+([Continuation-Passing Style](https://en.wikipedia.org/wiki/Continuation-passing_style)) without needing to suffer the 
 baggage of the asynchronous/concurrency runtime/engine. Furthermore, the design of `kotlinx.coroutines`, with 
 `CoroutineScope` and `Dispatcher`s maps very nicely to the planned context-oriented features in Koffect (Many of the
 context-oriented features in Koffect took inspiration from multiple receivers in Kotlin and `kotlinx.coroutines` just so
