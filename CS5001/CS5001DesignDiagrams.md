@@ -10,4 +10,4 @@
 
 # Design Level 3 (D2)
 
-![CS5001DesignDiagram_D2.svg](/CS5001/CS5001DesignDiagrams/CS5001DesignDiagram_D2.svg)
+![CS5001DesignDiagram_D2.svg](./CS5001DesignDiagrams/CS5001DesignDiagram_D2.svg)
