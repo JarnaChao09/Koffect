@@ -1,0 +1,52 @@
+# Task List
+
+- [ ] Refine and finalize Koffect syntax
+    - [ ] Document Koffect syntax
+- [ ] Refine and finalize Koffect semantics
+    - [ ] Document Koffect semantics
+- [ ] Refine and finalize Koffect feature set
+    - [ ] Document Koffect feature set
+- [ ] Research async solutions and determine which best fits in the current language semantics
+    - [x] Document initial findings and reach an initial conclusion
+        - see [design_notes/async.md](../design_notes/async.md)
+    - [ ] Specify async solution for Koffect and reach a definitive conclusion
+        - [ ] Document tradeoffs and consequences made in final solution and impact on design of the language
+- [ ] Research multiplatform solutions and determine which best fits for the (planned) language ecosystem
+    - [ ] Document initial findings and reach an initial conclusion
+    - [ ] Specify multiplatform solution for Koffect and reach a definitive conclusion
+        - [ ] Document tradeoffs and consequences made in final solution and impact on design of the language
+- [ ] Research language correctness and determine the level of correctness that should be guaranteed by the language
+    - [ ] Document initial findings and reach an initial conclusion
+    - [ ] Specify how correctness will be maintained and guaranteed by the language
+        - [ ] Document tradeoffs and consequence made in final solution and impact on design of the language
+- [ ] Document Koffect language opinions/philosophies
+    - [ ] Document language opinions/philosophies pertaining to metaprogramming through context-oriented code
+    - [ ] Document language opinions/philosophies pertaining to code correctness through context-oriented code
+    - [ ] Document language opinions/philosophies pertaining to the use cases of context-oriented programming to
+      everyday coding problems
+    - [ ] Document language opinions/philosophies pertaining to the creation and maintenance of internal domain specific
+      languages
+- [ ] Design and develop Koffect lexer
+- [ ] Design and develop Koffect parser
+- [ ] Design and develop Koffect code generator
+- [ ] Design and develop Koffect runtime (depends on outcome from multiplatform solutions research)
+- [ ] Design and develop Koffect code optimizer
+- [ ] Design and develop Koffect standard library
+- [ ] Design and develop Koffect unit testing framework
+- [ ] Design and develop Koffect documentation generator
+- [ ] Research feasibility of implementing a REPL for Koffect
+    - [ ] Document any and all tradeoffs, consequences, and design divergences that may be needed
+- [ ] Research feasibility of separating out the language into two separate file formats, one format for AOT compilation
+  and another format for scripting
+  - [ ] Specify the differing file extensions if research is conclusive
+- [ ] Validate code behavior is well-defined and consistent
+- [ ] Research build solutions and determine which is the best solution for first party build tooling
+  - [ ] Document initial findings and reach an initial design
+  - [ ] Specify build solution for Koffect
+    - [ ] Document build tooling
+    - [ ] Document architecture and project structure opinions/philosophies
+  - [ ] Design dependency management solution as part of builtin build tooling
+- [ ] Research how to make the language compiler a library for easier tooling creation
+  - [ ] Document the API for usage in creating other tools
+  - [ ] Design and develop Language Server Protocol for Koffect
+  - [ ] Design and develop Linter for Koffect
