@@ -42,10 +42,14 @@ Some areas of focus that this project hopes to tackle are:
 
 ## Inspirations / Prior Arts / Similar Features
 
+- [Effects Bibliography](https://github.com/yallop/effects-bibliography)
+    - Collection of relative literature applying to algebraic effects (and coeffects by proxy)
 - [Koka](https://koka-lang.github.io/koka/doc/index.html)
     - Language implementing algebraic effect handlers with lexical effect tracking
 - [Eff](https://www.eff-lang.org/)
     - Language implementing algebraic effect handlers working on general first-class computational effects
+- [Effekt](https://effekt-lang.org/)
+    - Language implementing algebraic effect handlers with effect safety and effect polymorphism following Scala syntax
 - [Coeffect](https://tomasp.net/coeffects/)
     - Language implementing algebraic coeffects through implicit parameters
 - [OCaml Multicore](https://github.com/ocaml/ocaml)
