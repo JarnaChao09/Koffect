@@ -38,15 +38,25 @@
     - [ ] Document any and all tradeoffs, consequences, and design divergences that may be needed
 - [ ] Research feasibility of separating out the language into two separate file formats, one format for AOT compilation
   and another format for scripting
-  - [ ] Specify the differing file extensions if research is conclusive
+    - [ ] Specify the differing file extensions if research is conclusive
 - [ ] Validate code behavior is well-defined and consistent
 - [ ] Research build solutions and determine which is the best solution for first party build tooling
-  - [ ] Document initial findings and reach an initial design
-  - [ ] Specify build solution for Koffect
-    - [ ] Document build tooling
-    - [ ] Document architecture and project structure opinions/philosophies
-  - [ ] Design dependency management solution as part of builtin build tooling
+    - [ ] Document initial findings and reach an initial design
+    - [ ] Specify build solution for Koffect
+        - [ ] Document build tooling
+        - [ ] Document architecture and project structure opinions/philosophies
+    - [ ] Design dependency management solution as part of builtin build tooling
 - [ ] Research how to make the language compiler a library for easier tooling creation
-  - [ ] Document the API for usage in creating other tools
-  - [ ] Design and develop Language Server Protocol for Koffect
-  - [ ] Design and develop Linter for Koffect
+    - [ ] Document the API for usage in creating other tools
+    - [ ] Design and develop Language Server Protocol for Koffect
+    - [ ] Design and develop Linter for Koffect
+- [ ] Research algebraic effects/coeffects and determine how they map to contexts and context objects
+- [ ] Research possible case studies for implementing common solutions that can benefit from contexts and contextual
+  objects
+  - Examples (source: [Effekt Case Studies](https://effekt-lang.org/docs/casestudies):
+    - Pull-based Lexer
+    - Backtracking Parsers
+    - Pretty Printers
+    - ANF Transformation
+    - Automatic Differentiation
+    - Naturalistic DSLs
