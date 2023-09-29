@@ -1,7 +1,5 @@
 # Task List
 
-> Duplicate of [tasklist.md](../design_notes/tasklist.md)
-
 - [ ] Refine and finalize Koffect syntax
     - [ ] Document Koffect syntax
 - [ ] Refine and finalize Koffect semantics
@@ -55,10 +53,10 @@
 - [ ] Research algebraic effects/coeffects and determine how they map to contexts and context objects
 - [ ] Research possible case studies for implementing common solutions that can benefit from contexts and contextual
   objects
-  - Examples (source: [Effekt Case Studies](https://effekt-lang.org/docs/casestudies)):
-    - Pull-based Lexer
-    - Backtracking Parsers
-    - Pretty Printers
-    - ANF Transformation
-    - Automatic Differentiation
-    - Naturalistic DSLs
+    - Examples (source: [Effekt Case Studies](https://effekt-lang.org/docs/casestudies)):
+        - Pull-based Lexer
+        - Backtracking Parsers
+        - Pretty Printers
+        - ANF Transformation
+        - Automatic Differentiation
+        - Naturalistic DSLs
