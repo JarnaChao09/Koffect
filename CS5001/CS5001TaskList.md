@@ -1,6 +1,6 @@
 # Task List
 
-> Duplicate of [tasklist.md](../design_notes/tasklist.md)
+> Duplicate of [tasklist.md](../design_notes/tasklist.md), may not be up-to-date
 
 - [ ] Refine and finalize Koffect syntax
     - [ ] Document Koffect syntax
