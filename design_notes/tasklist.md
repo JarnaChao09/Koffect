@@ -16,7 +16,7 @@
     - [ ] Specify multiplatform solution for Koffect and reach a definitive conclusion
         - [ ] Document tradeoffs and consequences made in final solution and impact on design of the language
 - [ ] Research language correctness and determine the level of correctness that should be guaranteed by the language
-    - [ ] Document initial findings and reach an initial conclusion
+    - [x] Document initial findings and reach an initial conclusion
     - [ ] Specify how correctness will be maintained and guaranteed by the language
         - [ ] Document tradeoffs and consequence made in final solution and impact on design of the language
 - [ ] Document Koffect language opinions/philosophies
