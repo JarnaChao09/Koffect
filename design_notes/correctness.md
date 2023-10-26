@@ -1,5 +1,12 @@
 # Correctness
 
+<!-- TOC -->
+* [Correctness](#correctness)
+  * [Inspirations](#inspirations)
+  * [Correctness in Koffect](#correctness-in-koffect)
+    * [Initial Thoughts](#initial-thoughts)
+<!-- TOC -->
+
 > This document is thoughts and notes about ensuring correctness in code.
 > Do not take this as official documentation as it is subject to change as the language matures.
 
