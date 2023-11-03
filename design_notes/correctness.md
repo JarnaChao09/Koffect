@@ -75,7 +75,7 @@ transactions before an attempt to make a database connection will be caught at c
 utilize the SQL query and transaction APIs without the introduction of a database connection context object into the 
 scope. For example:
 
-```kt
+```kotlin
 val databaseConnection = SomeDatabaseConnection()
 
 val data = transaction(databaseConnection) { // context(DatabaseConnection, SQLOperations) () -> R
@@ -109,7 +109,7 @@ mathematics. Contexts can be used to model [algebraic structures](https://en.wik
 (such as groups, rings, algebras, spaces, etc). For example, the following code can be used to describe some linear 
 algebra in such a fashion that it adheres to the axioms of algebraic structures:
 
-```kt
+```kotlin
 val e = with(R3, DoubleField, Symbolic) { // context(R3, DoubleField, Symbolic) () -> R
     // Var constructor is available as the `Symbolic` context is in scope
     val x = Var("lambda") // type: Symbolic
@@ -167,4 +167,4 @@ code. In addition, it allows for the reader to understand all necessary context 
 code block to ensure both the correctness in the code and correctness and disambiguate the code when reading as well as
 writing.
 
-> More reasoning for Koffect's choice of context introduction methodologies can be found at [context_resolution.md](./context_resolution.md)
+> More reasoning for Koffect's choice of context introduction methodologies can be found at [context.md](./context.md)
