@@ -1,3 +1,3 @@
-fun main() {
+public fun main() {
     println("Hello Koffect!")
 }
