@@ -119,11 +119,10 @@ context(ctxVar) fun foo() { ... }
   - this syntax would allow for context declaration to be decouple with context definition 
   - this syntax would allow for context declaration to be easily composed with other context variables 
   as it would just follow that as simple set/type algebras
-
 - current cons:
   - this syntax may affect readability and explicitness of which contexts are needed 
   (i.e. hidden behind a context variable)
-  - this syntax may prove redundant, current &, |, ! syntax could be replicated with simple 
+  - this syntax may prove redundant, current `&`, `|`, and `!` syntax could be replicated with simple 
   modifications of the "equation"
   - this syntax would introduce new complexity into the understanding of the language as operations now 
   also work on top of contexts, while this may be interesting to pursue, it seems out of scope for the current schedule
@@ -143,14 +142,12 @@ context(A, B, C) fun foo() = delete("some compile time error message")
 - it remains unclear whether it remains a good idea to ensure that the context variables should exist
 - it would greatly complicate the language, and some explicit boilerplate for repeated branches does not seem 
 to be a big hit to DX
-
 - current pros:
   - this syntax would allow for context declaration to be as explicit as possible 
   - this syntax would also greatly reduce confusion, as it makes more sense to think in terms of only when contexts 
   are available as opposed to thinking when they are and aren't available 
   - this syntax would make deleting functions when a context is in scope more clear as now semantic analysis could 
   specifically look for the delete keyword/internal function (undecided)
-
 - current cons:
   - this syntax does not currently allow for context variables, as they would be introducing a second set of 
   syntactical operations and would be redundant, but would not allow for the reusability afforded by context 
