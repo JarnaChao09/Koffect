@@ -1,4 +1,4 @@
-package prototype.typeInferenceByExample
+package prototype.typeInferenceByExample.part5
 
 public sealed interface Type
 
@@ -61,7 +61,7 @@ public fun unify(t1: Type, t2: Type) {
                     } else if (substitution[t2.index] != t2) {
                         unify(t1, substitution[t2.index])
                     } else {
-                        require(occursIn(t1.index, t2))
+                        require(!occursIn(t1.index, t2))
                         substitution[t1.index] = t2
                     }
                 }
@@ -172,6 +172,15 @@ public fun main() {
     println(
         infer(
             ELambda("x", EApply(EApply(EVariable("+"), EVariable("x")), EVariable("x")))
+        )
+    )
+    println(
+        infer(
+            ELambda("x", ELambda(
+                "y",
+                EApply(EApply(EVariable("+"), EVariable("x")), EVariable("y"))
+            )
+            )
         )
     )
 }
