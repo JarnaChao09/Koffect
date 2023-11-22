@@ -1,4 +1,6 @@
-package prototype.typeInferenceByExample.part6
+package prototype.typeInferenceByExample.part6modified
+
+import java.lang.RuntimeException
 
 public sealed interface Type
 
@@ -16,25 +18,43 @@ public data class TVariable(val index: Int) : Type
 
 public sealed interface Expr
 
-public data class ELambda(val parameters: List<Parameter>, val returnType: Type?, val body: Expr) : Expr
+public data class ELambda(val parameters: List<Parameter>, val returnType: Type?, val body: Expr) : Expr {
+    override fun toString(): String = "(${this.parameters.joinToString(", ")}) -> ${this.returnType} { ${this.body} }"
+}
 
-public data class EApply(val function: Expr, val arguments: List<Expr>) : Expr
+public data class EApply(val function: Expr, val arguments: List<Expr>) : Expr {
+    override fun toString(): String = "${this.function}(${this.arguments.joinToString(separator = ", ")})"
+}
 
-public data class EVariable(val name: String) : Expr
+public data class EVariable(val name: String) : Expr {
+    override fun toString(): String = this.name
+}
 
-public data class ELet(val name: String, val typeAnnotation: Type?, val value: Expr, val body: Expr) : Expr
+public data class ELet(val name: String, val typeAnnotation: Type?, val value: Expr) : Expr {
+    override fun toString(): String = "let ${this.name}: ${this.typeAnnotation} = ${this.value}"
+}
 
-public data class EInt(val value: Int) : Expr
+public data class EInt(val value: Int) : Expr {
+    override fun toString(): String = "${this.value}"
+}
 
-public data class EString(val value: String) : Expr
+public data class EString(val value: String) : Expr {
+    override fun toString(): String = this.value
+}
 
-public data class EArray(val itemType: Type?, val items: List<Expr>) : Expr
+public data class EArray(val itemType: Type?, val items: List<Expr>) : Expr {
+    override fun toString(): String = "Array<${this.itemType}>${this.items.joinToString(", ", prefix = "(", postfix = ")")}"
+}
 
-public data class Parameter(val name: String, val typeAnnotation: Type?)
+public data class Parameter(val name: String, val typeAnnotation: Type?) {
+    override fun toString(): String = "${this.name}: ${this.typeAnnotation}"
+}
 
 public sealed interface Constraint
 
 public data class CEquality(val t1: Type, val t2: Type) : Constraint
+
+public data class TypeError(override val message: String?) : RuntimeException()
 
 public val substitution: MutableList<Type> = mutableListOf()
 
@@ -51,8 +71,9 @@ public fun unify(t1: Type, t2: Type) {
         is TConstructor -> {
             when (t2) {
                 is TConstructor -> {
-                    require(t1.name == t2.name)
-                    require(t1.generics.size == t2.generics.size)
+                    if (t1.name != t2.name || t1.generics.size != t2.generics.size) {
+                        throw TypeError("Type Mismatch: ${substitute(t1)} vs ${substitute(t2)}")
+                    }
                     t1.generics.zip(t2.generics).forEach {
                         unify(it.first, it.second)
                     }
@@ -62,7 +83,9 @@ public fun unify(t1: Type, t2: Type) {
                     if (substitution[t2.index] != t2) {
                         unify(t1, substitution[t2.index])
                     } else {
-                        require(!occursIn(t2.index, t1))
+                        if (occursIn(t2.index, t1)) {
+                            throw TypeError("Infinite Type: t${t2.index} = ${substitute(t1)}")
+                        }
                         substitution[t2.index] = t1
                     }
                 }
@@ -79,7 +102,9 @@ public fun unify(t1: Type, t2: Type) {
                     } else if (substitution[t2.index] != t2) {
                         unify(t1, substitution[t2.index])
                     } else {
-                        require(!occursIn(t1.index, t2))
+                        if (occursIn(t1.index, t2)) {
+                            throw TypeError("Infinite Type: t${t1.index} = ${substitute(t2)}")
+                        }
                         substitution[t1.index] = t2
                     }
                 }
@@ -88,7 +113,9 @@ public fun unify(t1: Type, t2: Type) {
                     if (substitution[t1.index] != t1) {
                         unify(substitution[t1.index], t2)
                     } else {
-                        require(!occursIn(t1.index, t2))
+                        if (occursIn(t1.index, t2)) {
+                            throw TypeError("Infinite Type: t${t1.index} = ${substitute(t2)}")
+                        }
                         substitution[t1.index] = t2
                     }
                 }
@@ -113,7 +140,7 @@ public fun occursIn(index: Int, t: Type): Boolean = when (t) {
     }
 }
 
-public fun infer(environment: Map<String, Type>, expectedType: Type, expression: Expr): Expr = when (expression) {
+public fun infer(environment: Map<String, Type>, expectedType: Type, expression: Expr): Pair<Expr, Map<String, Type>> = when (expression) {
     is EApply -> {
         val argumentTypes = expression.arguments.map {
             freshTypeVariable()
@@ -121,24 +148,24 @@ public fun infer(environment: Map<String, Type>, expectedType: Type, expression:
         val functionType = TConstructor("Function${expression.arguments.size}", argumentTypes + listOf(expectedType))
         val newFunction = infer(environment, functionType, expression.function)
         val newArguments = expression.arguments.zip(argumentTypes).map {
-            infer(environment, it.second, it.first)
+            infer(environment, it.second, it.first).first
         }
-        EApply(newFunction, newArguments)
+        EApply(newFunction.first, newArguments) to environment
     }
 
     is EArray -> {
         val newItemType = expression.itemType ?: freshTypeVariable()
         val newItems = expression.items.map {
-            infer(environment, newItemType, it)
+            infer(environment, newItemType, it).first
         }
         typeConstraints += CEquality(expectedType, TConstructor("Array", listOf(newItemType)))
-        EArray(newItemType, newItems)
+        EArray(newItemType, newItems) to environment
     }
 
     is EInt -> {
         expression.also {
             typeConstraints += CEquality(expectedType, TConstructor("Int"))
-        }
+        } to environment
     }
 
     is ELambda -> {
@@ -152,32 +179,31 @@ public fun infer(environment: Map<String, Type>, expectedType: Type, expression:
         val newEnvironment = environment + newParameters.map {
             it.name to it.typeAnnotation!!
         }
-        val newBody = infer(newEnvironment, newReturnType, expression.body)
+        val (newBody, newEnv) = infer(newEnvironment, newReturnType, expression.body)
         typeConstraints += CEquality(
             expectedType,
             TConstructor("Function${expression.parameters.size}", newParameterTypes + listOf(newReturnType))
         )
-        ELambda(newParameters, newReturnType, newBody)
+        ELambda(newParameters, newReturnType, newBody) to newEnv
     }
 
     is ELet -> {
         val newTypeAnnotation = expression.typeAnnotation ?: freshTypeVariable()
-        val newValue = infer(environment, newTypeAnnotation, expression.value)
-        val newEnvironment = environment + (expression.name to newTypeAnnotation)
-        val newBody = infer(newEnvironment, expectedType, expression.body)
-        ELet(expression.name, newTypeAnnotation, newValue, newBody)
+        val (newValue, env) = infer(environment, newTypeAnnotation, expression.value)
+        val newEnvironment = env + (expression.name to newTypeAnnotation)
+        ELet(expression.name, newTypeAnnotation, newValue) to newEnvironment
     }
 
     is EString -> {
         expression.also {
             typeConstraints += CEquality(expectedType, TConstructor("String"))
-        }
+        } to environment
     }
 
     is EVariable -> {
         expression.also {
-            typeConstraints += CEquality(expectedType, environment[it.name]!!)
-        }
+            typeConstraints += CEquality(expectedType, environment[it.name] ?: throw TypeError("Variable not in scope: ${it.name}"))
+        } to environment
     }
 }
 
@@ -210,8 +236,7 @@ public fun substituteExpression(expression: Expr): Expr = when (expression) {
     is ELet -> {
         val newTypeAnnotation = expression.typeAnnotation?.let(::substitute)
         val newValue = substituteExpression(expression.value)
-        val newBody = substituteExpression(expression.body)
-        ELet(expression.name, newTypeAnnotation, newValue, newBody)
+        ELet(expression.name, newTypeAnnotation, newValue)
     }
 
     is EString -> {
@@ -263,33 +288,86 @@ public val initialEnvironment: Map<String, Type> = buildMap {
     }
 }
 
-public fun infer(expression: Expr): Expr {
-    val newExpr = infer(emptyMap(), freshTypeVariable(), expression)
-    solveConstraints()
-    return substituteExpression(newExpr)
+public fun printInfer(expressions: List<Expr>): String {
+    return try {
+        var currentEnv = initialEnvironment
+        val newExprs = expressions.map {
+            val (e, env) = infer(currentEnv, freshTypeVariable(), it)
+            currentEnv = env
+            e
+        }
+        solveConstraints()
+        newExprs.map {
+            substituteExpression(it)
+        }.joinToString(separator = "\n")
+    } catch (typeError: TypeError) {
+        typeError.message!!
+    }
 }
 
 public fun main() {
-    println(
-        infer(
+    println(printInfer(
+        listOf(
             ELet(
-                "singleton",
+                "add2",
                 null,
                 ELambda(
-                    listOf(Parameter("x", null)),
+                    listOf(
+                        Parameter("x", null),
+                        Parameter("y", null)
+                    ),
                     null,
-                    EArray(null, listOf(EVariable("x"))),
-                ),
-                EApply(
-                    EVariable("singleton"),
-                    listOf(EInt(42))
-                ),
-            )
-        )
-    )
+                    EApply(
+                        EVariable("+"), listOf(
+                            EVariable("x"),
+                            EVariable("y")
+                        )
+                    ),
+                )
+            ),
+            ELet(
+                "mul2",
+                null,
+                ELambda(
+                    listOf(
+                        Parameter("x", null),
+                        Parameter("y", null),
+                    ),
+                    null,
+                    EApply(
+                        EVariable("*"), listOf(
+                            EVariable("x"),
+                            EVariable("y"),
+                        )
+                    )
+                )
+            ),
+            ELet(
+                "multadd2",
+                null,
+                ELambda(
+                    listOf(
+                        Parameter("x", null),
+                    ),
+                    null,
+                    EApply(
+                        EVariable("mul2"), listOf(
+                            EVariable("x"),
+                            EApply(
+                                EVariable("add2"), listOf(
+                                    EVariable("x"),
+                                    EVariable("x"),
+                                ),
+                            ),
+                        )
+                    )
+                )
+            ),
+            EApply(
+                EVariable("multadd2"), listOf(
+                    EInt(42),
+                )
+            ),
+        ).also { println(it.joinToString(separator = "\n")) }
+    ))
 }
-/*
-ELet(     singleton,           Some(Function1<Int, Array<Int>>),      ELambda(       List(Parameter(     x,           Some(Int))),      Some(Array<Int>),     EArray(    Some(Int),  List(EVariable(     x)))),      EApply(         EVariable(     singleton),       List(EInt(42))))
-ELet(name=singleton, typeAnnotation=Function1<Int, Array<Int>>, value=ELambda(parameters=[Parameter(name=x, typeAnnotation=Int)], returnType=Array<Int>, body=EArray(itemType=Int, items=[EVariable(name=x)])), body=EApply(function=EVariable(name=singleton), arguments=[EInt(value=42)]))
-ELet(name=singleton, typeAnnotation=TConstructor(name=Function1, generics=[TConstructor(name=Int, generics=[]), TConstructor(name=Array, generics=[TConstructor(name=Int, generics=[])])]), value=ELambda(parameters=[Parameter(name=x, typeAnnotation=TConstructor(name=Int, generics=[]))], returnType=TConstructor(name=Array, generics=[TConstructor(name=Int, generics=[])]), body=EArray(itemType=TConstructor(name=Int, generics=[]), items=[EVariable(name=x)])), body=EApply(function=EVariable(name=singleton), arguments=[EInt(value=42)]))
- */
