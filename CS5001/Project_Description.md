@@ -6,7 +6,7 @@
 
 - **Jaran Chao**
   - Major: Computer Science
-  - Email: chaojl@mail.uc.edu
+  - Email: [chaojl@mail.uc.edu](chaojl@mail.uc.edu)
 
 ## Project Information
 ### Topic Area

@@ -38,7 +38,7 @@ Jan 2023 - Mar 2023
 
 Discord: @wukongrework.exebroke
 
-Linked: [https://www.linkedin.com/in/jaranchao/](https://www.linkedin.com/in/jaranchao/)
+LinkedIn: [https://www.linkedin.com/in/jaranchao/](https://www.linkedin.com/in/jaranchao/)
 
 Phone Number: (513) 473-9371
 
