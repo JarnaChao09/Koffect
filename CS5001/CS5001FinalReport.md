@@ -291,7 +291,7 @@ Email: [chaojl@mail.uc.edu](chaojl@mail.uc.edu)
 
 ## Budget
 
-There have not been any monetary expenses tied to this project and are none planned for the future. All software created and utilized is open-source and free-to-use (follwing the license). 
+There have not been any monetary expenses tied to this project and are none planned for the future. All software created and utilized is open-source and free-to-use (following respective licensing). 
 
 ## Appendix
 
