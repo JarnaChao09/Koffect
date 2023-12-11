@@ -97,7 +97,9 @@ is no longer accessible through the implicit `this` inside the current scope (th
 > More time must be spent on defining the behavior of each option to get a better understand of the 
 > overall effects each respectively has on the behavior and semantics of contexts
 > 
-> Currently documented below are the two working syntaxes
+> Currently documented below are the two working syntax
+> 
+> Update: syntax chosen to be the [2nd option](#option-2-)
 
 #### Option 1
 ```kotlin
