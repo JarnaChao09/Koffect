@@ -91,3 +91,86 @@ https://github.com/Kotlin/KEEP/blob/master/proposals/context-receivers.md#use-ca
 > In a similar vain as Kotlin coroutines, C++ implementation of coroutines also allow for low level control of the 
 > control flow when using coroutines. However, more research into the API style and design consequences need to be 
 > conducted to make a more informed decision on how to design the low level coroutines API.
+
+### 1/8/2024
+
+Further thoughts on async (stackless coroutines):
+
+A more restrictive definition of coroutines, found in [Why async Rust?](https://without.boats/blog/why-async-rust/). To
+quote: 
+> The big ambiguity is that some people use the term “coroutine” to mean a function which has explicit syntax for 
+pausing and resuming it (this would correspond to a cooperatively scheduled task) and some people use it to mean any 
+function that can pause, even if the pause is performed implicitly by a language runtime (this would also include a 
+preemptively scheduled task).
+
+For Koffect, just like the author of the blog post, the former definition will be used and in Koffect (as seen in Kotlin)
+the `suspend` keyword will be utilized to annotate that a function is inherently a coroutine and can be paused and resumed.
+The notion of a "perfectly-sized stack" may also carry over to Koffect, as the compilation of coroutines down to state 
+machines (what the blog post refers to as the future type) will most likely be the avenue of implementation. However, as
+stated above, the end goal is for the coroutines to be a low level primitive in the language for the basic capability of 
+pausing and resuming the execution of code cooperatively through explicit and loud(?) syntax and can be used to create 
+state machines that work in both the synchronous and asynchronous contexts.
+
+> It is currently unknown whether loud syntax is needed. Kotlin gets around this need of loud syntax by using the LSP to
+> denote suspend points and have the IDE annotate them in the source file. Other languages will use `await` or `go`
+> keywords to denote a "pause/resume" boundary. This problem is inherently a design choice of whether "pause/resume"
+> boundaries should be annotated at language level or at tool level.
+
+Further thoughts on the actor vs channels:
+
+From an [X post](https://twitter.com/thegingerbill/status/1742222366539727142?s=46&t=Kw4On19m0_D8yj5Y7MpZ0w) by 
+[GingerBill](https://twitter.com/TheGingerBill) (the creator of the [Odin](https://odin-lang.org/) language) on the 
+relationships between actors and channels:
+- Actor Model:
+  - Nodes in the graph (actors) are explicitly named 
+  - Edges in the graph (channels) are implicit and anonymous 
+  - You send messages to named nodes/actors 
+  - Each actor can accept an infinite number of messages 
+  - Each actor is non-blocking (by default)
+- CSP Model 
+  - Nodes in the graph (threads) are implicit and anonymous 
+  - Edges in the graph (channels) are explicit and "named"
+  - You send messages to named edges/channels 
+  - Each channel can accept a FINITE number of messages 
+  - Each channel is blocking (by default)
+
+As GingerBill states: these both inherently describe the same theoretical mathematics of concurrent programming but in 
+differing aspects. 
+
+However, there is one model that may also fit into this analogy and that is sender/receivers in C++. They are an explicit
+naming of nodes (where senders r the root and non-sink nodes of the DAG and receivers are the sink nodes of the
+DAG) and explicit statement of edges (composition of senders through the given combinators), but not official naming of 
+edges (as the combinators will implicitly build the call graph, but the user can never explicitly access an edge. Only 
+follow the control flow of the DAG). This would mean that senders/receivers sit somewhere in the middle of this 
+mathematical spectrum leaning more towards the actor side.
+
+Koffect will adopt the methodologies of the CSP with the combination of dispatchers, asynchronous coroutines and channels.
+This methodology seems to be the most scalable and each part of the combination can be, at least in terms of implementation,
+completely dependent on the primitives of Koffect (with coroutines themselves being one of those primitives), while not
+sacrificing the flexibility in design.
+
+> NOTE: An assumption is made that senders/receivers will build a DAG call graph but cycles may be possible through the 
+> combinators. However, by the nature of the design, this seems to be defined as undefined behavior (or may be entirely 
+> impossible, more research required)
+
+
+Further thoughts on flexibility of the asynchronous engine:
+
+From a brief look on [concurrency in Hylo](https://docs.hylo-lang.org/language-tour/concurrency), it seems that this
+design, at its core, is a fibers/stackful coroutines implementation. Where the runtime environment dispatcher is a global
+and the suspend boundaries are defined by `spawn`. However, one interesting design choice is the ability for the global
+dispatcher to be modified. This would seem to follow another core design principle of Koffect, context-oriented programming.
+Take for instance this analogy, the current scheduler is some implicit context in the current scope, and when a new 
+scheduler is activated, that implicit context changes. Therefore, the user must know of the current scheduler activated 
+in the current context of program execution. What if every time activate was invoked, the previous "context scope" would
+die and a new "context scope" starts. This is exactly the end goal for contexts in Koffect with the small exception that
+Koffect aims to be explicit about the changing of context scopes. Furthermore, this explicit changing of context scopes
+would allow for both synchronous and asynchronous coroutines to exist without modification of any other code, only the 
+modification of the current coroutine context. This gives confidence that following the dispatchers as context objects,
+coroutines as primitives, and channels for communication is the best design for the async solution in Koffect.
+
+> It does help that this design was proven to be powerful following structured concurrency in Kotlin. However, the 
+> proposed concurrency model in Hylo does address the concern stated above of current implementations of fibers/stackful 
+> coroutine APIs not being able to modify the runtime scheduler and environment in any way. The introduction of scheduler
+> activation would allow for synchronous fiber/stackful coroutine creation to be possible, though as stated before this 
+> would now fall under the need to remember an implicit context (which Koffect seeks to remedy such mental bookkeeping).
