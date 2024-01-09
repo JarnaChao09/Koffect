@@ -144,10 +144,10 @@ edges (as the combinators will implicitly build the call graph, but the user can
 follow the control flow of the DAG). This would mean that senders/receivers sit somewhere in the middle of this 
 mathematical spectrum leaning more towards the actor side.
 
-Koffect will adopt the methodologies of the CSP with the combination of dispatchers, asynchronous coroutines and channels.
-This methodology seems to be the most scalable and each part of the combination can be, at least in terms of implementation,
-completely dependent on the primitives of Koffect (with coroutines themselves being one of those primitives), while not
-sacrificing the flexibility in design.
+Koffect (as of writing) will adopt the methodologies of the CSP with the combination of dispatchers, asynchronous 
+coroutines and channels. This methodology seems to be the most scalable and each part of the combination can be, 
+at least in terms of implementation, completely dependent on the primitives of Koffect (with coroutines themselves being
+one of those primitives), while not sacrificing the flexibility in design.
 
 > NOTE: An assumption is made that senders/receivers will build a DAG call graph but cycles may be possible through the 
 > combinators. However, by the nature of the design, this seems to be defined as undefined behavior (or may be entirely 
@@ -167,10 +167,12 @@ die and a new "context scope" starts. This is exactly the end goal for contexts 
 Koffect aims to be explicit about the changing of context scopes. Furthermore, this explicit changing of context scopes
 would allow for both synchronous and asynchronous coroutines to exist without modification of any other code, only the 
 modification of the current coroutine context. This gives confidence that following the dispatchers as context objects,
-coroutines as primitives, and channels for communication is the best design for the async solution in Koffect.
+coroutines as primitives, and channels for communication is the best design for the async solution in Koffect (as of writing).
 
 > It does help that this design was proven to be powerful following structured concurrency in Kotlin. However, the 
 > proposed concurrency model in Hylo does address the concern stated above of current implementations of fibers/stackful 
 > coroutine APIs not being able to modify the runtime scheduler and environment in any way. The introduction of scheduler
 > activation would allow for synchronous fiber/stackful coroutine creation to be possible, though as stated before this 
 > would now fall under the need to remember an implicit context (which Koffect seeks to remedy such mental bookkeeping).
+
+> As of writing, Kotlin's implementation and design of coroutines has more confidence and will be the most likely candidate for the async solution in Koffect.
