@@ -138,7 +138,7 @@ As GingerBill states: these both inherently describe the same theoretical mathem
 differing aspects. 
 
 However, there is one model that may also fit into this analogy and that is sender/receivers in C++. They are an explicit
-naming of nodes (where senders r the root and non-sink nodes of the DAG and receivers are the sink nodes of the
+naming of nodes (where senders are the root and non-sink nodes of the DAG and receivers are the sink nodes of the
 DAG) and explicit statement of edges (composition of senders through the given combinators), but not official naming of 
 edges (as the combinators will implicitly build the call graph, but the user can never explicitly access an edge. Only 
 follow the control flow of the DAG). This would mean that senders/receivers sit somewhere in the middle of this 
