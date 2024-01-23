@@ -116,18 +116,19 @@ context(A & B & !C) fun foo() { ... }
 context ctxVar = A & B & !C // similar to Typescript `type`
 context(ctxVar) fun foo() { ... }
 ```
-- current pros:
-  - this syntax would allow for context declaration to be easily reusable 
-  - this syntax would allow for context declaration to be decouple with context definition 
-  - this syntax would allow for context declaration to be easily composed with other context variables 
-  as it would just follow that as simple set/type algebras
-- current cons:
-  - this syntax may affect readability and explicitness of which contexts are needed 
-  (i.e. hidden behind a context variable)
-  - this syntax may prove redundant, current `&`, `|`, and `!` syntax could be replicated with simple 
-  modifications of the "equation"
-  - this syntax would introduce new complexity into the understanding of the language as operations now 
-  also work on top of contexts, while this may be interesting to pursue, it seems out of scope for the current schedule
+This syntax has many benefits. It would allow for context definitions to be decoupled from context declaration. This would
+allow for context definitions to be reused across multiple contextual declarations. Furthermore, this would allow for a
+creation of a "context algebra" where each context would be analogous to sets/types in set/type theory. With the basic
+operations of union (`|`), intersect (`&`), and inverse (`!`), the foundations of a set/type algebra can be built up to
+allow for a full context algebra to be described at context definitions. 
+
+However, nothing is ever free. There are also many downsides to this syntax. This syntax may affect the readability and 
+explicitness of context definitions. While context variables may allow for better descriptions of what each set of contexts
+represents, the true contents of the context is still abstracted away. Furthermore, the reliance on the use of mathematical
+notation to describe the composition of contexts may prove to be a detriment to readability as the syntax is quite abstract
+for those not familiar with type algebras as seen in other languages such as Typescript. The theoretical notation may prove 
+both redundant as modifications to the context equation can yield equivalent contexts with simpler base operations and 
+unsound as this "context algebra" does not follow entirely with the axioms of set/type theory.
 
 #### Option 2 
 
