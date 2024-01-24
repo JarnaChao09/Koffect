@@ -103,17 +103,32 @@ is no longer accessible through the implicit `this` inside the current scope (th
 
 #### Option 1
 ```kotlin
-// context(!C) means the function will only be resolved in the context if C is not given
+// to state that a function exists only in a context is with a context declaration
+// for example, the following function definition of foo will only be resolved if and only if
+// context A is given
+context(A) fun foo() { ... }
+
+// functions can also exist when a context does not exist, and is removed from scope once a context
+// does exist in the current scope
+// this is achieved with a ! signifying that if the context is not given, the following function 
+// definition will exist
+// for example, the following function definition of foo will only be resolved if and only if the 
+// context C is not given
 context(!C) fun foo() { ... }
 
-// this can be combined with other normal context statements
-context(A, B, !C) fun foo() { ... }
-
-// is semantically equivalent to
+// given and not given contexts can be merged into one context declaration by utilizing 
+// basic operations
+// for example, the following function definition of foo will only be resolved if and only if
+// context A and B are given and C is not given
 context(A & B & !C) fun foo() { ... }
 
-// this would allow for context declarations to be stored in a sort of context variable
-context ctxVar = A & B & !C // similar to Typescript `type`
+// this would allow for context declarations to be stored in a context variable
+// (similar to Typescript `type`s)
+// using these "context operations" would allow for definitions of contexts to stored in a 
+// "context variable"
+// for example, the context variable ctxVar can be created as such to allow for the same
+// context declaration of the above foo definition
+context ctxVar = A & B & !C
 context(ctxVar) fun foo() { ... }
 ```
 This syntax has many benefits. It would allow for context definitions to be decoupled from context declaration. This would
@@ -122,7 +137,7 @@ creation of a "context algebra" where each context would be analogous to sets/ty
 operations of union (`|`), intersect (`&`), and inverse (`!`), the foundations of a set/type algebra can be built up to
 allow for a full context algebra to be described at context definitions. 
 
-However, nothing is ever free. There are also many downsides to this syntax. This syntax may affect the readability and 
+However, nothing is for free. There are also many downsides to this syntax. This syntax may affect the readability and 
 explicitness of context definitions. While context variables may allow for better descriptions of what each set of contexts
 represents, the true contents of the context is still abstracted away. Furthermore, the reliance on the use of mathematical
 notation to describe the composition of contexts may prove to be a detriment to readability as the syntax is quite abstract
@@ -133,14 +148,33 @@ unsound as this "context algebra" does not follow entirely with the axioms of se
 #### Option 2 
 
 ```kotlin
-// instead of !C, all functionality to define when a context isn't given is instead of defining the function when
-// C is not given, delete the function when C is given
-context(C) fun foo() = delete("some compile time error message")
+// as with the previous option, to state that a function exists only in a context is with a context
+// declaration
+// for example, the following function definition of foo will only be resolved if and only if
+// context A is given
+context(A) fun foo() { ... }
 
-// now, if a function is only supposed to exist when a context isn't given, the function should just be defined to be
-// deleted when the context does exist
+// instead of using ! to state that a function exists when a context is not given, 
+// functions can be deleted when a context is given
+// for example, to mimic the context(!C) definition of foo above, the following functions can be defined
+
+// the definition of foo will exist in the global context
+fun foo() { ... }
+
+// and when the context C exists, delete foo
+context(C) fun foo() = delete("function foo() cannot exist when context C exists")
+
+// without the distinction of given and not given contexts, contexts can now be merged 
+// into one context declaration with the simple `,` operation
+// for example, the following function definition of foo will only be resolved if and only if
+// context A and B are given
 context(A, B) fun foo() { ... }
-context(A, B, C) fun foo() = delete("some compile time error message")
+
+// and now, if a function is only supposed to exist when a context isn't given, the function 
+// should just be defined to be deleted when the context does exist
+// for example, the following function definitions are equivalent to A & B & !C from the previous syntax option
+context(A, B) fun foo() { ... }
+context(A, B, C) fun foo() = delete("function foo() cannot exist when context C exists")
 ```
 - it remains unclear whether it remains a good idea to ensure that the context variables should exist
 - it would greatly complicate the language, and some explicit boilerplate for repeated branches does not seem 
