@@ -122,7 +122,7 @@ context(!C) fun foo() { ... }
 // context A and B are given and C is not given
 context(A & B & !C) fun foo() { ... }
 
-// this would allow for context declarations to be stored in a context variable
+// this could allow for context declarations to be stored in a context variable
 // (similar to Typescript `type`s)
 // using these "context operations" would allow for definitions of contexts to stored in a 
 // "context variable"
