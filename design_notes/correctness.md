@@ -155,16 +155,34 @@ and matrices of doubles) are well-defined mathematically. This does not take int
 other real world factors such as floating point arithmetic not being commutative. This could be remedied by introducing 
 a mathematically correct `Real` type instead of relying on IEEE-754 64 bit floating point representations of numbers.
 
-The astute may see this code as a less functionally rigorous implementation of typeclasses. Or a more apt comparison is 
-to Scala 3's implementation of implicit parameters through the use of `using` and `given` (which have been shown to be 
-as expressive as typeclasses). However, unlike Scala 3's `given`s and to a similar extent implementation of typeclasses 
-in languages such as Haskell, the scope in which context objects are present are lexically and explicitly defined. A 
-block of code which introduces a context object into scope will also remove the context object from scope once that block
-dies. Contrast with Scala 3's method of introducing `given`s into scope with the `given` keyword or an import statement.
-This methodology allows for the code to reduce the need for nesting (staying linear) when introducing new context objects
-into scope. Koffect chose the former methodology as it allows for the explicit introduction of a context near the affected
-code. In addition, it allows for the reader to understand all necessary context objects required to read the following 
-code block to ensure both the correctness in the code and correctness and disambiguate the code when reading as well as
-writing.
+The astute may see this code as a less functionally rigorous implementation of typeclasses (without coherence). Or a more
+apt comparison is to Scala 3's implementation of implicit parameters through the use of `using` and `given` (which have 
+been shown to be as expressive as typeclasses). However, unlike Scala 3's `given`s and to a similar extent implementation
+of typeclasses in languages such as Haskell, the scope in which context objects are present are lexically and explicitly 
+defined. A block of code which introduces a context object into scope will also remove the context object from scope once
+that block dies. Contrast with Scala 3's method of introducing `given`s into scope with the `given` keyword or an import
+statement. This methodology allows for the code to reduce the need for nesting (staying linear) when introducing new context
+objects into scope. Koffect chose the former methodology as it allows for the explicit introduction of a context near the
+affected code. In addition, it allows for the reader to understand all necessary context objects required to read the 
+following code block to ensure both the correctness in the code and correctness and disambiguate the code when reading as
+well as writing.
+
+### 1/26/2024
+
+Further thoughts on implementing typeclasses through the use of contexts:
+
+[Typeclasses in Typescript](https://paulgray.net/typeclasses-in-typescript/) has given more confidence to the expressive
+power of contexts in Koffect. In the aforementioned blog post, many of the typeclasses are passed as arguments to functions
+and are implicitly stored through the use of currying and higher order functions. Contexts in Koffect essentially mimic
+this design style, where instead of using currying and higher order functions to store typeclass implementations, context
+objects are the typeclass implementations and the declaration of using a typeclass is no longer by currying but instead
+through the use of a context declaration. Of course, this implementation of typeclasses, just like Scala 3, forgoes the
+coherence property which Koffect will also forgo.
+
+> With how context functions will be desugared in Koffect (and as how they are desugared in Kotlin), the function signatures
+> end up very close to the function signatures depicted in typeclasses in Typescript
+> 
+> Furthermore, the use of currying in typeclasses in Typescript follows closely with how Scala 3's `given`s are passed as
+> Scala 3's `given`s are implicitly curried to functions that have a `using` declaration
 
 > More reasoning for Koffect's choice of context introduction methodologies can be found at [context.md](./context.md)
