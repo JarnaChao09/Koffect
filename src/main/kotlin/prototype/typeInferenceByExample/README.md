@@ -21,3 +21,9 @@ test to determine if all patterns were correctly translated.
 Found another error in a translated pattern matching branch. However, so far, adding new types to the AST has been pretty
 straight forward. It should not take much retrofitting of the code to make the inference code work on a imperative syntax
 tree (i.e. moving from a single expression to a list of expression)
+
+### Part 6 Modified
+
+Retrofitting the algorithm to work on a list of statements was straight forward. However, better understanding of the
+underlying algorithm is needed to determine how to handle function overloading in the type system. Initial thoughts on the
+solution are to just introduce a backtracking step in the unification process.
