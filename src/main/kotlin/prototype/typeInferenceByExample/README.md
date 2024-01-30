@@ -27,3 +27,12 @@ tree (i.e. moving from a single expression to a list of expression)
 Retrofitting the algorithm to work on a list of statements was straight forward. However, better understanding of the
 underlying algorithm is needed to determine how to handle function overloading in the type system. Initial thoughts on the
 solution are to just introduce a backtracking step in the unification process.
+
+### Part 7
+
+Part 7 was relatively straight forward. However, some code changes were not documented in the [article.md](https://github.com/Ahnfelt/type-inference-by-example/blob/master/part7/article.md) and instead 
+had to resort to reading the [inference.scala](https://github.com/Ahnfelt/type-inference-by-example/blob/master/part7/Inference.scala) to see the necessary changes to be made to achieve a working program.
+This is the official stopping point of the type inference by example articles as part 8 for overloading with typeclasses
+has not be written (this should be unneeded at this point to start moving forward as typelcasses will be expressed with
+contextual objects and therefore the reliance is now on the resolution algorithm which will be a modification of type checking
+most likely). This code submitted will be a good starting point to better retrofit the algorithm to the needs of Koffect. 
