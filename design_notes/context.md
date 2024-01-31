@@ -77,6 +77,7 @@ with(AandB) {
     bar() // Hello as B::bar
 }
 ```
+
 In the above code, `AandB` object implements interfaces `A` and `B`. This then means that the block of code following the
 `with(AandB)` will allow for `foo` and `bar` to be resolved implicitly from the context object. 
 
@@ -84,7 +85,7 @@ For those familiar with Kotlin extension methods and extension lambdas, it can b
 type of `AandB.() -> Unit`, where `foo` and `bar` are resolved through the call to an implicit `this` in scope. 
 
 However, for the sake of understanding, assume that the lambda block had type `context(A, B) () -> Unit` (this will be 
-covered more in depth at [context declaration](#context-declaration)). Now, we can see that the object `AandB` satisfies the requirements
+covered more in depth at [context declaration](#context-declaration)). Now, it can be seen that the object `AandB` satisfies the requirements
 for both contexts `A` and `B` as it implements both interfaces. `foo` and `bar` are now resolved through context resolution
 to the `AandB` implementations of `foo` and `bar` and not through the implicit `this` inside the current scope. This also 
 means that the `AandB` object instance is no longer accessible through the implicit `this` inside the current scope (this
@@ -101,11 +102,13 @@ will be covered more in depth at [context resolution](#context-resolution)).
 > Update: syntax chosen to be the [2nd option](#option-2-)
 
 #### Option 1
+
 ```kotlin
 // to state that a function exists only in a context is with a context declaration
 // for example, the following function definition of foo will only be resolved if and only if
 // context A is given
-context(A) fun foo() { /* ... */ }
+context(A) 
+fun foo() { /* ... */ }
 
 // functions can also exist when a context does not exist, and is removed from scope once a context
 // does exist in the current scope
@@ -113,13 +116,15 @@ context(A) fun foo() { /* ... */ }
 // definition will exist
 // for example, the following function definition of foo will only be resolved if and only if the 
 // context C is not given
-context(!C) fun foo() { /* ... */ }
+context(!C) 
+fun foo() { /* ... */ }
 
 // given and not given contexts can be merged into one context declaration by utilizing 
 // basic operations
 // for example, the following function definition of foo will only be resolved if and only if
 // context A and B are given and C is not given
-context(A & B & !C) fun foo() { /* ... */ }
+context(A & B & !C) 
+fun foo() { /* ... */ }
 
 // this could allow for context declarations to be stored in a context variable
 // (similar to Typescript `type`s)
@@ -128,8 +133,10 @@ context(A & B & !C) fun foo() { /* ... */ }
 // for example, the context variable ctxVar can be created as such to allow for the same
 // context declaration of the above foo definition
 context ctxVar = A & B & !C
-context(ctxVar) fun foo() { /* ... */ }
+context(ctxVar) 
+fun foo() { /* ... */ }
 ```
+
 This syntax allows context definitions to be decoupled from context declaration. This allows context definitions to be 
 reused across multiple contextual declarations. Furthermore, this allows for a creation of a "context algebra" where each
 context would be analogous to sets/types in set/type theory. With the basic operations of union (`|`), intersect (`&`), 
@@ -151,7 +158,8 @@ as this "context algebra" does not follow entirely with the axioms of set/type t
 // declaration
 // for example, the following function definition of foo will only be resolved if and only if
 // context A is given
-context(A) fun foo() { /* ... */ }
+context(A) 
+fun foo() { /* ... */ }
 
 // instead of using ! to state that a function exists when a context is not given, 
 // functions can be deleted when a context is given
@@ -161,20 +169,25 @@ context(A) fun foo() { /* ... */ }
 fun foo() { /* ... */ }
 
 // and when the context C exists, delete foo
-context(C) fun foo() = delete("function foo() cannot exist when context C exists")
+context(C) 
+fun foo() = delete("function foo() cannot exist when context C exists")
 
 // without the distinction of given and not given contexts, contexts can now be merged 
 // into one context declaration with the simple `,` operation
 // for example, the following function definition of foo will only be resolved if and only if
 // context A and B are given
-context(A, B) fun foo() { /* ... */ }
+context(A, B) 
+fun foo() { /* ... */ }
 
 // and now, if a function is only supposed to exist when a context isn't given, the function 
 // should just be defined to be deleted when the context does exist
 // for example, the following function definitions are equivalent to A & B & !C from the previous syntax option
-context(A, B) fun foo() { /* ... */ }
-context(A, B, C) fun foo() = delete("function foo() cannot exist when context C exists")
+context(A, B) 
+fun foo() { /* ... */ }
+context(A, B, C) 
+fun foo() = delete("function foo() cannot exist when context C exists")
 ```
+
 This syntax would make context definitions tightly coupled with corresponding context declarations, making declarations
 as explicit as possible. And with the introduction of `delete`, context definitions become simpler as now the developer
 must only think in terms of when contexts are available as opposed to thinking when contexts are and aren't available.
@@ -225,17 +238,20 @@ not given contexts. This change has also been shown to be more powerful. Take th
 
 Say a function `foo` is defined in third-party code not owned by the developer, and therefore cannot be modified by the 
 developer.
+
 ```kotlin
 fun foo() { /* ... */ }
 ```
+
 Now say the developer wants to remove `foo` when a context `A` is given. How would a developer go about modeling their
 codebase this way? With the first syntax option, this is not as straightforward as one might think. While it would be
 possible to define a set intersection of the global context and a context where `foo` does not exist but all other functions
 from the global context do exist, this second context (the one where `foo` does not exist, but all other functions from
 the global context do exist) is not easily constructable without introducing more syntax for the developer to remember 
 (and this syntax may also hurt readability). However, with the second option, the code is the following:
+
 ```kotlin
-context(A)
+context(A) 
 fun foo() = delete("deleted")
 ```
 
@@ -248,9 +264,83 @@ that inherited from all the desired contexts (as this is equivalent to the `,` o
 Furthermore, this would also allow for the creation of context objects that conformed to "context variables" as it would
 just be an object conforming to an interface.
 
+#### Context Lambdas
+
+Lambda types can also declare a context declaration. As lambda types are first class citizens in Koffect, context lambdas
+can be passed around as an object to different parts of the code. To declare a lambda type is a context lambda, the `context`
+declaration is added before the lambda type as seen below.
+
+```kotlin
+// the following definition is of a binary input to unary output context lambda 
+// which requires the contexts A and B to be given
+context(A, B) (I, I) -> O
+```
+
+Since context lambdas can be passed around, the declaration of contexts must be explicit. This means that lambdas will not
+inherent the current context declaration of the current scope they are created in. However, context lambdas may capture
+context objects (once introduced) from their creation scope. Determining whether a context object is captured or not will 
+be covered further in-depth in [context resolution](#context-resolution). 
+
+> Currently, to create a context lambda literal, the type must be given explicitly to utilize a context declaration. 
+> Syntax may be introduced in the future to allow for a shorthand of creating a lambda literal with a context declaration.
+
 ### Context Introduction
 
-> TODO
+> The following code examples are not final. The syntax may change as the syntax is highly dependent context resolution.
+
+At definition site, contexts are declared. This is only half of the equation. Recall from [definitions](#definitions), contexts are
+a stated set of properties and functions available in a scope. These properties and functions need a concrete 
+implementation&mdash;the context objects&mdash;to be present at call-site. This is accomplished with `with`. Take the 
+following code block:
+
+```kotlin
+// declaration of the A context
+interface A {
+  fun foo(): Int
+}
+
+// declaration of the B context
+interface B {
+  val bar: Int
+}
+
+// creation of a context object that satisfies the A context
+object AImpl : A {
+    override fun foo(): Int {
+        return 30 
+    }
+}
+
+// creation of a context object that satisfies the B context
+object BImpl : B {
+    override val bar: Int = 12
+}
+
+// declaration that the function calculateMeaningOfLife requires
+// both context A and context B
+context(A, B)
+fun calculateMeaningOfLife(): Int = foo() + bar
+
+// ...
+
+// introducing the context objects required to satisfy the contexts
+// needed by `calculateMeaningOfLife`
+with(AImpl, BImpl) { // calling scope has context(AImpl, BImpl)
+    println(calculateMeaningOfLife())
+}
+```
+
+In this code block, `calculateMeaningOfLife` requires both context `A` and context `B` to be present in the calling scope.
+The `with(AImpl, BImpl)` introduces the `AImpl` and `BImpl` context objects into the succeeding trailing lambda block.
+Within this lambda block, the defined context is `context(AImpl, BImpl)` which successfully resolves the `context(A, B)`
+required to introduce `calculateMeaningOfLife` into scope. This is through [context resolution](#context-resolution) described below.
+
+> As of writing, `with` is currently planned to be a function with auto generated signatures up to 9 contextual objects.
+> The auto generated definition of `with` utilized above code snippet is defined as 
+> `fun <T1, T2> with(T1, T2, context(T1, T2) () -> Unit): Unit`
+> However, this may be subject to change to either:
+> 1. a keyword within the language for context introduction
+> 2. a variadic generic function (depending on the viability of adding variadic generics)
 
 ### Context Removal
 
