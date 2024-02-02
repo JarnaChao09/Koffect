@@ -342,10 +342,6 @@ required to introduce `calculateMeaningOfLife` into scope. This is through [cont
 > 1. a keyword within the language for context introduction
 > 2. a variadic generic function (depending on the viability of adding variadic generics)
 
-### Context Removal
-
-> TODO
-
 ### Context Resolution
 
 > TODO
