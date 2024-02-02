@@ -344,7 +344,37 @@ required to introduce `calculateMeaningOfLife` into scope. This is through [cont
 
 ### Context Resolution
 
-> TODO
+> The following semantics are under development. Context Resolution has not been finalized. Syntax and semantics may change
+> with the evolution of Koffect's design. The current notes will be a description of the current mental model for how context
+> resolution should occur.
+
+#### initial notes
+
+- to not make the context resolution algorithm restrictive, given a specified function candidate, all possible candidates
+will be considered during the initial stage of context resolution (ignoring scoping). If a candidate does not meet scoping
+requirements, then that candidate is removed. however, if a candidate matches scoping criteria, then that candidate is added
+to a list of valid scoped candidates that will be resolved by a specific search order
+  - current unknowns: search order, if multiple candidates are found at the end of resolution should this be an error or
+a warning or should the search order define also define which candidate gets called
+- using qualified function calls (`foo@A,B,C(a,b,c)`) will be a direct opt-out of context deduction, context deduction
+can be re-opt-in with an inferred context marker (`foo@A,B,_(a,b,c)`) to allow for "pinning" of specific contexts to be 
+resolved immediately instead of being deduced, but allowing for other contexts to still be inferred by the resolution
+algorithm.
+  - qualified function calls will be symmetric to qualified `this`
+    - tangential unknown: should qualified `this` allow for the access of the passed in context receiver? this would allow
+for the creation of a `context(T) fun <T> given(): T = this@T` function to "summon" the current context object within a
+context function. unclear as to if qualified `this` should be allowed in context lambdas (leaning towards should not)
+- using a nested `with` will allow for similar "pinning" as described above. Nesting `with(A, B)` within `with(otherA, otherB, C)`
+will result in calls to be `foo` to be semantically equivalent to `foo@A,B,_(a,b,c)`
+- using qualified function calls would allow for the "removal" of a context from the current scope per function invocation
+- `delete` resolution (original definition location, deleted definition location):
+  - (user source, user source): this should be defined as conflicting overloads
+  - (3rd party source, user source): this deletion will supersede the 3rd party source code (escape hatch to call 3rd party
+is still possible with full qualified name)
+  - (user source, 3rd party source): this definition will supersede the 3rd party source code (as a reintroduction of a 
+deleted function)
+    - unknown: will this conflict with resolution order? class &rarr; simple imports &rarr; package (vs class &rarr; package
+&rarr; simple imports)
 
 ### Definitions of Contexts
 
