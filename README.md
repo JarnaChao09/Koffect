@@ -32,6 +32,16 @@ Some areas of focus that this project hopes to tackle are:
   minimal boilerplate
 - The application of context-oriented programming to the creation and modelling of domain specific languages
 
+## How to Install
+
+### Build from Source
+
+> TODO: Gradle scripts not finalized
+
+## How to Use
+
+> TODO: Gradle scripts not finalized
+
 ## Syntax Examples
 
 > TODO: Finalization of language in progress
