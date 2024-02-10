@@ -1,12 +1,16 @@
 # Koffect Programming Language
 
-## Contents
-
-- [Koffect](#koffect)
-- [Language Goals](#language-goals)
-- [Syntax Examples](#syntax-examples)
-- [Feature List](#feature-list)
-- [Inspriations](#inspirations--prior-arts--similar-features)
+<!-- TOC -->
+* [Koffect Programming Language](#koffect-programming-language)
+  * [Koffect](#koffect)
+  * [Language Goals](#language-goals)
+  * [How to Install](#how-to-install)
+    * [Build from Source](#build-from-source)
+  * [How to Use](#how-to-use)
+  * [Syntax Examples](#syntax-examples)
+  * [Feature List](#feature-list)
+  * [Inspirations / Prior Arts / Similar Features](#inspirations--prior-arts--similar-features)
+<!-- TOC -->
 
 ## Koffect
 
