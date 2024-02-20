@@ -70,6 +70,7 @@ Some areas of focus that this project hopes to tackle are:
     - Ocaml 5.0 Multicore added unchecked effect handlers for concurrent programming
 - [Kotlin Context Receivers](https://github.com/Kotlin/KEEP/blob/master/proposals/context-receivers.md)
     - Kotlin 1.6.20 added experimental support for functions with multiple receivers, also coined as context receivers
+    - Kotlin updated the design proposal to [Context Parameters](https://github.com/Kotlin/KEEP/blob/context-parameters/proposals/context-parameters.md)
 - [Scala contextual/implicit parameters](https://docs.scala-lang.org/tour/implicit-parameters.html)
     - Scala 2 has contextual/implicit parameters which were later refined in Scala 3 to use the `using`/`given` syntax
 - [Haskell implicit parameters](https://ghc.gitlab.haskell.org/ghc/doc/users_guide/exts/implicit_parameters.html)
