@@ -363,7 +363,9 @@ algorithm.
   - qualified function calls will be symmetric to qualified `this`
     - tangential unknown: should qualified `this` allow for the access of the passed in context receiver? this would allow
 for the creation of a `context(T) fun <T> given(): T = this@T` function to "summon" the current context object within a
-context function. unclear as to if qualified `this` should be allowed in context lambdas (leaning towards should not)
+context function. unclear as to if qualified `this` should be allowed in context lambdas (leaning towards should not, 
+however, if it was allowed, then receivers would be generalized as accessible through `this` when inside any body of code
+that has a tied receiver both contextual and dispatched)
 - using a nested `with` will allow for similar "pinning" as described above. Nesting `with(A, B)` within `with(otherA, otherB, C)`
 will result in calls to be `foo` to be semantically equivalent to `foo@A,B,_(a,b,c)`
 - using qualified function calls would allow for the "removal" of a context from the current scope per function invocation
@@ -375,6 +377,55 @@ is still possible with full qualified name)
 deleted function)
     - unknown: will this conflict with resolution order? class &rarr; simple imports &rarr; package (vs class &rarr; package
 &rarr; simple imports)
+- Context Parameters introduced (thoughts on context parameters design)
+  - Overall, this design aims to answer the main problems of having "anonymous" receiver types. The two main problems were:
+    - scope pollution without qualification makes it difficult to find the correct function (sounds like no autocomplete)
+    - readability of where members are coming from when there are a lot of contexts
+  - while this design goal is noble, the design consistency takes a tremendous drop, access of context parameters inside
+a declared contextual function is with its corresponding contextual variable binding. This, however, does not align with
+how to retrieve contextual parameters inside a contextual lambda. To access a contextual parameter inside a contextual
+lambda is through a "magical" `implicit` function (which has the following definition 
+`context(ctx: T) fun <T> implicit(): T = ctx`). This disconnect of using the binding when in contextual functions vs
+the use of `implicit` inside contextual lambdas feels very inconsistent in design, especially since the previous "workaround"
+to create the `implicit` function in context receivers had the definition of `context(T) fun <T> implicit(): T = this@T`.
+This definition felt more cohesive since Kotlin already used qualified `this` (i.e. `this@Foo`) for accessing receivers
+when there were many receivers in scope. This made it clear where receivers came from as well as was consistent with the
+pre-established meaning of `this`. Furthermore, this syntax could be extended (as was extended above in Koffect) to apply
+to qualified member access (pending prototyping).
+    - However, this does bring up a good issue to solve. The case of how do you refer to a context object to deal with
+resolution ambiguity. Koffect chose to move forward with the qualified `@` notation, however, the use of context bindings
+and treating contextual parameters, as what they are, parameters, is fairly straight forward to understand as it is now
+just call-site sugar (more in line with the original designs of Haskell implicits and to a less extent Scala contextual 
+parameters). Forcing context declarations in Koffect to have bindings would introduce new boilerplate into a use case that
+is a core definition of Koffect contexts. The definition that they are subtractive. To now delete functions inside a context,
+an unused binding (i.e. `_` equivalent) must be annotated. However, resolving ambiguities become simple as it is a normal
+function call on the contextual binding. Ignoring the design inconsistency (digressed above), this allows for a very fast
+escape hatch that resolving based on type does not give. 
+      - Furthermore, resolving based on type leads to an issue of generics. Should generics be allowed within a qualifier
+(leaning towards yes)? However, resolving based on type could lead to subtyping conflicts (this should be a non-issue from
+a language design standpoint, as like the context parameters proposal also states that subtyping relation between contexts
+will be a user-land API design problem, not a problem the language should fix).
+        - Could optional context bindings to be used as a substitute for in the qualifier location (i.e. 
+`context(A, B, foo: C)` would allow for `this@A`, `this@B`, and `this@C` as well as `this@foo`)? This provides a better
+escape hatch for resolving subtyping problems while still matching the call-site of all context qualifications. Furthermore,
+if qualified `this` was allowed within a contextual lambda, the lambda definition could optionally provide a binding as 
+well inside its type definition.
+  - introduction of `context` "magic" function to differentiate between the `with` "magic" function is very smart. As it
+specifically states *how* the trailing block is using the receiver. Basically, if called in `with`, it is a dispatched
+receiver which tells the user that the receiving object will have actions directly operated on it whereas `context` tells
+the user that some contextual operations exist, given by a context's existence.
+  - Possible meaning of scope pollution problem: context receivers describe whether or not an operation should exist (at
+a fundamental high-level) and dispatcher receivers describe an action being performed on that receiver. Should these two
+receivers be interchangeable? If so, this could lead to the "scope pollution" definition used in the context parameters 
+proposal as extension functions on a type that is used both as a context receiver and as a dispatcher receiver become in
+scope (`JSONBuilder` example in the context receivers KEEP uses this semantic). Would be necessarily be a problem?
+    - Possible solutions: 
+      - Make it so that these two types of receivers are different and cannot be interchanged (escape hatch to convert from 
+context receiver to dispatch receiver would be to use the qualified `this` to signify a conversion into a dispatched receiver).
+      - Leave it so that these two types of receivers are interchangeable, as contextual operations could mutate the state 
+of the enclosing context(s).
+    - [kyay10 comment on scope pollution not being that big of an issue (agreed)](https://github.com/Kotlin/KEEP/issues/367#issuecomment-1875828707)
+    - [bridge functions (taken from Scala)](https://github.com/Kotlin/KEEP/issues/367#issuecomment-1890450942)
 
 ### Definitions of Contexts
 
