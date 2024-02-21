@@ -395,8 +395,8 @@ to qualified member access (pending prototyping).
     - However, this does bring up a good issue to solve. The case of how do you refer to a context object to deal with
 resolution ambiguity. Koffect chose to move forward with the qualified `@` notation, however, the use of context bindings
 and treating contextual parameters, as what they are, parameters, is fairly straight forward to understand as it is now
-just call-site sugar (more in line with the original designs of Haskell implicits and to a less extent Scala contextual 
-parameters). Forcing context declarations in Koffect to have bindings would introduce new boilerplate into a use case that
+just call-site sugar (more in line with the original designs of Scala contextual parameter and to a less extent Haskell 
+implicits). Forcing context declarations in Koffect to have bindings would introduce new boilerplate into a use case that
 is a core definition of Koffect contexts. The definition that they are subtractive. To now delete functions inside a context,
 an unused binding (i.e. `_` equivalent) must be annotated. However, resolving ambiguities become simple as it is a normal
 function call on the contextual binding. Ignoring the design inconsistency (digressed above), this allows for a very fast
@@ -418,7 +418,7 @@ the user that some contextual operations exist, given by a context's existence.
 a fundamental high-level) and dispatcher receivers describe an action being performed on that receiver. Should these two
 receivers be interchangeable? If so, this could lead to the "scope pollution" definition used in the context parameters 
 proposal as extension functions on a type that is used both as a context receiver and as a dispatcher receiver become in
-scope (`JSONBuilder` example in the context receivers KEEP uses this semantic). Would be necessarily be a problem?
+scope (`JSONBuilder` example in the context receivers KEEP uses this semantic). Would it necessarily be a problem?
     - Possible solutions: 
       - Make it so that these two types of receivers are different and cannot be interchanged (escape hatch to convert from 
 context receiver to dispatch receiver would be to use the qualified `this` to signify a conversion into a dispatched receiver).
@@ -426,6 +426,8 @@ context receiver to dispatch receiver would be to use the qualified `this` to si
 of the enclosing context(s).
     - [kyay10 comment on scope pollution not being that big of an issue (agreed)](https://github.com/Kotlin/KEEP/issues/367#issuecomment-1875828707)
     - [bridge functions (taken from Scala)](https://github.com/Kotlin/KEEP/issues/367#issuecomment-1890450942)
+    - [great take on summarizing the design path taken (agreed)](https://github.com/Kotlin/KEEP/issues/367#issuecomment-1892320954)
+    - [interesting contradiction found](https://github.com/Kotlin/KEEP/issues/367#issuecomment-1902175777)
 
 ### Definitions of Contexts
 
