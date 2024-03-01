@@ -25,7 +25,7 @@ public class Lexer(private val source: String, private val keywords: Map<String,
     private var start: Int = 0
     private var current: Int = 0
     private var line: Int = 1
-    private var column: Int = 1
+    private var column: Int = 0
 
     public val tokens: Sequence<Token> by lazy {
         sequence {
@@ -78,7 +78,12 @@ public class Lexer(private val source: String, private val keywords: Map<String,
     private fun skipWhitespace() {
         while (true) {
             when (this.peek()) {
-                ' ', '\r', '\t' -> this.advance()
+                ' ', '\r' -> this.advance()
+                '\t' -> {
+                    this.column += 3
+                    this.advance()
+                }
+
                 '/' -> {
                     if (this.peek(1) == '/') {
                         while (this.peek() != '\n' && !this.isAtEnd()) {
@@ -91,6 +96,7 @@ public class Lexer(private val source: String, private val keywords: Map<String,
 
                 '\n' -> {
                     this.line++
+                    this.column = 0
                     this.advance()
                 }
 
@@ -99,19 +105,23 @@ public class Lexer(private val source: String, private val keywords: Map<String,
         }
     }
 
-    private fun advance(): Char = this.source[this.current++]
+    private fun advance(): Char {
+        this.column++
+        return this.source[this.current++]
+    }
 
     private fun isAtEnd(dist: Int = 0): Boolean = this.current + dist >= this.source.length
 
-    private fun peek(dist: Int = 0): Char = if (this.isAtEnd(dist)) '\u0000' else this.source[current + dist]
+    private fun peek(dist: Int = 0): Char = if (this.isAtEnd(dist)) '\u0000' else this.source[this.current + dist]
 
-    private fun createToken(type: TokenType): Token =
-        Token(type, this.source.substring(this.start..<this.current), line, column)
+    private fun createToken(type: TokenType, literal: Any? = null): Token =
+        Token(type, this.source.substring(this.start..<this.current), this.line, this.column, literal)
 
-    private fun match(expected: Char): Boolean = if (this.isAtEnd() || this.source[current] != expected) {
+    private fun match(expected: Char): Boolean = if (this.isAtEnd() || this.source[this.current] != expected) {
         false
     } else {
         this.current++
+        this.column++
         true
     }
 
@@ -119,6 +129,7 @@ public class Lexer(private val source: String, private val keywords: Map<String,
         while (this.peek() != '"' && !this.isAtEnd()) {
             if (this.peek() == '\n') {
                 this.line++
+                this.column = 0
             }
 
             this.advance()
@@ -130,7 +141,10 @@ public class Lexer(private val source: String, private val keywords: Map<String,
 
         this.advance()
 
-        return this.createToken(TokenType.STRING)
+        return this.createToken(
+            TokenType.STRING,
+            literal = this.source.substring((this.start + 1)..<(this.current - 1))
+        )
     }
 
     private fun createNumber(): Token {
@@ -146,7 +160,10 @@ public class Lexer(private val source: String, private val keywords: Map<String,
             this.advance()
         }
 
-        return this.createToken(TokenType.NUMBER)
+        return this.createToken(
+            TokenType.NUMBER,
+            literal = this.source.substring(this.start..<this.current).toDouble()
+        )
     }
 
     private fun createIdentifier(): Token {
@@ -162,5 +179,6 @@ public class Lexer(private val source: String, private val keywords: Map<String,
         )
     }
 
-    private fun Char.isAlphaNumeric(): Boolean = this in 'a'..'z' || this in 'A'..'Z' || this == '_' || this in '0' .. '9'
+    private fun Char.isAlphaNumeric(): Boolean =
+        this in 'a'..'z' || this in 'A'..'Z' || this == '_' || this in '0'..'9'
 }

@@ -1,3 +1,4 @@
+import lexer.Lexer
 import kotlin.system.exitProcess
 
 public fun main(args: Array<String>) {
@@ -20,7 +21,8 @@ public fun repl() {
         readlnOrNull()?.takeIf {
             it != ":q"
         }?.let {
-            println(it)
+            val lexer = Lexer(it)
+            println(lexer.tokens.toList())
         } ?: break
     }
 }

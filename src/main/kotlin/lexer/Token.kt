@@ -1,6 +1,12 @@
 package lexer
 
-public data class Token(val type: TokenType, val lexeme: String, val line: Int, val column: Int)
+public data class Token(
+    val type: TokenType,
+    val lexeme: String,
+    val line: Int,
+    val column: Int,
+    val literal: Any? = null
+)
 
 public enum class TokenType {
     LEFT_PAREN,
