@@ -148,11 +148,14 @@ public class Lexer(private val source: String, private val keywords: Map<String,
     }
 
     private fun createNumber(): Token {
+        var conversion: String.() -> Number = String::toInt
+
         while (this.peek() in '0'..'9') {
             this.advance()
         }
 
         if (this.peek() == '.' && this.peek(1) in '0'..'9') {
+            conversion = String::toDouble
             this.advance()
         }
 
@@ -162,7 +165,7 @@ public class Lexer(private val source: String, private val keywords: Map<String,
 
         return this.createToken(
             TokenType.NUMBER,
-            literal = this.source.substring(this.start..<this.current).toDouble()
+            literal = this.source.substring(this.start..<this.current).conversion()
         )
     }
 
