@@ -1,4 +1,5 @@
 import lexer.Lexer
+import parser.Parser
 import kotlin.system.exitProcess
 
 public fun main(args: Array<String>) {
@@ -22,7 +23,8 @@ public fun repl() {
             it != ":q"
         }?.let {
             val lexer = Lexer(it)
-            println(lexer.tokens.toList())
+            val parser = Parser(lexer.tokens)
+            println(parser.parse())
         } ?: break
     }
 }
