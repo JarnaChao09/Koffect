@@ -8,6 +8,7 @@ public sealed interface Literal<T> : Expression {
     public val value: T
 }
 
+@Suppress("UNCHECKED_CAST")
 public inline fun <T : Any> Literal(literal: T?): Literal<T> = when(literal) {
     null -> NullLiteral
     is Int -> IntLiteral(literal)
