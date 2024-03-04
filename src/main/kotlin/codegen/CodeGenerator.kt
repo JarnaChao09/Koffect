@@ -32,12 +32,75 @@ public class CodeGenerator {
                 dfs(root.left)
                 dfs(root.right)
 
-                // todo: do correct typed code gen (currently assuming always int)
                 this.currentChunk.write(when (root.operator.type) {
-                    TokenType.PLUS -> Opcode.IntAdd
-                    TokenType.MINUS -> Opcode.IntSubtract
-                    TokenType.STAR -> Opcode.IntMultiply
-                    TokenType.SLASH -> Opcode.IntDivide
+                    TokenType.PLUS -> {
+                        when (val type = root.type ?: error("Type must be annotated")) {
+                            is TConstructor -> {
+                                when (type.name) {
+                                    "Double" -> {
+                                        Opcode.DoubleAdd
+                                    }
+                                    "Int" -> {
+                                        Opcode.IntAdd
+                                    }
+                                    else -> {
+                                        error("invalid unary operator type") // should be unreachable
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    TokenType.MINUS -> {
+                        when (val type = root.type ?: error("Type must be annotated")) {
+                            is TConstructor -> {
+                                when (type.name) {
+                                    "Double" -> {
+                                        Opcode.DoubleSubtract
+                                    }
+                                    "Int" -> {
+                                        Opcode.IntSubtract
+                                    }
+                                    else -> {
+                                        error("invalid unary operator type") // should be unreachable
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    TokenType.STAR -> {
+                        when (val type = root.type ?: error("Type must be annotated")) {
+                            is TConstructor -> {
+                                when (type.name) {
+                                    "Double" -> {
+                                        Opcode.DoubleMultiply
+                                    }
+                                    "Int" -> {
+                                        Opcode.IntMultiply
+                                    }
+                                    else -> {
+                                        error("invalid unary operator type") // should be unreachable
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    TokenType.SLASH -> {
+                        when (val type = root.type ?: error("Type must be annotated")) {
+                            is TConstructor -> {
+                                when (type.name) {
+                                    "Double" -> {
+                                        Opcode.DoubleDivide
+                                    }
+                                    "Int" -> {
+                                        Opcode.IntDivide
+                                    }
+                                    else -> {
+                                        error("invalid unary operator type") // should be unreachable
+                                    }
+                                }
+                            }
+                        }
+                    }
                     else -> error("invalid binary operator")
                 }.toInt(), this.line++)
             }
@@ -60,10 +123,41 @@ public class CodeGenerator {
             is Unary -> {
                 dfs(root.expression)
 
-                // todo: do correct typed code gen (currently assuming always int)
                 this.currentChunk.write(when (root.operator.type) {
-                    TokenType.PLUS -> Opcode.IntIdentity
-                    TokenType.MINUS -> Opcode.IntNegate
+                    TokenType.PLUS -> {
+                        when (val type = root.type ?: error("Type must be annotated")) {
+                            is TConstructor -> {
+                                when (type.name) {
+                                    "Double" -> {
+                                        Opcode.DoubleIdentity
+                                    }
+                                    "Int" -> {
+                                        Opcode.IntIdentity
+                                    }
+                                    else -> {
+                                        error("invalid unary operator type") // should be unreachable
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    TokenType.MINUS -> {
+                        when (val type = root.type ?: error("Type must be annotated")) {
+                            is TConstructor -> {
+                                when (type.name) {
+                                    "Double" -> {
+                                        Opcode.DoubleNegate
+                                    }
+                                    "Int" -> {
+                                        Opcode.IntNegate
+                                    }
+                                    else -> {
+                                        error("invalid unary operator type") // should be unreachable
+                                    }
+                                }
+                            }
+                        }
+                    }
                     else -> error("invalid unary operator")
                 }.toInt(), this.line++)
             }
