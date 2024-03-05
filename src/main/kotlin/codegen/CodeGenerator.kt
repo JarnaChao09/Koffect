@@ -44,7 +44,7 @@ public class CodeGenerator {
                                         Opcode.IntAdd
                                     }
                                     else -> {
-                                        error("invalid unary operator type") // should be unreachable
+                                        error("invalid binary operator type") // should be unreachable
                                     }
                                 }
                             }
@@ -61,7 +61,7 @@ public class CodeGenerator {
                                         Opcode.IntSubtract
                                     }
                                     else -> {
-                                        error("invalid unary operator type") // should be unreachable
+                                        error("invalid binary operator type") // should be unreachable
                                     }
                                 }
                             }
@@ -78,7 +78,7 @@ public class CodeGenerator {
                                         Opcode.IntMultiply
                                     }
                                     else -> {
-                                        error("invalid unary operator type") // should be unreachable
+                                        error("invalid binary operator type") // should be unreachable
                                     }
                                 }
                             }
@@ -95,7 +95,109 @@ public class CodeGenerator {
                                         Opcode.IntDivide
                                     }
                                     else -> {
-                                        error("invalid unary operator type") // should be unreachable
+                                        error("invalid binary operator type") // should be unreachable
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    TokenType.EQUALS -> {
+                        when (val type = root.left.type ?: error("Type must be annotated")) {
+                            is TConstructor -> {
+                                when (type.name) {
+                                    "Double" -> {
+                                        Opcode.DoubleEquals
+                                    }
+                                    "Int" -> {
+                                        Opcode.IntEquals
+                                    }
+                                    else -> {
+                                        error("invalid binary operator type") // should be unreachable
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    TokenType.NOT_EQ -> {
+                        when (val type = root.left.type ?: error("Type must be annotated")) {
+                            is TConstructor -> {
+                                when (type.name) {
+                                    "Double" -> {
+                                        Opcode.DoubleNotEq
+                                    }
+                                    "Int" -> {
+                                        Opcode.IntNotEq
+                                    }
+                                    else -> {
+                                        error("invalid binary operator type") // should be unreachable
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    TokenType.GE -> {
+                        when (val type = root.left.type ?: error("Type must be annotated")) {
+                            is TConstructor -> {
+                                when (type.name) {
+                                    "Double" -> {
+                                        Opcode.DoubleGreaterEq
+                                    }
+                                    "Int" -> {
+                                        Opcode.IntGreaterEq
+                                    }
+                                    else -> {
+                                        error("invalid binary operator type") // should be unreachable
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    TokenType.LE -> {
+                        when (val type = root.left.type ?: error("Type must be annotated")) {
+                            is TConstructor -> {
+                                when (type.name) {
+                                    "Double" -> {
+                                        Opcode.DoubleLessEq
+                                    }
+                                    "Int" -> {
+                                        Opcode.IntLessEq
+                                    }
+                                    else -> {
+                                        error("invalid binary operator type") // should be unreachable
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    TokenType.GT -> {
+                        when (val type = root.left.type ?: error("Type must be annotated")) {
+                            is TConstructor -> {
+                                when (type.name) {
+                                    "Double" -> {
+                                        Opcode.DoubleGreaterThan
+                                    }
+                                    "Int" -> {
+                                        Opcode.IntGreaterThan
+                                    }
+                                    else -> {
+                                        error("invalid binary operator type") // should be unreachable
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    TokenType.LT -> {
+                        when (val type = root.left.type ?: error("Type must be annotated")) {
+                            is TConstructor -> {
+                                when (type.name) {
+                                    "Double" -> {
+                                        Opcode.DoubleLessThan
+                                    }
+                                    "Int" -> {
+                                        Opcode.IntLessThan
+                                    }
+                                    else -> {
+                                        error("invalid binary operator type") // should be unreachable
                                     }
                                 }
                             }
@@ -116,6 +218,12 @@ public class CodeGenerator {
                 val constant = this.currentChunk.addConstant(root.value.toValue())
                 this.currentChunk.write(Opcode.IntConstant.toInt(), this.line)
                 this.currentChunk.write(constant, this.line++)
+            }
+            is BooleanLiteral -> {
+                this.currentChunk.write(when (root.value) {
+                    true -> Opcode.True
+                    false -> Opcode.False
+                }.toInt(), this.line++)
             }
             NullLiteral -> {
                 this.currentChunk.write(Opcode.Null.toInt(), this.line++)

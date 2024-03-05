@@ -18,21 +18,45 @@ public class Parser(tokenSequence: Sequence<Token>) {
     }
 
     private fun statement(): Statement {
-        val ret = this.expression()
-        expect(TokenType.EOS, "Must end with an end of statement")
-        return ExpressionStatement(ret)
+        return ExpressionStatement(this.expression()).also {
+            expect(TokenType.EOS, "Must end with an end of statement")
+        }
     }
 
     private fun expression(): Expression {
-        return term()
+        return this.equality()
+    }
+
+    private fun equality(): Expression {
+        var expr = this.comparison()
+
+        while (this.match(TokenType.NOT_EQ, TokenType.EQUALS)) {
+            val operator = this.previous
+            val right = this.comparison()
+            expr = Binary(expr, operator, right)
+        }
+
+        return expr
+    }
+
+    private fun comparison(): Expression {
+        var expr = this.term()
+
+        while (this.match(TokenType.GE, TokenType.GT, TokenType.LE, TokenType.LT)) {
+            val operator = this.previous
+            val right = this.term()
+            expr = Binary(expr, operator, right)
+        }
+
+        return expr
     }
 
     private fun term(): Expression {
-        var expr = factor()
+        var expr = this.factor()
 
-        while (match(TokenType.PLUS, TokenType.MINUS)) {
+        while (this.match(TokenType.PLUS, TokenType.MINUS)) {
             val operator = this.previous
-            val right = factor()
+            val right = this.factor()
             expr = Binary(expr, operator, right)
         }
 
@@ -40,11 +64,11 @@ public class Parser(tokenSequence: Sequence<Token>) {
     }
 
     private fun factor(): Expression {
-        var expr = unary()
+        var expr = this.unary()
 
-        while (match(TokenType.STAR, TokenType.SLASH, TokenType.MOD)) {
+        while (this.match(TokenType.STAR, TokenType.SLASH, TokenType.MOD)) {
             val operator = this.previous
-            val right = unary()
+            val right = this.unary()
             expr = Binary(expr, operator, right)
         }
 
@@ -52,12 +76,12 @@ public class Parser(tokenSequence: Sequence<Token>) {
     }
 
     private fun unary(): Expression {
-        if (match(TokenType.PLUS, TokenType.MINUS, TokenType.NOT)) {
+        if (this.match(TokenType.PLUS, TokenType.MINUS, TokenType.NOT)) {
             val operator = this.previous
-            return Unary(operator, unary())
+            return Unary(operator, this.unary())
         }
 
-        return atom()
+        return this.atom()
     }
 
     private fun atom(): Expression {

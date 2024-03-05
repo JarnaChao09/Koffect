@@ -15,6 +15,7 @@ public inline fun <T : Any> Literal(literal: T?): Literal<T> = when(literal) {
     null -> NullLiteral
     is Int -> IntLiteral(literal)
     is Double -> DoubleLiteral(literal)
+    is Boolean -> BooleanLiteral(literal)
     else -> error("Invalid literal type")
 } as Literal<T>
 
@@ -28,6 +29,12 @@ public data class DoubleLiteral(override val value: Double) : Literal<Double> {
     override var type: Type?
         get() = TConstructor("Double")
         set(_) = error("Cannot re-set the type of a Double Literal")
+}
+
+public data class BooleanLiteral(override val value: Boolean) : Literal<Boolean> {
+    override var type: Type?
+        get() = TConstructor("Boolean")
+        set(_) = error("Cannot re-set the type of a Boolean Literal")
 }
 
 public data object NullLiteral : Literal<Nothing?> {

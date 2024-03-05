@@ -28,5 +28,6 @@ public inline fun <T: Any> T?.toValue(): Value<T> = when(this) {
     null -> NullValue
     is Int -> IntValue(this)
     is Double -> DoubleValue(this)
+    is Boolean -> BooleanValue(this)
     else -> error("Invalid value type")
 } as Value<T>

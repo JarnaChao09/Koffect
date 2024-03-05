@@ -25,6 +25,8 @@ public class TypeChecking(private val environment: Environment) {
                     TokenType.MINUS -> "minus"
                     TokenType.STAR -> "times"
                     TokenType.SLASH -> "div"
+                    TokenType.EQUALS, TokenType.NOT_EQ, TokenType.GE, TokenType.LE, TokenType.GT, TokenType.LT ->
+                        this.operator.lexeme
                     else -> error("Invalid Binary Operator") // should be unreachable
                 }
 
@@ -50,7 +52,7 @@ public class TypeChecking(private val environment: Environment) {
                 this.type = type
                 type
             }
-            is DoubleLiteral, is IntLiteral, NullLiteral -> this.type!!
+            is DoubleLiteral, is IntLiteral, is BooleanLiteral, NullLiteral -> this.type!!
             is Unary -> {
                 val expressionType = this.expression.check()
                 val function = when (this.operator.type) {

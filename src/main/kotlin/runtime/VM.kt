@@ -59,6 +59,66 @@ public class VM(
                 Opcode.False -> {
                     this.push(false.toValue())
                 }
+                Opcode.IntEquals -> {
+                    val r = this.pop().value as Int
+                    val l = this.pop().value as Int
+                    this.push((l == r).toValue())
+                }
+                Opcode.DoubleEquals -> {
+                    val r = this.pop().value as Double
+                    val l = this.pop().value as Double
+                    this.push((l == r).toValue())
+                }
+                Opcode.IntNotEq -> {
+                    val r = this.pop().value as Int
+                    val l = this.pop().value as Int
+                    this.push((l != r).toValue())
+                }
+                Opcode.DoubleNotEq -> {
+                    val r = this.pop().value as Double
+                    val l = this.pop().value as Double
+                    this.push((l != r).toValue())
+                }
+                Opcode.IntGreaterEq -> {
+                    val r = this.pop().value as Int
+                    val l = this.pop().value as Int
+                    this.push((l >= r).toValue())
+                }
+                Opcode.DoubleGreaterEq -> {
+                    val r = this.pop().value as Double
+                    val l = this.pop().value as Double
+                    this.push((l >= r).toValue())
+                }
+                Opcode.IntLessEq -> {
+                    val r = this.pop().value as Int
+                    val l = this.pop().value as Int
+                    this.push((l <= r).toValue())
+                }
+                Opcode.DoubleLessEq -> {
+                    val r = this.pop().value as Double
+                    val l = this.pop().value as Double
+                    this.push((l <= r).toValue())
+                }
+                Opcode.IntGreaterThan -> {
+                    val r = this.pop().value as Int
+                    val l = this.pop().value as Int
+                    this.push((l > r).toValue())
+                }
+                Opcode.DoubleGreaterThan -> {
+                    val r = this.pop().value as Double
+                    val l = this.pop().value as Double
+                    this.push((l > r).toValue())
+                }
+                Opcode.IntLessThan -> {
+                    val r = this.pop().value as Int
+                    val l = this.pop().value as Int
+                    this.push((l < r).toValue())
+                }
+                Opcode.DoubleLessThan -> {
+                    val r = this.pop().value as Double
+                    val l = this.pop().value as Double
+                    this.push((l < r).toValue())
+                }
                 Opcode.IntAdd -> {
                     val r = this.pop().value as Int
                     val l = this.pop().value as Int
