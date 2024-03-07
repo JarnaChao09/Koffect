@@ -283,6 +283,20 @@ public class CodeGenerator {
                             }
                         }
                     }
+                    TokenType.NOT -> {
+                        when (val type = root.type ?: error("Type must be annotated")) {
+                            is TConstructor -> {
+                                when (type.name) {
+                                    "Boolean" -> {
+                                        Opcode.Not
+                                    }
+                                    else -> {
+                                        error("Invlaid unary operator type") // should be unreachable
+                                    }
+                                }
+                            }
+                        }
+                    }
                     else -> error("invalid unary operator")
                 }.toInt(), this.line++)
             }

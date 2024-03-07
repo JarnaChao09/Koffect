@@ -78,6 +78,7 @@ public class TypeChecking(private val environment: Environment) {
                 val function = when (this.operator.type) {
                     TokenType.PLUS -> "unaryPlus"
                     TokenType.MINUS -> "unaryMinus"
+                    TokenType.NOT -> "not"
                     else -> error("Invalid Unary Operator") // should be unreachable
                 }
 

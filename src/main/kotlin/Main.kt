@@ -117,6 +117,19 @@ public fun repl() {
                                 )
                             )
                         }
+
+                        put(
+                            "not",
+                            setOf(
+                                TConstructor(
+                                    "Function1",
+                                    listOf(
+                                        TConstructor("Boolean"),
+                                        TConstructor("Boolean",)
+                                    ),
+                                ),
+                            )
+                        )
                     }
                 )
                 val vm = VM()
