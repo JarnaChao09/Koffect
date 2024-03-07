@@ -101,6 +101,22 @@ public fun repl() {
                                 )
                             )
                         }
+
+                        for (function in listOf("&&", "||")) {
+                            put(
+                                function,
+                                setOf(
+                                    TConstructor(
+                                        "Function2",
+                                        listOf(
+                                            TConstructor("Boolean"),
+                                            TConstructor("Boolean"),
+                                            TConstructor("Boolean"),
+                                        ),
+                                    ),
+                                )
+                            )
+                        }
                     }
                 )
                 val vm = VM()
@@ -117,7 +133,7 @@ public fun repl() {
                     println(c.disassemble("repl $i"))
                 })
             } catch (e: Exception) {
-                println(e.localizedMessage)
+                println("error: ${e.localizedMessage}")
             }
         } ?: break
     }

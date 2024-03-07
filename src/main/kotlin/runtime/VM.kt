@@ -9,6 +9,10 @@ public class VM(
         this.stack.addFirst(value)
     }
 
+    private fun peek(distance: Int = 0): Value<*> {
+        return this.stack[distance]
+    }
+
     private fun pop(): Value<*> {
         return this.stack.removeFirst()
     }
@@ -159,8 +163,27 @@ public class VM(
                     val l = this.pop().value as Double
                     this.push((l / r).toValue())
                 }
+                Opcode.Jump -> {
+                    val offset = this.currentChunk!!.code[this.ip++]
+                    this.ip += offset
+                }
+                Opcode.JumpIfTrue -> {
+                    val offset = this.currentChunk!!.code[this.ip++]
+                    if (peek().value as Boolean) {
+                        this.ip += offset
+                    }
+                }
+                Opcode.JumpIfFalse -> {
+                    val offset = this.currentChunk!!.code[this.ip++]
+                    if (!(peek().value as Boolean)) {
+                        this.ip += offset
+                    }
+                }
+                Opcode.Pop -> {
+                    this.pop()
+                }
                 Opcode.Return -> {
-                    println(pop())
+                    println(this.pop())
                     return 0
                 }
             }

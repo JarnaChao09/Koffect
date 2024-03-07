@@ -31,6 +31,10 @@ public enum class Opcode {
     DoubleMultiply,
     IntDivide,
     DoubleDivide,
+    Jump,
+    JumpIfTrue,
+    JumpIfFalse,
+    Pop,
     Return;
 
     override fun toString(): String {

@@ -228,6 +228,23 @@ public class CodeGenerator {
             NullLiteral -> {
                 this.currentChunk.write(Opcode.Null.toInt(), this.line++)
             }
+            is Logical -> {
+                dfs(root.left)
+
+                val jumpType = when (root.operator.type) {
+                    TokenType.AND -> Opcode.JumpIfFalse
+                    TokenType.OR -> Opcode.JumpIfTrue
+                    else -> error("Invalid Logical Operator") // should be unreachable
+                }
+
+                val jump = this.currentChunk.emitJump(jumpType)
+
+                this.currentChunk.write(Opcode.Pop.toInt(), this.line++)
+
+                dfs(root.right)
+
+                this.currentChunk.patchJump(jump)
+            }
             is Unary -> {
                 dfs(root.expression)
 
@@ -270,5 +287,17 @@ public class CodeGenerator {
                 }.toInt(), this.line++)
             }
         }
+    }
+
+    private fun Chunk.emitJump(instruction: Opcode): Int {
+        this.write(instruction.toInt(), this@CodeGenerator.line)
+        this.write(Int.MAX_VALUE, this@CodeGenerator.line++)
+        return this.code.size - 1
+    }
+
+    private fun Chunk.patchJump(offset: Int) {
+        val jump = this.code.size - offset - 1
+
+        this.code[offset] = jump
     }
 }

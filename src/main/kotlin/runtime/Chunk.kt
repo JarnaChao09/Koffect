@@ -41,6 +41,13 @@ public class Chunk(
                 appendLine("%-16s %4d ${this@Chunk.constants[constant]}".format(instruction, constant))
                 offset + 2
             }
+            Opcode.Jump,
+            Opcode.JumpIfTrue,
+            Opcode.JumpIfFalse -> {
+                val jump = this@Chunk.code[offset + 1]
+                appendLine("%-16s %4d -> %4d".format(instruction, offset, offset + 2 + jump))
+                offset + 2
+            }
             Opcode.IntIdentity,
             Opcode.IntNegate,
             Opcode.DoubleIdentity,
@@ -69,6 +76,7 @@ public class Chunk(
             Opcode.DoubleMultiply,
             Opcode.IntDivide,
             Opcode.DoubleDivide,
+            Opcode.Pop,
             Opcode.Return -> {
                 appendLine(instruction)
                 offset + 1

@@ -24,7 +24,31 @@ public class Parser(tokenSequence: Sequence<Token>) {
     }
 
     private fun expression(): Expression {
-        return this.equality()
+        return this.or()
+    }
+
+    private fun or(): Expression {
+        var expr = this.and()
+
+        while (match(TokenType.OR)) {
+            val operator = this.previous
+            val right = this.and()
+            expr = Logical(expr, operator, right)
+        }
+
+        return expr
+    }
+
+    private fun and(): Expression {
+        var expr = this.equality()
+
+        while (match(TokenType.AND)) {
+            val operator = this.previous
+            val right = this.equality()
+            expr = Logical(expr, operator, right)
+        }
+
+        return expr
     }
 
     private fun equality(): Expression {

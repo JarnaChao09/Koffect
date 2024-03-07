@@ -53,6 +53,26 @@ public class TypeChecking(private val environment: Environment) {
                 type
             }
             is DoubleLiteral, is IntLiteral, is BooleanLiteral, NullLiteral -> this.type!!
+            is Logical -> {
+                val leftType = this.left.check()
+                val rightType = this.right.check()
+                val function = this.operator.lexeme
+
+                var found: Type? = null
+
+                for (currentType in this@TypeChecking.environment[function]!!) {
+                    when (currentType) {
+                        is TConstructor -> {
+                            if (leftType == currentType.generics[0] && rightType == currentType.generics[1]) {
+                                found = this.type!!.takeIf { it == currentType.generics[2] }
+                                break
+                            }
+                        }
+                    }
+                }
+
+                found ?: error("Invalid Logical Operator, could not find definition using types $leftType and $rightType that returned Boolean")
+            }
             is Unary -> {
                 val expressionType = this.expression.check()
                 val function = when (this.operator.type) {
