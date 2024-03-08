@@ -209,6 +209,22 @@ public class CodeGenerator {
             is Grouping -> {
                 dfs(root.expression)
             }
+            is If -> {
+                dfs(root.condition)
+
+                val elseBranch = this.currentChunk.emitJump(Opcode.JumpIfFalse)
+                this.currentChunk.write(Opcode.Pop.toInt(), this.line++)
+
+                dfs(root.trueBranch)
+
+                val skipElseBranch = this.currentChunk.emitJump(Opcode.Jump)
+                this.currentChunk.patchJump(elseBranch)
+                this.currentChunk.write(Opcode.Pop.toInt(), this.line++)
+
+                dfs(root.falseBranch)
+
+                this.currentChunk.patchJump(skipElseBranch)
+            }
             is DoubleLiteral -> {
                 val constant = this.currentChunk.addConstant(root.value.toValue())
                 this.currentChunk.write(Opcode.DoubleConstant.toInt(), this.line)

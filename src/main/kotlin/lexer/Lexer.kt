@@ -56,7 +56,9 @@ public class Lexer(private val source: String, private val keywords: Map<String,
             ',' -> this.createToken(TokenType.COMMA)
             '.' -> this.createToken(TokenType.DOT)
             ';' -> this.createToken(TokenType.EOS)
-//            '\n' -> Token(TokenType.EOS, "\\n", line++, null)
+//            '\n' -> Token(TokenType.EOS, "\\n", this.line++, this.column.also {
+//                this.column = 0
+//            })
             '+' -> this.createToken(TokenType.PLUS)
             '-' -> this.createToken(TokenType.MINUS)
             '*' -> this.createToken(TokenType.STAR)

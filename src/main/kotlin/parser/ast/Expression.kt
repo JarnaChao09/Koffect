@@ -57,3 +57,10 @@ public data class Logical(val left: Expression, val operator: Token, val right: 
         get() = TConstructor("Boolean")
         set(_) = error("Logical operators must always return Boolean")
 }
+
+public data class If(
+    val condition: Expression,
+    val trueBranch: Expression,
+    val falseBranch: Expression,
+    override var type: Type? = null,
+) : Expression

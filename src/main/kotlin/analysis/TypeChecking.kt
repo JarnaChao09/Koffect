@@ -52,6 +52,23 @@ public class TypeChecking(private val environment: Environment) {
                 this.type = type
                 type
             }
+            is If -> {
+                val conditionType = this.condition.check()
+                val trueType = this.trueBranch.check()
+                val falseType = this.falseBranch.check()
+
+                require(conditionType == TConstructor("Boolean")) {
+                    "the conditional must be of type Boolean, found $conditionType"
+                }
+
+                require(trueType == falseType) {
+                    "the types of the branches must be the same, $trueType != $falseType"
+                }
+
+                this.type = trueType
+
+                trueType
+            }
             is DoubleLiteral, is IntLiteral, is BooleanLiteral, NullLiteral -> this.type!!
             is Logical -> {
                 val leftType = this.left.check()

@@ -123,9 +123,19 @@ public class Parser(tokenSequence: Sequence<Token>) {
 //            match(TokenType.IDENTIFIER) -> Variable(this.previous())
             match(TokenType.NUMBER, TokenType.STRING) -> Literal(this.previous.literal)
             match(TokenType.LEFT_PAREN) -> {
-                val expr = expression()
+                val expr = this.expression()
                 expect(TokenType.RIGHT_PAREN, "Expecting ')' after expression")
                 Grouping(expr)
+            }
+            match(TokenType.IF) -> {
+                expect(TokenType.LEFT_PAREN, "Expecting '(' at start of if expression condition")
+                val condition = this.expression()
+                expect(TokenType.RIGHT_PAREN, "Expecting ')' at end of if expression condition")
+                val trueBranch = this.expression()
+                expect(TokenType.ELSE, "Expecting if to be followed by else to be used as expression")
+                val falseBranch = this.expression()
+
+                If(condition, trueBranch, falseBranch)
             }
 
             else -> error("Invalid expression")

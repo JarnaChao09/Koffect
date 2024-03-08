@@ -32,7 +32,7 @@ public fun repl() {
                 val codegen = CodeGenerator()
                 val typechecker = TypeChecking(
                     buildMap {
-                        for (function in listOf("plus", "minus", "times", "div")) {
+                        for (function in listOf("plus", "minus", "times", "div", "")) {
                             put(
                                 function,
                                 setOf(
@@ -147,6 +147,7 @@ public fun repl() {
                 })
             } catch (e: Exception) {
                 println("error: ${e.localizedMessage}")
+//                e.printStackTrace()
             }
         } ?: break
     }
