@@ -32,7 +32,7 @@ public fun repl() {
                 val codegen = CodeGenerator()
                 val typechecker = TypeChecking(
                     buildMap {
-                        for (function in listOf("plus", "minus", "times", "div", "")) {
+                        for (function in listOf("plus", "minus", "times", "div", "mod")) {
                             put(
                                 function,
                                 setOf(

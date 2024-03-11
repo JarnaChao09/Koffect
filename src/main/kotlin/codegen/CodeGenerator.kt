@@ -101,6 +101,23 @@ public class CodeGenerator {
                             }
                         }
                     }
+                    TokenType.MOD -> {
+                        when (val type = root.type ?: error("Type must be annotated")) {
+                            is TConstructor -> {
+                                when (type.name) {
+                                    "Double" -> {
+                                        Opcode.DoubleMod
+                                    }
+                                    "Int" -> {
+                                        Opcode.IntMod
+                                    }
+                                    else -> {
+                                        error("invalid binary operator type") // should be unreachable
+                                    }
+                                }
+                            }
+                        }
+                    }
                     TokenType.EQUALS -> {
                         when (val type = root.left.type ?: error("Type must be annotated")) {
                             is TConstructor -> {

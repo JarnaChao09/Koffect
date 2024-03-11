@@ -76,6 +76,8 @@ public class Chunk(
             Opcode.DoubleMultiply,
             Opcode.IntDivide,
             Opcode.DoubleDivide,
+            Opcode.IntMod,
+            Opcode.DoubleMod,
             Opcode.Pop,
             Opcode.Return -> {
                 appendLine(instruction)

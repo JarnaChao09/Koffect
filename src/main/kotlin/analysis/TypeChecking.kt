@@ -25,6 +25,7 @@ public class TypeChecking(private val environment: Environment) {
                     TokenType.MINUS -> "minus"
                     TokenType.STAR -> "times"
                     TokenType.SLASH -> "div"
+                    TokenType.MOD -> "mod"
                     TokenType.EQUALS, TokenType.NOT_EQ, TokenType.GE, TokenType.LE, TokenType.GT, TokenType.LT ->
                         this.operator.lexeme
                     else -> error("Invalid Binary Operator") // should be unreachable

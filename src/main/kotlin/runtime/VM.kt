@@ -163,6 +163,16 @@ public class VM(
                     val l = this.pop().value as Double
                     this.push((l / r).toValue())
                 }
+                Opcode.IntMod -> {
+                    val r = this.pop().value as Int
+                    val l = this.pop().value as Int
+                    this.push((l.mod(r)).toValue())
+                }
+                Opcode.DoubleMod -> {
+                    val r = this.pop().value as Double
+                    val l = this.pop().value as Double
+                    this.push((l.mod(r)).toValue())
+                }
                 Opcode.Jump -> {
                     val offset = this.currentChunk!!.code[this.ip++]
                     this.ip += offset

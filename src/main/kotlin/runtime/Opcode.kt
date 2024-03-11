@@ -31,6 +31,8 @@ public enum class Opcode {
     DoubleMultiply,
     IntDivide,
     DoubleDivide,
+    IntMod,
+    DoubleMod,
     Jump,
     JumpIfTrue,
     JumpIfFalse,
