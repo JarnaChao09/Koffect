@@ -16,6 +16,7 @@ public inline fun <T : Any> Literal(literal: T?): Literal<T> = when(literal) {
     is Int -> IntLiteral(literal)
     is Double -> DoubleLiteral(literal)
     is Boolean -> BooleanLiteral(literal)
+    is String -> ObjectLiteral(literal, TConstructor("String"))
     else -> error("Invalid literal type")
 } as Literal<T>
 
@@ -46,6 +47,8 @@ public data object NullLiteral : Literal<Nothing?> {
         set(_) = error("Cannot re-set the type of a Null Literal")
 }
 
+public data class ObjectLiteral<T>(override val value: T, override var type: Type?) : Literal<T>
+
 public data class Binary(val left: Expression, val operator: Token, val right: Expression, override var type: Type? = null) : Expression
 
 public data class Unary(val operator: Token, val expression: Expression, override var type: Type? = null) : Expression
@@ -64,3 +67,5 @@ public data class If(
     val falseBranch: Expression,
     override var type: Type? = null,
 ) : Expression
+
+public data class Variable(val name: Token, override var type: Type? = null) : Expression

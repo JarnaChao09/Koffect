@@ -3,6 +3,7 @@ package runtime
 public enum class Opcode {
     IntConstant,
     DoubleConstant,
+    ObjectConstant,
     IntIdentity,
     IntNegate,
     DoubleIdentity,
@@ -36,6 +37,8 @@ public enum class Opcode {
     Jump,
     JumpIfTrue,
     JumpIfFalse,
+    DefineGlobal,
+    GetGlobal,
     Pop,
     Return;
 

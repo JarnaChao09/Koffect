@@ -3,7 +3,8 @@ package runtime
 public class VM(
     private var currentChunk: Chunk? = null,
     private var ip: Int = 0,
-    private var stack: ArrayDeque<Value<*>> = ArrayDeque()
+    private var stack: ArrayDeque<Value<*>> = ArrayDeque(),
+    private val globals: MutableMap<String, Value<*>> = mutableMapOf(),
 ) {
     private fun push(value: Value<*>) {
         this.stack.addFirst(value)
@@ -27,7 +28,7 @@ public class VM(
     private fun run(): Int {
         while (true) {
             when (this.currentChunk!!.code[this.ip++].toOpCode()) {
-                Opcode.IntConstant, Opcode.DoubleConstant -> {
+                Opcode.IntConstant, Opcode.DoubleConstant, Opcode.ObjectConstant -> {
                     val constant = this.currentChunk!!.let {
                         val index = it.code[this.ip++]
                         it.constants[index]
@@ -188,6 +189,24 @@ public class VM(
                     if (!(peek().value as Boolean)) {
                         this.ip += offset
                     }
+                }
+                Opcode.DefineGlobal -> {
+                    val name = this.currentChunk!!.let {
+                        val index = it.code[this.ip++]
+                        it.constants[index]
+                    }.value as String
+                    this.globals[name] = this.peek(0)
+                    this.pop()
+                }
+                Opcode.GetGlobal -> {
+                    val name = this.currentChunk!!.let {
+                        val index = it.code[this.ip++]
+                        it.constants[index]
+                    }.value as String
+
+                    this.globals[name]?.let {
+                        this.push(it)
+                    } ?: error("Undefined variable \"$name\"")
                 }
                 Opcode.Pop -> {
                     this.pop()

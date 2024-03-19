@@ -23,11 +23,18 @@ public data object NullValue : Value<Nothing?> {
     override fun toString(): String = "null"
 }
 
+public enum class ObjectType {
+    String
+}
+
+public data class ObjectValue<T>(override val value: T, val type: ObjectType) : Value<T>
+
 @Suppress("UNCHECKED_CAST")
 public inline fun <T: Any> T?.toValue(): Value<T> = when(this) {
     null -> NullValue
     is Int -> IntValue(this)
     is Double -> DoubleValue(this)
     is Boolean -> BooleanValue(this)
+    is String -> ObjectValue(this, ObjectType.String)
     else -> error("Invalid value type")
 } as Value<T>

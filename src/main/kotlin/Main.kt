@@ -19,6 +19,110 @@ public fun main(args: Array<String>) {
 }
 
 public fun repl() {
+    val typechecker = TypeChecking(
+        buildMap {
+            for (function in listOf("plus", "minus", "times", "div", "mod")) {
+                put(
+                    function,
+                    setOf(
+                        TConstructor(
+                            "Function2",
+                            listOf(
+                                TConstructor("Int"),
+                                TConstructor("Int"),
+                                TConstructor("Int"),
+                            ),
+                        ),
+                        TConstructor(
+                            "Function2",
+                            listOf(
+                                TConstructor("Double"),
+                                TConstructor("Double"),
+                                TConstructor("Double"),
+                            ),
+                        ),
+                    )
+                )
+            }
+
+            for (function in listOf("unaryPlus", "unaryMinus")) {
+                put(
+                    function,
+                    setOf(
+                        TConstructor(
+                            "Function1",
+                            listOf(
+                                TConstructor("Int"),
+                                TConstructor("Int")
+                            ),
+                        ),
+                        TConstructor(
+                            "Function1",
+                            listOf(
+                                TConstructor("Double"),
+                                TConstructor("Double")
+                            ),
+                        ),
+                    )
+                )
+            }
+
+            for (function in listOf("==", "!=", ">=", "<=", ">", "<")) {
+                put(
+                    function,
+                    setOf(
+                        TConstructor(
+                            "Function2",
+                            listOf(
+                                TConstructor("Int"),
+                                TConstructor("Int"),
+                                TConstructor("Boolean"),
+                            ),
+                        ),
+                        TConstructor(
+                            "Function2",
+                            listOf(
+                                TConstructor("Double"),
+                                TConstructor("Double"),
+                                TConstructor("Boolean"),
+                            ),
+                        ),
+                    )
+                )
+            }
+
+            for (function in listOf("&&", "||")) {
+                put(
+                    function,
+                    setOf(
+                        TConstructor(
+                            "Function2",
+                            listOf(
+                                TConstructor("Boolean"),
+                                TConstructor("Boolean"),
+                                TConstructor("Boolean"),
+                            ),
+                        ),
+                    )
+                )
+            }
+
+            put(
+                "not",
+                setOf(
+                    TConstructor(
+                        "Function1",
+                        listOf(
+                            TConstructor("Boolean"),
+                            TConstructor("Boolean",)
+                        ),
+                    ),
+                )
+            )
+        }
+    )
+    val vm = VM()
+
     var i = 0
     while (true) {
         i++
@@ -30,109 +134,6 @@ public fun repl() {
                 val lexer = Lexer(it)
                 val parser = Parser(lexer.tokens)
                 val codegen = CodeGenerator()
-                val typechecker = TypeChecking(
-                    buildMap {
-                        for (function in listOf("plus", "minus", "times", "div", "mod")) {
-                            put(
-                                function,
-                                setOf(
-                                    TConstructor(
-                                        "Function2",
-                                        listOf(
-                                            TConstructor("Int"),
-                                            TConstructor("Int"),
-                                            TConstructor("Int"),
-                                        ),
-                                    ),
-                                    TConstructor(
-                                        "Function2",
-                                        listOf(
-                                            TConstructor("Double"),
-                                            TConstructor("Double"),
-                                            TConstructor("Double"),
-                                        ),
-                                    ),
-                                )
-                            )
-                        }
-
-                        for (function in listOf("unaryPlus", "unaryMinus")) {
-                            put(
-                                function,
-                                setOf(
-                                    TConstructor(
-                                        "Function1",
-                                        listOf(
-                                            TConstructor("Int"),
-                                            TConstructor("Int")
-                                        ),
-                                    ),
-                                    TConstructor(
-                                        "Function1",
-                                        listOf(
-                                            TConstructor("Double"),
-                                            TConstructor("Double")
-                                        ),
-                                    ),
-                                )
-                            )
-                        }
-
-                        for (function in listOf("==", "!=", ">=", "<=", ">", "<")) {
-                            put(
-                                function,
-                                setOf(
-                                    TConstructor(
-                                        "Function2",
-                                        listOf(
-                                            TConstructor("Int"),
-                                            TConstructor("Int"),
-                                            TConstructor("Boolean"),
-                                        ),
-                                    ),
-                                    TConstructor(
-                                        "Function2",
-                                        listOf(
-                                            TConstructor("Double"),
-                                            TConstructor("Double"),
-                                            TConstructor("Boolean"),
-                                        ),
-                                    ),
-                                )
-                            )
-                        }
-
-                        for (function in listOf("&&", "||")) {
-                            put(
-                                function,
-                                setOf(
-                                    TConstructor(
-                                        "Function2",
-                                        listOf(
-                                            TConstructor("Boolean"),
-                                            TConstructor("Boolean"),
-                                            TConstructor("Boolean"),
-                                        ),
-                                    ),
-                                )
-                            )
-                        }
-
-                        put(
-                            "not",
-                            setOf(
-                                TConstructor(
-                                    "Function1",
-                                    listOf(
-                                        TConstructor("Boolean"),
-                                        TConstructor("Boolean",)
-                                    ),
-                                ),
-                            )
-                        )
-                    }
-                )
-                val vm = VM()
 
                 val tree = parser.parse()
 

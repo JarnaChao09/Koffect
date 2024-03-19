@@ -36,7 +36,7 @@ public class Chunk(
         }
 
         return when (val instruction = this@Chunk.code[offset].toOpCode()) {
-            Opcode.IntConstant, Opcode.DoubleConstant -> {
+            Opcode.IntConstant, Opcode.DoubleConstant, Opcode.ObjectConstant, Opcode.DefineGlobal, Opcode.GetGlobal -> {
                 val constant = this@Chunk.code[offset + 1]
                 appendLine("%-16s %4d ${this@Chunk.constants[constant]}".format(instruction, constant))
                 offset + 2

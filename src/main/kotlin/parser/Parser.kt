@@ -43,7 +43,7 @@ public class Parser(tokenSequence: Sequence<Token>) {
 
         expect(TokenType.EOS, "Expected an end of statement after variable declaration")
 
-        return Variable(type, name, typeAnnotation, initializer)
+        return VariableStatement(type, name, typeAnnotation, initializer)
     }
 
     private fun statement(): Statement {
@@ -149,7 +149,7 @@ public class Parser(tokenSequence: Sequence<Token>) {
 //                Super(keyword, method)
 //            }
 //            match(TokenType.THIS) -> This(this.previous())
-//            match(TokenType.IDENTIFIER) -> Variable(this.previous())
+            match(TokenType.IDENTIFIER) -> Variable(this.previous)
             match(TokenType.NUMBER, TokenType.STRING) -> Literal(this.previous.literal)
             match(TokenType.LEFT_PAREN) -> {
                 val expr = this.expression()

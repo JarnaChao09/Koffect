@@ -18,7 +18,16 @@ public class CodeGenerator {
                 is ExpressionStatement -> {
                     dfs(it.expression)
                 }
-                is Variable -> TODO()
+                is VariableStatement -> {
+                    val binding = this.currentChunk.addConstant(it.name.lexeme.toValue())
+
+                    it.initializer?.let { expr ->
+                        dfs(expr)
+                    } ?: this.currentChunk.write(Opcode.Null.toInt(), this.line++)
+
+                    this.currentChunk.write(Opcode.DefineGlobal.toInt(), this.line)
+                    this.currentChunk.write(binding, this.line++)
+                }
             }
         }
 
@@ -262,6 +271,11 @@ public class CodeGenerator {
             NullLiteral -> {
                 this.currentChunk.write(Opcode.Null.toInt(), this.line++)
             }
+            is ObjectLiteral<*> -> {
+                val constant = this.currentChunk.addConstant(root.value.toValue())
+                this.currentChunk.write(Opcode.ObjectConstant.toInt(), this.line)
+                this.currentChunk.write(constant, this.line++)
+            }
             is Logical -> {
                 dfs(root.left)
 
@@ -333,6 +347,12 @@ public class CodeGenerator {
                     }
                     else -> error("invalid unary operator")
                 }.toInt(), this.line++)
+            }
+            is Variable -> {
+                val binding = this.currentChunk.addConstant(root.name.lexeme.toValue())
+
+                this.currentChunk.write(Opcode.GetGlobal.toInt(), this.line)
+                this.currentChunk.write(binding, this.line++)
             }
         }
     }

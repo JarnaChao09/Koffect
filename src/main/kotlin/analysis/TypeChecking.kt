@@ -6,12 +6,12 @@ import parser.ast.Grouping
 
 public typealias Environment = Map<String, Set<Type>>
 
-public class TypeChecking(private val environment: Environment) {
+public class TypeChecking(private var environment: Environment) {
     public fun check(statements: List<Statement>) {
         statements.forEach {
             when (it) {
                 is ExpressionStatement -> it.expression.check()
-                is Variable -> {
+                is VariableStatement -> {
                     val type = it.type ?: error("Variables must be annotated with a type (type inference is not implemented)")
                     val initializerType = it.initializer?.check()
 
@@ -20,6 +20,8 @@ public class TypeChecking(private val environment: Environment) {
                             error("Variable initializer does not match declared type, found $initType but expected $type")
                         }
                     }
+
+                    environment = environment + (it.name.lexeme to setOf(type))
                 }
             }
         }
@@ -80,7 +82,7 @@ public class TypeChecking(private val environment: Environment) {
 
                 trueType
             }
-            is DoubleLiteral, is IntLiteral, is BooleanLiteral, NullLiteral -> this.type!!
+            is DoubleLiteral, is IntLiteral, is BooleanLiteral, NullLiteral, is ObjectLiteral<*> -> this.type!!
             is Logical -> {
                 val leftType = this.left.check()
                 val rightType = this.right.check()
@@ -126,6 +128,17 @@ public class TypeChecking(private val environment: Environment) {
                 this.type = found
 
                 found ?: error("Invalid Unary Operator, could not find definition using type $expressionType")
+            }
+            is Variable -> {
+                val type = environment[this.name.lexeme]!!
+
+                if (type.size != 1) {
+                    error("Variable has more than one possible type, ambiguous variable")
+                }
+
+                type.first().also {
+                    this.type = it
+                }
             }
         }
     }
