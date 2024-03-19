@@ -11,6 +11,16 @@ public class TypeChecking(private val environment: Environment) {
         statements.forEach {
             when (it) {
                 is ExpressionStatement -> it.expression.check()
+                is Variable -> {
+                    val type = it.type ?: error("Variables must be annotated with a type (type inference is not implemented)")
+                    val initializerType = it.initializer?.check()
+
+                    initializerType?.let { initType ->
+                        if (initType != type) {
+                            error("Variable initializer does not match declared type, found $initType but expected $type")
+                        }
+                    }
+                }
             }
         }
     }

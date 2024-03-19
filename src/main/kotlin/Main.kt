@@ -136,6 +136,8 @@ public fun repl() {
 
                 val tree = parser.parse()
 
+                tree.forEach(::println)
+
                 typechecker.check(tree)
 
                 tree.forEach(::println)
@@ -148,6 +150,8 @@ public fun repl() {
             } catch (e: Exception) {
                 println("error: ${e.localizedMessage}")
 //                e.printStackTrace()
+            } catch (e: NotImplementedError) {
+                println(e.localizedMessage)
             }
         } ?: break
     }

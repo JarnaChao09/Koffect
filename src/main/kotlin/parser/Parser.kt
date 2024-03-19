@@ -12,9 +12,38 @@ public class Parser(tokenSequence: Sequence<Token>) {
     public fun parse(): List<Statement> {
         return buildList {
             while (!this@Parser.isAtEnd()) {
-                add(this@Parser.statement())
+                add(this@Parser.declaration())
             }
         }
+    }
+
+    private fun declaration(): Statement {
+        return if (match(TokenType.VAL, TokenType.VAR)) {
+            this.variableDeclaration()
+        } else {
+            this.statement()
+        }
+    }
+
+    private fun variableDeclaration(): Statement {
+        val type = this.previous.type
+        val name = expect(TokenType.IDENTIFIER, "Expected a variable name")
+
+        val typeAnnotation = if (match(TokenType.COLON)) {
+            expect(TokenType.IDENTIFIER, "Expected valid type identifier")
+        } else {
+            null
+        }
+
+        val initializer = if (match(TokenType.ASSIGN)) {
+            this.expression()
+        } else {
+            null
+        }
+
+        expect(TokenType.EOS, "Expected an end of statement after variable declaration")
+
+        return Variable(type, name, typeAnnotation, initializer)
     }
 
     private fun statement(): Statement {

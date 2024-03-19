@@ -27,6 +27,8 @@ public enum class TokenType {
 
     EOS,
 
+    COLON,
+
     VAR,
     VAL,
     ASSIGN,

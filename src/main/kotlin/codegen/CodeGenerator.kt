@@ -18,6 +18,7 @@ public class CodeGenerator {
                 is ExpressionStatement -> {
                     dfs(it.expression)
                 }
+                is Variable -> TODO()
             }
         }
 
