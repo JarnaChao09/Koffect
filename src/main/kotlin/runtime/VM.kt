@@ -208,6 +208,18 @@ public class VM(
                         this.push(it)
                     } ?: error("Undefined variable \"$name\"")
                 }
+                Opcode.SetGlobal -> {
+                    val name = this.currentChunk!!.let {
+                        val index = it.code[this.ip++]
+                        it.constants[index]
+                    }.value as String
+
+                    if (name in this.globals) {
+                        this.globals[name] = this.peek(0)
+                    } else {
+                        error("Undefined variable \"$name\"")
+                    }
+                }
                 Opcode.Pop -> {
                     this.pop()
                 }

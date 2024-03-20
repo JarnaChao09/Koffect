@@ -53,7 +53,25 @@ public class Parser(tokenSequence: Sequence<Token>) {
     }
 
     private fun expression(): Expression {
-        return this.or()
+        return this.assignment()
+    }
+
+    private fun assignment(): Expression {
+        val expr = this.or()
+
+        if (match(TokenType.ASSIGN)) {
+            val equals = this.previous
+            val value = this.assignment()
+
+            if (expr is Variable) {
+                val name = expr.name
+                return Assign(name, value)
+            }
+
+            error("Invalid Assignment Target on ${equals.line} at ${equals.column}")
+        }
+
+        return expr
     }
 
     private fun or(): Expression {

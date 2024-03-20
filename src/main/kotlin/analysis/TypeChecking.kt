@@ -29,6 +29,17 @@ public class TypeChecking(private var environment: Environment) {
 
     private fun Expression.check(): Type {
         return when (this) {
+            is Assign -> {
+                val assignment = this.expression.check()
+                val type = environment[this.name.lexeme]!!.first()
+
+                if (type == assignment) {
+                    this.type = type
+                    type
+                } else {
+                    error("Unable to assign type $assignment to type $type")
+                }
+            }
             is Binary -> {
                 val leftType = this.left.check()
                 val rightType = this.right.check()

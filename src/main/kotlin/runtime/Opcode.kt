@@ -39,6 +39,7 @@ public enum class Opcode {
     JumpIfFalse,
     DefineGlobal,
     GetGlobal,
+    SetGlobal,
     Pop,
     Return;
 

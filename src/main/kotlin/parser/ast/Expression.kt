@@ -49,6 +49,8 @@ public data object NullLiteral : Literal<Nothing?> {
 
 public data class ObjectLiteral<T>(override val value: T, override var type: Type?) : Literal<T>
 
+public data class Assign(val name: Token, val expression: Expression, override var type: Type? = null) : Expression
+
 public data class Binary(val left: Expression, val operator: Token, val right: Expression, override var type: Type? = null) : Expression
 
 public data class Unary(val operator: Token, val expression: Expression, override var type: Type? = null) : Expression

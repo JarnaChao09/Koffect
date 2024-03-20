@@ -38,6 +38,14 @@ public class CodeGenerator {
 
     private fun dfs(root: Expression) {
         when (root) {
+            is Assign -> {
+                val binding = this.currentChunk.addConstant(root.name.lexeme.toValue())
+
+                dfs(root.expression)
+
+                this.currentChunk.write(Opcode.SetGlobal.toInt(), this.line)
+                this.currentChunk.write(binding, this.line++)
+            }
             is Binary -> {
                 dfs(root.left)
                 dfs(root.right)
