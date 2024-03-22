@@ -23,18 +23,40 @@ public data object NullValue : Value<Nothing?> {
     override fun toString(): String = "null"
 }
 
-public enum class ObjectType {
-    String
+public data object UnitValue : Value<Unit> {
+    override val value: Unit
+        get() = Unit
+
+    override fun toString(): String = "Unit"
 }
 
-public data class ObjectValue<T>(override val value: T, val type: ObjectType) : Value<T>
+public sealed interface ObjectValue<T> : Value<T>
+
+public data class ObjectString(override val value: String) : ObjectValue<String> {
+    override fun toString(): String = this.value
+}
+
+public typealias NativeFunc = (Array<Value<*>>) -> Value<*>
+
+public data class NativeFunction(val function: NativeFunc)
+
+public data class ObjectNativeFunction(override val value: NativeFunction) : ObjectValue<NativeFunction> {
+    override fun toString(): String = "<native fn>"
+}
+
+//public enum class ObjectType {
+//    String
+//}
+//
+//public data class ObjectValue<T>(override val value: T, val type: ObjectType) : Value<T>
 
 @Suppress("UNCHECKED_CAST")
-public inline fun <T: Any> T?.toValue(): Value<T> = when(this) {
+public inline fun <T : Any> T?.toValue(): Value<T> = when(this) {
     null -> NullValue
     is Int -> IntValue(this)
     is Double -> DoubleValue(this)
     is Boolean -> BooleanValue(this)
-    is String -> ObjectValue(this, ObjectType.String)
+    is String -> ObjectString(this)
+    is NativeFunction -> ObjectNativeFunction(this)
     else -> error("Invalid value type")
 } as Value<T>

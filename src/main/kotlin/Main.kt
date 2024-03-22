@@ -4,6 +4,7 @@ import lexer.Lexer
 import parser.Parser
 import parser.ast.TConstructor
 import runtime.*
+import kotlin.math.pow
 import kotlin.system.exitProcess
 
 public fun main(args: Array<String>) {
@@ -119,9 +120,58 @@ public fun repl() {
                     ),
                 )
             )
+
+            put(
+                "println",
+                buildSet {
+                    for (type in listOf("Int", "Double", "Boolean", "String", "Nothing?")) {
+                        add(
+                            TConstructor(
+                                "Function1",
+                                listOf(
+                                    TConstructor(type),
+                                    TConstructor("Unit")
+                                ),
+                            )
+                        )
+                    }
+                }
+            )
+
+            put(
+                "pow",
+                setOf(
+                    TConstructor(
+                        "Function2",
+                        listOf(
+                            TConstructor("Double"),
+                            TConstructor("Double"),
+                            TConstructor("Double"),
+                        ),
+                    ),
+                )
+            )
         }
     )
     val vm = VM()
+
+    vm.addNativeFunction("println") {
+        assert(it.size == 1)
+        println(it[0])
+        UnitValue
+    }
+
+    vm.addNativeFunction("pow") {
+        assert(it.size == 2)
+        val (a, b) = it
+        assert(a.value is Double)
+        assert(b.value is Double)
+
+        val av = a.value as Double
+        val bv = b.value as Double
+
+        av.pow(bv).toValue()
+    }
 
     var i = 0
     while (true) {

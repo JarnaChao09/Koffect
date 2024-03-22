@@ -241,6 +241,15 @@ public class CodeGenerator {
                     else -> error("invalid binary operator")
                 }.toInt(), this.line++)
             }
+            is Call -> {
+                dfs(root.callee)
+
+                val argCount = root.arguments.size
+                root.arguments.forEach(::dfs)
+
+                this.currentChunk.write(Opcode.Call.toInt(), this.line)
+                this.currentChunk.write(argCount, this.line++)
+            }
             is Grouping -> {
                 dfs(root.expression)
             }

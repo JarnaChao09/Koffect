@@ -53,6 +53,13 @@ public data class Assign(val name: Token, val expression: Expression, override v
 
 public data class Binary(val left: Expression, val operator: Token, val right: Expression, override var type: Type? = null) : Expression
 
+public data class Call(
+    val callee: Expression,
+    val paren: Token,
+    val arguments: List<Expression>,
+    override var type: Type? = null,
+) : Expression
+
 public data class Unary(val operator: Token, val expression: Expression, override var type: Type? = null) : Expression
 
 public data class Grouping(val expression: Expression, override var type: Type? = null) : Expression

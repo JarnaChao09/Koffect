@@ -152,7 +152,39 @@ public class Parser(tokenSequence: Sequence<Token>) {
             return Unary(operator, this.unary())
         }
 
-        return this.atom()
+        return this.call()
+    }
+
+    private fun call(): Expression {
+        var expr = this.atom()
+
+        while (true) {
+            if (this.match(TokenType.LEFT_PAREN)) {
+                expr = this.finishCall(expr)
+            } /* else if (match(TokenType.DOT)) {
+                val name = expect(TokenType.IDENTIFIER, "Expected property name after '.'.")
+                expr = Get(expr, name)
+            } */ else {
+                break
+            }
+        }
+
+        return expr
+    }
+
+    private fun finishCall(callee: Expression): Expression {
+        val arguments = buildList {
+            if (!this@Parser.checkCurrent(TokenType.RIGHT_PAREN)) {
+                do {
+                    if (size >= 255) {
+                        error("Can't have more than 255 arguments")
+                    }
+                    add(this@Parser.expression())
+                } while (this@Parser.match(TokenType.COMMA))
+            }
+        }
+
+        return Call(callee, this.expect(TokenType.RIGHT_PAREN, "Expect ')' after arguments"), arguments)
     }
 
     private fun atom(): Expression {
@@ -223,7 +255,7 @@ public class Parser(tokenSequence: Sequence<Token>) {
 
     private fun expect(type: TokenType, message: String): Token {
         return if (this.checkCurrent(type)) {
-            advance()
+            this.advance()
         } else {
             error(message)
         }

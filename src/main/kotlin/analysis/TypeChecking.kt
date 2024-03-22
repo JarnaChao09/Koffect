@@ -21,7 +21,7 @@ public class TypeChecking(private var environment: Environment) {
                         }
                     }
 
-                    environment = environment + (it.name.lexeme to setOf(type))
+                    this.environment += (it.name.lexeme to setOf(type))
                 }
             }
         }
@@ -31,7 +31,7 @@ public class TypeChecking(private var environment: Environment) {
         return when (this) {
             is Assign -> {
                 val assignment = this.expression.check()
-                val type = environment[this.name.lexeme]!!.first()
+                val type = this@TypeChecking.environment[this.name.lexeme]!!.first()
 
                 if (type == assignment) {
                     this.type = type
@@ -70,6 +70,59 @@ public class TypeChecking(private var environment: Environment) {
                 this.type = found
 
                 found ?: error("Invalid Binary Operator, could not find definition using types $leftType and $rightType")
+            }
+            is Call -> {
+                val calleeType = when (this.callee) {
+                    is Variable -> this@TypeChecking.environment[this.callee.name.lexeme]!!
+                    else -> error("Invalid Callee, expected a variable")
+                }
+                val paramTypes = this.arguments.map {
+                    it.check()
+                }
+
+                // todo: return back to figure out a solution to give better error diagnostics
+                var found: Type? = null
+                for (possibleType in calleeType) {
+                    when (possibleType) {
+                        is TConstructor -> {
+                            if ("Function" !in possibleType.name) {
+                                error("Invalid call target: ${this.callee} is not of type Function")
+                            } else if (paramTypes.size != possibleType.generics.size - 1) {
+                                error("Invalid number of arguments for call to ${this.callee}: got ${paramTypes.size} but expected ${possibleType.generics.size - 1}")
+                            } else {
+                                var acc = true
+                                for (i in paramTypes.indices) {
+                                    when (val paramType = paramTypes[i]) {
+                                        is TConstructor -> {
+                                            when (val argType = possibleType.generics[i]) {
+                                                is TConstructor -> {
+                                                    acc = acc && paramType == argType
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                if (acc) {
+                                    found = possibleType
+                                    break
+                                }
+                            }
+                        }
+                    }
+                }
+
+                when (found) {
+                    is TConstructor -> {
+                        found.generics.last().also {
+                            this.callee.type = found
+                            this.type = it
+                        }
+                    }
+                    null-> {
+                        error("No valid function matching the call signature for ${this.callee.name} was found")
+                    }
+                }
             }
             is Grouping -> {
                 val type = this.expression.check()

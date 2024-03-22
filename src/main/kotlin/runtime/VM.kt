@@ -25,6 +25,10 @@ public class VM(
         return this.run()
     }
 
+    public fun addNativeFunction(name: String, nativeFunc: NativeFunc) {
+        this.globals[name] = NativeFunction(nativeFunc).toValue()
+    }
+
     private fun run(): Int {
         while (true) {
             when (this.currentChunk!!.code[this.ip++].toOpCode()) {
@@ -220,11 +224,32 @@ public class VM(
                         error("Undefined variable \"$name\"")
                     }
                 }
+                Opcode.Call -> {
+                    val argCount = this.currentChunk!!.code[this.ip++]
+
+                    val callee = this.peek(argCount)
+                    val args = Array<Value<*>>(argCount) {
+                        NullValue
+                    }
+
+                    repeat(argCount) {
+                        args[argCount - it - 1] = this.pop()
+                    }
+                    this.pop()
+
+                    when (callee) {
+                        is ObjectNativeFunction -> {
+                            val result = callee.value.function(args)
+
+                            this.push(result)
+                        }
+                        else -> error("Can only call functions and classes")
+                    }
+                }
                 Opcode.Pop -> {
                     this.pop()
                 }
                 Opcode.Return -> {
-                    println(this.pop())
                     return 0
                 }
             }

@@ -46,6 +46,11 @@ public class Chunk(
                 appendLine("%-16s %4d ${this@Chunk.constants[constant]}".format(instruction, constant))
                 offset + 2
             }
+            Opcode.Call -> {
+                val slot = this@Chunk.code[offset + 1]
+                appendLine("%-16s %4d".format(instruction, slot))
+                offset + 2
+            }
             Opcode.Jump,
             Opcode.JumpIfTrue,
             Opcode.JumpIfFalse -> {
