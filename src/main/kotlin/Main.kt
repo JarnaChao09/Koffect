@@ -151,6 +151,18 @@ public fun repl() {
                     ),
                 )
             )
+
+            put(
+                "readInt",
+                setOf(
+                    TConstructor(
+                        "Function1",
+                        listOf(
+                            TConstructor("Int"),
+                        ),
+                    ),
+                )
+            )
         }
     )
     val vm = VM()
@@ -173,37 +185,74 @@ public fun repl() {
         av.pow(bv).toValue()
     }
 
-    var i = 0
-    while (true) {
-        i++
-        print("[$i]>>> ")
-        readlnOrNull()?.takeIf {
-            it != ":q"
-        }?.let {
-            try {
-                val lexer = Lexer(it)
-                val parser = Parser(lexer.tokens)
-                val codegen = CodeGenerator()
+    vm.addNativeFunction("readInt") {
+        assert(it.isEmpty())
 
-                val tree = parser.parse()
-
-                tree.forEach(::println)
-
-                typechecker.check(tree)
-
-                tree.forEach(::println)
-
-                val chunk = codegen.generate(tree)
-
-                vm.interpret(chunk.also { c ->
-                    println(c.disassemble("repl $i"))
-                })
-            } catch (e: Exception) {
-                println("error: ${e.localizedMessage}")
-//                e.printStackTrace()
-            } catch (e: NotImplementedError) {
-                println(e.localizedMessage)
-            }
-        } ?: break
+        readln().toInt().toValue()
     }
+
+    val srcString = """
+        val x: Int = readInt();
+        val y: Int = readInt();
+
+        if (x > y)
+            println("x is greater than y")
+        else if (x < y)
+            println("x is less than y")
+        else
+            println("x is equal to y")
+    """.trimIndent()
+
+    val lexer = Lexer(srcString)
+    val parser = Parser(lexer.tokens)
+    val codegen = CodeGenerator()
+
+    val tree = parser.parse()
+
+    tree.forEach(::println)
+
+    typechecker.check(tree)
+
+    tree.forEach(::println)
+
+    val chunk = codegen.generate(tree)
+
+    vm.interpret(chunk.also { c ->
+        println(c.disassemble("source string"))
+        println("=== source string ===")
+    })
+
+//    var i = 0
+//    while (true) {
+//        i++
+//        print("[$i]>>> ")
+//        readlnOrNull()?.takeIf {
+//            it != ":q"
+//        }?.let {
+//            try {
+//                val lexer = Lexer(it)
+//                val parser = Parser(lexer.tokens)
+//                val codegen = CodeGenerator()
+//
+//                val tree = parser.parse()
+//
+//                tree.forEach(::println)
+//
+//                typechecker.check(tree)
+//
+//                tree.forEach(::println)
+//
+//                val chunk = codegen.generate(tree)
+//
+//                vm.interpret(chunk.also { c ->
+//                    println(c.disassemble("repl $i"))
+//                })
+//            } catch (e: Exception) {
+//                println("error: ${e.localizedMessage}")
+////                e.printStackTrace()
+//            } catch (e: NotImplementedError) {
+//                println(e.localizedMessage)
+//            }
+//        } ?: break
+//    }
 }

@@ -47,8 +47,20 @@ public class Parser(tokenSequence: Sequence<Token>) {
     }
 
     private fun statement(): Statement {
-        return ExpressionStatement(this.expression()).also {
-            expect(TokenType.EOS, "Must end with an end of statement")
+        return when {
+            match(TokenType.IF) -> {
+                expect(TokenType.LEFT_PAREN, "Expecting '(' at start of if expression condition")
+                val condition = this.expression()
+                expect(TokenType.RIGHT_PAREN, "Expecting ')' at end of if expression condition")
+                val trueBranch = this.expression()
+                expect(TokenType.ELSE, "Expecting if to be followed by else to be used as expression")
+                val falseBranch = this.expression()
+
+                ExpressionStatement(If(condition, trueBranch, falseBranch))
+            }
+            else -> ExpressionStatement(this.expression()).also {
+                expect(TokenType.EOS, "Must end with an end of statement")
+            }
         }
     }
 
@@ -101,7 +113,7 @@ public class Parser(tokenSequence: Sequence<Token>) {
     private fun equality(): Expression {
         var expr = this.comparison()
 
-        while (this.match(TokenType.NOT_EQ, TokenType.EQUALS)) {
+        while (match(TokenType.NOT_EQ, TokenType.EQUALS)) {
             val operator = this.previous
             val right = this.comparison()
             expr = Binary(expr, operator, right)
@@ -113,7 +125,7 @@ public class Parser(tokenSequence: Sequence<Token>) {
     private fun comparison(): Expression {
         var expr = this.term()
 
-        while (this.match(TokenType.GE, TokenType.GT, TokenType.LE, TokenType.LT)) {
+        while (match(TokenType.GE, TokenType.GT, TokenType.LE, TokenType.LT)) {
             val operator = this.previous
             val right = this.term()
             expr = Binary(expr, operator, right)
@@ -125,7 +137,7 @@ public class Parser(tokenSequence: Sequence<Token>) {
     private fun term(): Expression {
         var expr = this.factor()
 
-        while (this.match(TokenType.PLUS, TokenType.MINUS)) {
+        while (match(TokenType.PLUS, TokenType.MINUS)) {
             val operator = this.previous
             val right = this.factor()
             expr = Binary(expr, operator, right)
@@ -137,7 +149,7 @@ public class Parser(tokenSequence: Sequence<Token>) {
     private fun factor(): Expression {
         var expr = this.unary()
 
-        while (this.match(TokenType.STAR, TokenType.SLASH, TokenType.MOD)) {
+        while (match(TokenType.STAR, TokenType.SLASH, TokenType.MOD)) {
             val operator = this.previous
             val right = this.unary()
             expr = Binary(expr, operator, right)
@@ -147,7 +159,7 @@ public class Parser(tokenSequence: Sequence<Token>) {
     }
 
     private fun unary(): Expression {
-        if (this.match(TokenType.PLUS, TokenType.MINUS, TokenType.NOT)) {
+        if (match(TokenType.PLUS, TokenType.MINUS, TokenType.NOT)) {
             val operator = this.previous
             return Unary(operator, this.unary())
         }
@@ -159,7 +171,7 @@ public class Parser(tokenSequence: Sequence<Token>) {
         var expr = this.atom()
 
         while (true) {
-            if (this.match(TokenType.LEFT_PAREN)) {
+            if (match(TokenType.LEFT_PAREN)) {
                 expr = this.finishCall(expr)
             } /* else if (match(TokenType.DOT)) {
                 val name = expect(TokenType.IDENTIFIER, "Expected property name after '.'.")
