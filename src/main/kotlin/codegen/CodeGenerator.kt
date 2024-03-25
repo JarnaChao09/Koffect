@@ -27,7 +27,6 @@ public class CodeGenerator {
                     dfs(it.expression)
                 }
                 is IfStatement -> {
-                    println("if")
                     this.generateIf(it.condition, it.trueBranch, it.falseBranch)
                 }
                 is VariableStatement -> {
