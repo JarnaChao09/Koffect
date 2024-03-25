@@ -70,10 +70,10 @@ public data class Logical(val left: Expression, val operator: Token, val right: 
         set(_) = error("Logical operators must always return Boolean")
 }
 
-public data class If(
+public data class IfExpression(
     val condition: Expression,
-    val trueBranch: Expression,
-    val falseBranch: Expression,
+    val trueBranch: List<Statement>,
+    val falseBranch: List<Statement>,
     override var type: Type? = null,
 ) : Expression
 

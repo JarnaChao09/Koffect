@@ -124,7 +124,32 @@ public fun repl() {
             put(
                 "println",
                 buildSet {
-                    for (type in listOf("Int", "Double", "Boolean", "String", "Nothing?")) {
+                    for (type in listOf("Int", "Double", "Boolean", "String", "Unit", "Nothing?")) {
+                        add(
+                            TConstructor(
+                                "Function1",
+                                listOf(
+                                    TConstructor(type),
+                                    TConstructor("Unit")
+                                ),
+                            )
+                        )
+                    }
+                    add(
+                        TConstructor(
+                            "Function0",
+                            listOf(
+                                TConstructor("Unit")
+                            ),
+                        )
+                    )
+                }
+            )
+
+            put(
+                "print",
+                buildSet {
+                    for (type in listOf("Int", "Double", "Boolean", "String", "Unit", "Nothing?")) {
                         add(
                             TConstructor(
                                 "Function1",
@@ -168,8 +193,19 @@ public fun repl() {
     val vm = VM()
 
     vm.addNativeFunction("println") {
+        if (it.isNotEmpty()) {
+            assert(it.size == 1)
+            println(it[0])
+            UnitValue
+        } else {
+            println()
+            UnitValue
+        }
+    }
+
+    vm.addNativeFunction("print") {
         assert(it.size == 1)
-        println(it[0])
+        print(it[0])
         UnitValue
     }
 
@@ -195,12 +231,26 @@ public fun repl() {
         val x: Int = readInt();
         val y: Int = readInt();
 
-        if (x > y)
-            println("x is greater than y")
-        else if (x < y)
-            println("x is less than y")
-        else
-            println("x is equal to y")
+        if (x > y) {
+            print(x);
+            print(" is greater than ");
+            println(y);
+        } else if (x < y) {
+            print(x);
+            print(" is less than ");
+            print(y);
+            println();
+        } else {
+            print(x);
+            print(" is equal to ");
+            println(y);
+        }
+        
+        println(if (x == y) {
+            x + y;
+        } else {
+            x * y;
+        });
     """.trimIndent()
 
     val lexer = Lexer(srcString)

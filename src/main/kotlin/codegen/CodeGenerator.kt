@@ -13,10 +13,22 @@ public class CodeGenerator {
     public fun generate(ast: List<Statement>): Chunk {
         this.currentChunk = Chunk()
 
+        this.generateStatements(ast)
+
+        this.currentChunk.write(Opcode.Return.toInt(), this.line++)
+
+        return this.currentChunk
+    }
+
+    private fun generateStatements(ast: List<Statement>) {
         ast.forEach {
             when(it) {
                 is ExpressionStatement -> {
                     dfs(it.expression)
+                }
+                is IfStatement -> {
+                    println("if")
+                    this.generateIf(it.condition, it.trueBranch, it.falseBranch)
                 }
                 is VariableStatement -> {
                     val binding = this.currentChunk.addConstant(it.name.lexeme.toValue())
@@ -30,10 +42,6 @@ public class CodeGenerator {
                 }
             }
         }
-
-        this.currentChunk.write(Opcode.Return.toInt(), this.line++)
-
-        return this.currentChunk
     }
 
     private fun dfs(root: Expression) {
@@ -253,21 +261,8 @@ public class CodeGenerator {
             is Grouping -> {
                 dfs(root.expression)
             }
-            is If -> {
-                dfs(root.condition)
-
-                val elseBranch = this.currentChunk.emitJump(Opcode.JumpIfFalse)
-                this.currentChunk.write(Opcode.Pop.toInt(), this.line++)
-
-                dfs(root.trueBranch)
-
-                val skipElseBranch = this.currentChunk.emitJump(Opcode.Jump)
-                this.currentChunk.patchJump(elseBranch)
-                this.currentChunk.write(Opcode.Pop.toInt(), this.line++)
-
-                dfs(root.falseBranch)
-
-                this.currentChunk.patchJump(skipElseBranch)
+            is IfExpression -> {
+                this.generateIf(root.condition, root.trueBranch, root.falseBranch)
             }
             is DoubleLiteral -> {
                 val constant = this.currentChunk.addConstant(root.value.toValue())
@@ -372,6 +367,23 @@ public class CodeGenerator {
                 this.currentChunk.write(binding, this.line++)
             }
         }
+    }
+
+    private fun generateIf(condition: Expression, trueBranch: List<Statement>, falseBranch: List<Statement>) {
+        this.dfs(condition)
+
+        val elseBranch = this.currentChunk.emitJump(Opcode.JumpIfFalse)
+        this.currentChunk.write(Opcode.Pop.toInt(), this.line++)
+
+        this.generateStatements(trueBranch)
+
+        val skipElseBranch = this.currentChunk.emitJump(Opcode.Jump)
+        this.currentChunk.patchJump(elseBranch)
+        this.currentChunk.write(Opcode.Pop.toInt(), this.line++)
+
+        this.generateStatements(falseBranch)
+
+        this.currentChunk.patchJump(skipElseBranch)
     }
 
     private fun Chunk.emitJump(instruction: Opcode): Int {

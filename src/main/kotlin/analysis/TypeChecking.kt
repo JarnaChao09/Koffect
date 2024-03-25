@@ -11,6 +11,11 @@ public class TypeChecking(private var environment: Environment) {
         statements.forEach {
             when (it) {
                 is ExpressionStatement -> it.expression.check()
+                is IfStatement -> {
+                    it.condition.check()
+                    check(it.trueBranch)
+                    check(it.falseBranch)
+                }
                 is VariableStatement -> {
                     val type = it.type ?: error("Variables must be annotated with a type (type inference is not implemented)")
                     val initializerType = it.initializer?.check()
@@ -88,7 +93,7 @@ public class TypeChecking(private var environment: Environment) {
                             if ("Function" !in possibleType.name) {
                                 error("Invalid call target: ${this.callee} is not of type Function")
                             } else if (paramTypes.size != possibleType.generics.size - 1) {
-                                error("Invalid number of arguments for call to ${this.callee}: got ${paramTypes.size} but expected ${possibleType.generics.size - 1}")
+                                // error("Invalid number of arguments for call to ${this.callee}: got ${paramTypes.size} but expected ${possibleType.generics.size - 1}")
                             } else {
                                 var acc = true
                                 for (i in paramTypes.indices) {
@@ -129,10 +134,18 @@ public class TypeChecking(private var environment: Environment) {
                 this.type = type
                 type
             }
-            is If -> {
+            is IfExpression -> {
                 val conditionType = this.condition.check()
-                val trueType = this.trueBranch.check()
-                val falseType = this.falseBranch.check()
+                check(this.trueBranch)
+                check(this.falseBranch)
+                val trueType: Type = when (val trueBranchLast = this.trueBranch.last()) {
+                    is ExpressionStatement -> trueBranchLast.expression.type!!
+                    else -> TConstructor("Unit")
+                }
+                val falseType = when (val falseBranchLast = this.falseBranch.last()) {
+                    is ExpressionStatement -> falseBranchLast.expression.type!!
+                    else -> TConstructor("Unit")
+                }
 
                 require(conditionType == TConstructor("Boolean")) {
                     "the conditional must be of type Boolean, found $conditionType"

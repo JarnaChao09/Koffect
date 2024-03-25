@@ -49,19 +49,45 @@ public class Parser(tokenSequence: Sequence<Token>) {
     private fun statement(): Statement {
         return when {
             match(TokenType.IF) -> {
-                expect(TokenType.LEFT_PAREN, "Expecting '(' at start of if expression condition")
-                val condition = this.expression()
-                expect(TokenType.RIGHT_PAREN, "Expecting ')' at end of if expression condition")
-                val trueBranch = this.expression()
-                expect(TokenType.ELSE, "Expecting if to be followed by else to be used as expression")
-                val falseBranch = this.expression()
-
-                ExpressionStatement(If(condition, trueBranch, falseBranch))
+                val (condition, trueBranch, falseBranch) = this.generalIf(false)
+                IfStatement(condition, trueBranch, falseBranch)
             }
             else -> ExpressionStatement(this.expression()).also {
                 expect(TokenType.EOS, "Must end with an end of statement")
             }
         }
+    }
+
+    private fun generalIf(forceTrailingElse: Boolean): Triple<Expression, List<Statement>, List<Statement>> {
+        fun parseBranch(): List<Statement> {
+            return if (match(TokenType.LEFT_BRACE)) {
+                buildList {
+                    while (!this@Parser.checkCurrent(TokenType.RIGHT_BRACE) && !this@Parser.isAtEnd()) {
+                        add(this@Parser.declaration())
+                    }
+
+                    this@Parser.expect(TokenType.RIGHT_BRACE, "Expect '}' after a block")
+                }
+            } else {
+                listOf(this.declaration())
+            }
+        }
+        expect(TokenType.LEFT_PAREN, "Expecting '(' at start of if expression condition")
+        val condition = this.expression()
+        expect(TokenType.RIGHT_PAREN, "Expecting ')' at end of if expression condition")
+        val trueBranch = parseBranch()
+        val falseBranch = if (forceTrailingElse) {
+            expect(TokenType.ELSE, "Expecting if to be followed by else to be used as expression")
+            parseBranch()
+        } else {
+            if (match(TokenType.ELSE)) {
+                parseBranch()
+            } else {
+                listOf()
+            }
+        }
+
+        return Triple(condition, trueBranch, falseBranch)
     }
 
     private fun expression(): Expression {
@@ -219,14 +245,8 @@ public class Parser(tokenSequence: Sequence<Token>) {
                 Grouping(expr)
             }
             match(TokenType.IF) -> {
-                expect(TokenType.LEFT_PAREN, "Expecting '(' at start of if expression condition")
-                val condition = this.expression()
-                expect(TokenType.RIGHT_PAREN, "Expecting ')' at end of if expression condition")
-                val trueBranch = this.expression()
-                expect(TokenType.ELSE, "Expecting if to be followed by else to be used as expression")
-                val falseBranch = this.expression()
-
-                If(condition, trueBranch, falseBranch)
+                val (condition, trueBranch, falseBranch) = this.generalIf(true)
+                IfExpression(condition, trueBranch, falseBranch)
             }
 
             else -> error("Invalid expression")

@@ -7,6 +7,12 @@ public sealed interface Statement
 
 public data class ExpressionStatement(public val expression: Expression) : Statement
 
+public data class IfStatement(
+    val condition: Expression,
+    val trueBranch: List<Statement>,
+    val falseBranch: List<Statement>,
+) : Statement
+
 public sealed interface VariableStatement : Statement {
     public val name: Token
 
