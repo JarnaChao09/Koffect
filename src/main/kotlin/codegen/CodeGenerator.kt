@@ -39,6 +39,21 @@ public class CodeGenerator {
                     this.currentChunk.write(Opcode.DefineGlobal.toInt(), this.line)
                     this.currentChunk.write(binding, this.line++)
                 }
+                is WhileStatement -> {
+                    val loopStart = this.currentChunk.code.size
+
+                    this.dfs(it.condition)
+
+                    val exitJump = this.currentChunk.emitJump(Opcode.JumpIfFalse)
+                    this.currentChunk.write(Opcode.Pop.toInt(), this.line++)
+
+                    this.generateStatements(it.body)
+
+                    this.currentChunk.patchLoop(loopStart)
+
+                    this.currentChunk.patchJump(exitJump)
+                    this.currentChunk.write(Opcode.Pop.toInt(), this.line++)
+                }
             }
         }
     }
@@ -395,5 +410,13 @@ public class CodeGenerator {
         val jump = this.code.size - offset - 1
 
         this.code[offset] = jump
+    }
+
+    private fun Chunk.patchLoop(loopStart: Int) {
+        this.write(Opcode.Jump.toInt(), this@CodeGenerator.line)
+
+        val offset = this.code.size - loopStart + 1
+
+        this.write(-offset, this@CodeGenerator.line++)
     }
 }

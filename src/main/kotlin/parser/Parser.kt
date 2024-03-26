@@ -52,29 +52,34 @@ public class Parser(tokenSequence: Sequence<Token>) {
                 val (condition, trueBranch, falseBranch) = this.generalIf(false)
                 IfStatement(condition, trueBranch, falseBranch)
             }
+            match(TokenType.WHILE) -> {
+                this.whileStatement()
+            }
             else -> ExpressionStatement(this.expression()).also {
                 expect(TokenType.EOS, "Must end with an end of statement")
             }
         }
     }
 
+    private fun whileStatement(): Statement {
+        expect(TokenType.LEFT_PAREN, "Expect '(' at start of while condition")
+
+        val condition = this.expression()
+
+        expect(TokenType.RIGHT_PAREN, "Expect ')' at the end of while condition")
+
+        val body = this.parseBody()
+
+        return WhileStatement(condition, body)
+    }
+
     private fun generalIf(forceTrailingElse: Boolean): Triple<Expression, List<Statement>, List<Statement>> {
         fun parseBranch(): List<Statement> {
-            return if (match(TokenType.LEFT_BRACE)) {
-                buildList {
-                    while (!this@Parser.checkCurrent(TokenType.RIGHT_BRACE) && !this@Parser.isAtEnd()) {
-                        add(this@Parser.declaration())
-                    }
-
-                    this@Parser.expect(TokenType.RIGHT_BRACE, "Expect '}' after a block")
-                }
-            } else {
-                listOf(this.declaration())
-            }
+            return this.parseBody()
         }
-        expect(TokenType.LEFT_PAREN, "Expecting '(' at start of if expression condition")
+        expect(TokenType.LEFT_PAREN, "Expecting '(' at start of if condition")
         val condition = this.expression()
-        expect(TokenType.RIGHT_PAREN, "Expecting ')' at end of if expression condition")
+        expect(TokenType.RIGHT_PAREN, "Expecting ')' at end of if condition")
         val trueBranch = parseBranch()
         val falseBranch = if (forceTrailingElse) {
             expect(TokenType.ELSE, "Expecting if to be followed by else to be used as expression")
@@ -88,6 +93,20 @@ public class Parser(tokenSequence: Sequence<Token>) {
         }
 
         return Triple(condition, trueBranch, falseBranch)
+    }
+
+    private fun parseBody(): List<Statement> {
+        return if (match(TokenType.LEFT_BRACE)) {
+            buildList {
+                while (!this@Parser.checkCurrent(TokenType.RIGHT_BRACE) && !this@Parser.isAtEnd()) {
+                    add(this@Parser.declaration())
+                }
+
+                this@Parser.expect(TokenType.RIGHT_BRACE, "Expect '}' after a block")
+            }
+        } else {
+            listOf(this.statement())
+        }
     }
 
     private fun expression(): Expression {

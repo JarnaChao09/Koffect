@@ -12,7 +12,11 @@ public class TypeChecking(private var environment: Environment) {
             when (it) {
                 is ExpressionStatement -> it.expression.check()
                 is IfStatement -> {
-                    it.condition.check()
+                    when (val conditionType = it.condition.check()) {
+                        is TConstructor -> if (conditionType.name != "Boolean") {
+                            error("Condition expected to return a Boolean, but a ${conditionType.name} was found")
+                        }
+                    }
                     check(it.trueBranch)
                     check(it.falseBranch)
                 }
@@ -27,6 +31,14 @@ public class TypeChecking(private var environment: Environment) {
                     }
 
                     this.environment += (it.name.lexeme to setOf(type))
+                }
+                is WhileStatement -> {
+                    when (val conditionType = it.condition.check()) {
+                        is TConstructor -> if (conditionType.name != "Boolean") {
+                            error("Condition expected to return a Boolean, but a ${conditionType.name} was found")
+                        }
+                    }
+                    check(it.body)
                 }
             }
         }

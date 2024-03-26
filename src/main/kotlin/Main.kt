@@ -228,29 +228,26 @@ public fun repl() {
     }
 
     val srcString = """
-        val x: Int = readInt();
-        val y: Int = readInt();
-
-        if (x > y) {
-            print(x);
-            print(" is greater than ");
-            println(y);
-        } else if (x < y) {
-            print(x);
-            print(" is less than ");
-            print(y);
-            println();
-        } else {
-            print(x);
-            print(" is equal to ");
-            println(y);
-        }
+        var a: Int = 0;
+        var b: Int = 1;
+        val n: Int = readInt();
         
-        println(if (x == y) {
-            x + y;
+        print("fib(");
+        print(n);
+        print(") = ");
+        if (n == 0) {
+            println(0);
         } else {
-            x * y;
-        });
+            var i: Int = 0;
+            while (i < n - 1) {
+                val tmp: Int = a + b;
+                a = b;
+                b = tmp;
+                i = i + 1;
+            }
+            
+            println(b);
+        }
     """.trimIndent()
 
     val lexer = Lexer(srcString)
