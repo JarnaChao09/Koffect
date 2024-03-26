@@ -188,6 +188,18 @@ public fun repl() {
                     ),
                 )
             )
+
+            put(
+                "readDouble",
+                setOf(
+                    TConstructor(
+                        "Function1",
+                        listOf(
+                            TConstructor("Double")
+                        ),
+                    ),
+                )
+            )
         }
     )
     val vm = VM()
@@ -227,10 +239,17 @@ public fun repl() {
         readln().toInt().toValue()
     }
 
+    vm.addNativeFunction("readDouble") {
+        assert(it.isEmpty())
+
+        readln().toDouble().toValue()
+    }
+
     val srcString = """
         var a: Int = 0;
         var b: Int = 1;
         val n: Int = readInt();
+        val test: Double = readDouble();
         
         print("fib(");
         print(n);
@@ -248,6 +267,7 @@ public fun repl() {
             
             println(b);
         }
+        println(test);
     """.trimIndent()
 
     val lexer = Lexer(srcString)
