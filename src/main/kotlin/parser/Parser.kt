@@ -18,10 +18,16 @@ public class Parser(tokenSequence: Sequence<Token>) {
     }
 
     private fun declaration(): Statement {
-        return if (match(TokenType.VAL, TokenType.VAR)) {
-            this.variableDeclaration()
-        } else {
-            this.statement()
+        return when {
+            match(TokenType.VAL, TokenType.VAR) -> {
+                this.variableDeclaration()
+            }
+            match(TokenType.FUN) -> {
+                this.functionDeclaration()
+            }
+            else -> {
+                this.statement()
+            }
         }
     }
 
@@ -44,6 +50,50 @@ public class Parser(tokenSequence: Sequence<Token>) {
         expect(TokenType.EOS, "Expected an end of statement after variable declaration")
 
         return VariableStatement(type, name, typeAnnotation, initializer)
+    }
+
+    private fun functionDeclaration(): FunctionDeclaration {
+        val name = expect(TokenType.IDENTIFIER, "Expect function name")
+        expect(TokenType.LEFT_PAREN, "Expect '(' after function name")
+        val parameters = buildList {
+            if (!this@Parser.checkCurrent(TokenType.RIGHT_PAREN)) {
+                do {
+                    if (size >= 255) {
+                        error("Cannot have more than 255 parameters")
+                    }
+
+                    val parameterName = expect(TokenType.IDENTIFIER, "Expected parameter name")
+                    expect(TokenType.COLON, "Expected type annotation after parameter name")
+                    val parameterType = expect(TokenType.IDENTIFIER, "Expected parameter type")
+
+                    add(FunctionDeclaration.Parameter(parameterName, TConstructor(parameterType.lexeme)))
+                } while (match(TokenType.COMMA))
+            }
+        }
+        expect(TokenType.RIGHT_PAREN, "Expect ')' after parameter list")
+
+        val returnType: Type = when {
+            match(TokenType.COLON) -> {
+                this.advance()
+                TConstructor(this.previous.lexeme)
+            }
+            else -> TConstructor("Unit")
+        }
+
+
+        val body = when {
+            match(TokenType.LEFT_BRACE) -> buildList {
+                while (!this@Parser.checkCurrent(TokenType.RIGHT_BRACE) && !this@Parser.isAtEnd()) {
+                    add(this@Parser.declaration())
+                }
+
+                this@Parser.expect(TokenType.RIGHT_BRACE, "Expect '}' after a block")
+            }
+            match(TokenType.ASSIGN) -> listOf(this.statement())
+            else -> error("Expected a function body")
+        }
+
+        return FunctionDeclaration(name, parameters, returnType, body)
     }
 
     private fun statement(): Statement {

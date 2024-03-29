@@ -1,4 +1,4 @@
-import analysis.TypeChecking
+import analysis.TypeChecker
 import codegen.CodeGenerator
 import lexer.Lexer
 import parser.Parser
@@ -20,7 +20,7 @@ public fun main(args: Array<String>) {
 }
 
 public fun repl() {
-    val typechecker = TypeChecking(
+    val typechecker = TypeChecker(
         buildMap {
             for (function in listOf("plus", "minus", "times", "div", "mod")) {
                 put(
@@ -245,29 +245,35 @@ public fun repl() {
         readln().toDouble().toValue()
     }
 
+//    val srcString = """
+//        var a: Int = 0;
+//        var b: Int = 1;
+//        val n: Int = readInt();
+//        val test: Double = readDouble();
+//
+//        print("fib(");
+//        print(n);
+//        print(") = ");
+//        if (n == 0) {
+//            println(0);
+//        } else {
+//            var i: Int = 0;
+//            while (i < n - 1) {
+//                val tmp: Int = a + b;
+//                a = b;
+//                b = tmp;
+//                i = i + 1;
+//            }
+//
+//            println(b);
+//        }
+//        println(test);
+//    """.trimIndent()
+
     val srcString = """
-        var a: Int = 0;
-        var b: Int = 1;
-        val n: Int = readInt();
-        val test: Double = readDouble();
+        fun foo(bar: Int, baz: Boolean): String {}
         
-        print("fib(");
-        print(n);
-        print(") = ");
-        if (n == 0) {
-            println(0);
-        } else {
-            var i: Int = 0;
-            while (i < n - 1) {
-                val tmp: Int = a + b;
-                a = b;
-                b = tmp;
-                i = i + 1;
-            }
-            
-            println(b);
-        }
-        println(test);
+        fun test() {}
     """.trimIndent()
 
     val lexer = Lexer(srcString)
@@ -282,12 +288,15 @@ public fun repl() {
 
     tree.forEach(::println)
 
-    val chunk = codegen.generate(tree)
+    println(typechecker.environment["foo"])
+    println(typechecker.environment["test"])
 
-    vm.interpret(chunk.also { c ->
-        println(c.disassemble("source string"))
-        println("=== source string ===")
-    })
+//    val chunk = codegen.generate(tree)
+//
+//    vm.interpret(chunk.also { c ->
+//        println(c.disassemble("source string"))
+//        println("=== source string ===")
+//    })
 
 //    var i = 0
 //    while (true) {

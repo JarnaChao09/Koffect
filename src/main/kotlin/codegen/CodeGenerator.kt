@@ -29,6 +29,9 @@ public class CodeGenerator {
                 is IfStatement -> {
                     this.generateIf(it.condition, it.trueBranch, it.falseBranch)
                 }
+                is FunctionDeclaration -> {
+                    TODO()
+                }
                 is VariableStatement -> {
                     val binding = this.currentChunk.addConstant(it.name.lexeme.toValue())
 

@@ -7,6 +7,13 @@ public sealed interface Statement
 
 public data class ExpressionStatement(public val expression: Expression) : Statement
 
+public data class FunctionDeclaration(val name: Token, val parameters: List<Parameter>, val returnType: Type, val body: List<Statement>) : Statement {
+    public data class Parameter(val name: Token, val type: Type)
+
+    public val arity: Int
+        get() = this.parameters.size
+}
+
 public data class IfStatement(
     val condition: Expression,
     val trueBranch: List<Statement>,

@@ -6,7 +6,7 @@ import parser.ast.Grouping
 
 public typealias Environment = Map<String, Set<Type>>
 
-public class TypeChecking(private var environment: Environment) {
+public class TypeChecker(public var environment: Environment) {
     public fun check(statements: List<Statement>) {
         statements.forEach {
             when (it) {
@@ -19,6 +19,17 @@ public class TypeChecking(private var environment: Environment) {
                     }
                     check(it.trueBranch)
                     check(it.falseBranch)
+                }
+                is FunctionDeclaration -> {
+                    val name = it.name.lexeme
+                    val parameterTypes = it.parameters.map { (_, type) -> type }
+                    val returnType = it.returnType
+
+                    val functionType = TConstructor("Function${it.arity}", parameterTypes + listOf(returnType))
+
+                    val oldFunctionType = this.environment.getOrDefault(name, setOf())
+
+                    this.environment += (name to setOf(functionType) + oldFunctionType)
                 }
                 is VariableStatement -> {
                     val type = it.type ?: error("Variables must be annotated with a type (type inference is not implemented)")
@@ -48,7 +59,7 @@ public class TypeChecking(private var environment: Environment) {
         return when (this) {
             is Assign -> {
                 val assignment = this.expression.check()
-                val type = this@TypeChecking.environment[this.name.lexeme]!!.first()
+                val type = this@TypeChecker.environment[this.name.lexeme]!!.first()
 
                 if (type == assignment) {
                     this.type = type
@@ -73,7 +84,7 @@ public class TypeChecking(private var environment: Environment) {
 
                 var found: Type? = null
 
-                for (currentType in this@TypeChecking.environment[function]!!) {
+                for (currentType in this@TypeChecker.environment[function]!!) {
                     when (currentType) {
                         is TConstructor -> {
                             if (leftType == currentType.generics[0] && rightType == currentType.generics[1]) {
@@ -90,7 +101,7 @@ public class TypeChecking(private var environment: Environment) {
             }
             is Call -> {
                 val calleeType = when (this.callee) {
-                    is Variable -> this@TypeChecking.environment[this.callee.name.lexeme]!!
+                    is Variable -> this@TypeChecker.environment[this.callee.name.lexeme]!!
                     else -> error("Invalid Callee, expected a variable")
                 }
                 val paramTypes = this.arguments.map {
@@ -179,7 +190,7 @@ public class TypeChecking(private var environment: Environment) {
 
                 var found: Type? = null
 
-                for (currentType in this@TypeChecking.environment[function]!!) {
+                for (currentType in this@TypeChecker.environment[function]!!) {
                     when (currentType) {
                         is TConstructor -> {
                             if (leftType == currentType.generics[0] && rightType == currentType.generics[1]) {
@@ -203,7 +214,7 @@ public class TypeChecking(private var environment: Environment) {
 
                 var found: Type? = null
 
-                for (currentType in this@TypeChecking.environment[function]!!) {
+                for (currentType in this@TypeChecker.environment[function]!!) {
                     when (currentType) {
                         is TConstructor -> {
                             if (expressionType == currentType.generics[0]) {
