@@ -42,4 +42,6 @@ public data class Var(override val name: Token, override val type: Type?, overri
 
 public data class Val(override val name: Token, override val type: Type?, override val initializer: Expression?) : VariableStatement
 
+public data class ReturnStatement(val keyword: Token, val value: Expression?) : Statement
+
 public data class WhileStatement(val condition: Expression, val body: List<Statement>) : Statement

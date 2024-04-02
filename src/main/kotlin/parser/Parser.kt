@@ -105,6 +105,9 @@ public class Parser(tokenSequence: Sequence<Token>) {
             match(TokenType.WHILE) -> {
                 this.whileStatement()
             }
+            match(TokenType.RETURN) -> {
+                this.returnStatement()
+            }
             else -> ExpressionStatement(this.expression()).also {
                 expect(TokenType.EOS, "Must end with an end of statement")
             }
@@ -121,6 +124,20 @@ public class Parser(tokenSequence: Sequence<Token>) {
         val body = this.parseBody()
 
         return WhileStatement(condition, body)
+    }
+
+    private fun returnStatement(): Statement {
+        val keyword = this.previous
+
+        val expression = if (!match(TokenType.EOS)) {
+            this.expression()
+        } else {
+            null
+        }
+
+        expect(TokenType.EOS, "Expect an end of statement after return value")
+
+        return ReturnStatement(keyword, expression)
     }
 
     private fun generalIf(forceTrailingElse: Boolean): Triple<Expression, List<Statement>, List<Statement>> {

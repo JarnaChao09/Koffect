@@ -271,9 +271,19 @@ public fun repl() {
 //    """.trimIndent()
 
     val srcString = """
-        fun foo(bar: Int, baz: Boolean): String {}
+        fun foo(bar: Int, baz: Boolean): String {
+            if (baz) {
+                return "test";
+            } else {
+                return "hello world";
+            }
+        }
         
-        fun test() {}
+        fun test() {
+            println(foo(10, false));
+        }
+        
+        test();
     """.trimIndent()
 
     val lexer = Lexer(srcString)

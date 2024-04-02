@@ -57,6 +57,9 @@ public class CodeGenerator {
                     this.currentChunk.patchJump(exitJump)
                     this.currentChunk.write(Opcode.Pop.toInt(), this.line++)
                 }
+                is ReturnStatement -> {
+                    TODO()
+                }
             }
         }
     }

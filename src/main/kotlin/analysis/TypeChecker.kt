@@ -7,7 +7,8 @@ import parser.ast.Grouping
 public typealias Environment = Map<String, Set<Type>>
 
 public class TypeChecker(public var environment: Environment) {
-    public fun check(statements: List<Statement>) {
+    public fun check(statements: List<Statement>, expectedType: Type? = null) {
+        var found = false
         statements.forEach {
             when (it) {
                 is ExpressionStatement -> it.expression.check()
@@ -17,13 +18,23 @@ public class TypeChecker(public var environment: Environment) {
                             error("Condition expected to return a Boolean, but a ${conditionType.name} was found")
                         }
                     }
-                    check(it.trueBranch)
-                    check(it.falseBranch)
+                    check(it.trueBranch, expectedType)
+                    check(it.falseBranch, expectedType)
                 }
                 is FunctionDeclaration -> {
                     val name = it.name.lexeme
                     val parameterTypes = it.parameters.map { (_, type) -> type }
                     val returnType = it.returnType
+
+                    val oldEnv = this.environment
+
+                    it.parameters.forEach { (name, type) ->
+                        this.environment += (name.lexeme to setOf(type))
+                    }
+
+                    check(it.body, returnType)
+
+                    this.environment = oldEnv
 
                     val functionType = TConstructor("Function${it.arity}", parameterTypes + listOf(returnType))
 
@@ -49,7 +60,24 @@ public class TypeChecker(public var environment: Environment) {
                             error("Condition expected to return a Boolean, but a ${conditionType.name} was found")
                         }
                     }
-                    check(it.body)
+                    check(it.body, expectedType)
+                }
+                is ReturnStatement -> {
+                    val returnType = it.value?.check()
+
+                    if (returnType != expectedType) {
+                        error("Incorrect return type, expected $expectedType but found $returnType")
+                    } else {
+                        found = true
+                    }
+                }
+            }
+        }
+
+        if (expectedType != null) {
+            when (expectedType) {
+                is TConstructor -> if (!found && expectedType.name != "Unit") {
+                    error("Expected to find a return type $expectedType but found none")
                 }
             }
         }
