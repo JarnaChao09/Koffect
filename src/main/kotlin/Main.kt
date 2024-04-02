@@ -281,6 +281,7 @@ public fun repl() {
         
         fun test() {
             println(foo(10, false));
+            return;
         }
         
         test();

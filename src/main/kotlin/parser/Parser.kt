@@ -129,7 +129,7 @@ public class Parser(tokenSequence: Sequence<Token>) {
     private fun returnStatement(): Statement {
         val keyword = this.previous
 
-        val expression = if (!match(TokenType.EOS)) {
+        val expression = if (!checkCurrent(TokenType.EOS)) {
             this.expression()
         } else {
             null

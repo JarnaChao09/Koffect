@@ -7,8 +7,7 @@ import parser.ast.Grouping
 public typealias Environment = Map<String, Set<Type>>
 
 public class TypeChecker(public var environment: Environment) {
-    public fun check(statements: List<Statement>, expectedType: Type? = null) {
-        var found = false
+    public fun check(statements: List<Statement>, returnTypes: MutableList<Type> = mutableListOf()) {
         statements.forEach {
             when (it) {
                 is ExpressionStatement -> it.expression.check()
@@ -18,8 +17,8 @@ public class TypeChecker(public var environment: Environment) {
                             error("Condition expected to return a Boolean, but a ${conditionType.name} was found")
                         }
                     }
-                    check(it.trueBranch, expectedType)
-                    check(it.falseBranch, expectedType)
+                    check(it.trueBranch, returnTypes)
+                    check(it.falseBranch, returnTypes)
                 }
                 is FunctionDeclaration -> {
                     val name = it.name.lexeme
@@ -32,7 +31,15 @@ public class TypeChecker(public var environment: Environment) {
                         this.environment += (name.lexeme to setOf(type))
                     }
 
-                    check(it.body, returnType)
+                    val returns = mutableListOf<Type>()
+
+                    check(it.body, returns)
+
+                    for (type in returns) {
+                        if (type != returnType) {
+                            error("Expected function $name to return $returnType but found $type instead")
+                        }
+                    }
 
                     this.environment = oldEnv
 
@@ -60,24 +67,12 @@ public class TypeChecker(public var environment: Environment) {
                             error("Condition expected to return a Boolean, but a ${conditionType.name} was found")
                         }
                     }
-                    check(it.body, expectedType)
+                    check(it.body, returnTypes)
                 }
                 is ReturnStatement -> {
                     val returnType = it.value?.check()
 
-                    if (returnType != expectedType) {
-                        error("Incorrect return type, expected $expectedType but found $returnType")
-                    } else {
-                        found = true
-                    }
-                }
-            }
-        }
-
-        if (expectedType != null) {
-            when (expectedType) {
-                is TConstructor -> if (!found && expectedType.name != "Unit") {
-                    error("Expected to find a return type $expectedType but found none")
+                    returnTypes.add(returnType ?: TConstructor("Unit"))
                 }
             }
         }
