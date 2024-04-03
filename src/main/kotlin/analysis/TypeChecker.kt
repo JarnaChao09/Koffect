@@ -35,6 +35,10 @@ public class TypeChecker(public var environment: Environment) {
 
                     check(it.body, returns)
 
+                    if (returns.isEmpty() && returnType != TConstructor("Unit")) {
+                        error("Expected function $name to return $returnType but found no return values")
+                    }
+
                     for (type in returns) {
                         if (type != returnType) {
                             error("Expected function $name to return $returnType but found $type instead")
