@@ -4,6 +4,7 @@ public class VM(
     private var currentChunk: Chunk? = null,
     private var ip: Int = 0,
     private var stack: ArrayDeque<Value<*>> = ArrayDeque(),
+    private var frames: ArrayDeque<CallFrame> = ArrayDeque(),
     private val globals: MutableMap<String, Value<*>> = mutableMapOf(),
 ) {
     private fun push(value: Value<*>) {
@@ -19,7 +20,10 @@ public class VM(
     }
 
     public fun interpret(chunk: Chunk): Int {
-        this.currentChunk = chunk
+        this.frames.addFirst(CallFrame(
+            ObjectFunction(Function("script", 0, chunk)),
+            List(256) { NullValue }
+        ))
         this.ip = 0
 
         return this.run()
@@ -30,6 +34,7 @@ public class VM(
     }
 
     private fun run(): Int {
+        this.currentChunk = this.frames.first().function.value.chunk
         while (true) {
             when (this.currentChunk!!.code[this.ip++].toOpCode()) {
                 Opcode.IntConstant, Opcode.DoubleConstant, Opcode.ObjectConstant -> {
@@ -228,16 +233,17 @@ public class VM(
                     val argCount = this.currentChunk!!.code[this.ip++]
 
                     val callee = this.peek(argCount)
-                    val args = Array<Value<*>>(argCount) {
-                        NullValue
+                    val args = buildList {
+                        repeat(argCount) {
+                            add(0, this@VM.pop())
+                        }
+                        this@VM.pop()
                     }
-
-                    repeat(argCount) {
-                        args[argCount - it - 1] = this.pop()
-                    }
-                    this.pop()
 
                     when (callee) {
+                        is ObjectFunction -> {
+                            TODO()
+                        }
                         is ObjectNativeFunction -> {
                             val result = callee.value.function(args)
 

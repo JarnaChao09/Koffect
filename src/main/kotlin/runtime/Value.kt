@@ -32,11 +32,17 @@ public data object UnitValue : Value<Unit> {
 
 public sealed interface ObjectValue<T> : Value<T>
 
+public data class Function(val name: String, val arity: Int, val chunk: Chunk)
+
+public data class ObjectFunction(override val value: Function) : ObjectValue<Function> {
+    override fun toString(): String = "<function/${value.arity} ${value.name}>"
+}
+
 public data class ObjectString(override val value: String) : ObjectValue<String> {
     override fun toString(): String = this.value
 }
 
-public typealias NativeFunc = (Array<Value<*>>) -> Value<*>
+public typealias NativeFunc = (List<Value<*>>) -> Value<*>
 
 public data class NativeFunction(val function: NativeFunc)
 
@@ -57,6 +63,7 @@ public inline fun <T : Any> T?.toValue(): Value<T> = when(this) {
     is Double -> DoubleValue(this)
     is Boolean -> BooleanValue(this)
     is String -> ObjectString(this)
+    is Function -> ObjectFunction(this)
     is NativeFunction -> ObjectNativeFunction(this)
     else -> error("Invalid value type")
 } as Value<T>

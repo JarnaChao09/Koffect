@@ -245,47 +245,48 @@ public fun repl() {
         readln().toDouble().toValue()
     }
 
-//    val srcString = """
-//        var a: Int = 0;
-//        var b: Int = 1;
-//        val n: Int = readInt();
-//        val test: Double = readDouble();
-//
-//        print("fib(");
-//        print(n);
-//        print(") = ");
-//        if (n == 0) {
-//            println(0);
-//        } else {
-//            var i: Int = 0;
-//            while (i < n - 1) {
-//                val tmp: Int = a + b;
-//                a = b;
-//                b = tmp;
-//                i = i + 1;
-//            }
-//
-//            println(b);
-//        }
-//        println(test);
-//    """.trimIndent()
-
     val srcString = """
-        fun foo(bar: Int, baz: Boolean): String {
-            if (baz) {
-                return "test";
-            } else {
-                return "hello world";
+        var a: Int = 0;
+        var b: Int = 1;
+        val n: Int = readInt();
+        // val test: Double = readDouble();
+
+        print("fib(");
+        print(n);
+        print(") = ");
+        if (n == 0) {
+            println(0);
+        } else {
+            var i: Int = 0;
+            while (i < n - 1) {
+                val tmp: Int = a + b;
+                a = b;
+                b = tmp;
+                i = i + 1;
             }
+
+            println(b);
         }
-        
-        fun test() {
-            println(foo(10, false));
-            return;
-        }
-        
-        test();
+        println(pow(2.0, 8.5));
+        // println(test);
     """.trimIndent()
+
+//    val srcString = """
+//        fun foo(bar: Int, baz: Boolean): String {
+//            if (baz) {
+//                return "test";
+//            } else {
+//                return "hello world";
+//            }
+//        }
+//
+//        fun test() {
+//            println(foo(10, false));
+//            return;
+//        }
+//
+//        test();
+//    """.trimIndent()
 
     val lexer = Lexer(srcString)
     val parser = Parser(lexer.tokens)
@@ -299,15 +300,15 @@ public fun repl() {
 
     tree.forEach(::println)
 
-    println(typechecker.environment["foo"])
-    println(typechecker.environment["test"])
+//    println(typechecker.environment["foo"])
+//    println(typechecker.environment["test"])
 
-//    val chunk = codegen.generate(tree)
-//
-//    vm.interpret(chunk.also { c ->
-//        println(c.disassemble("source string"))
-//        println("=== source string ===")
-//    })
+    val chunk = codegen.generate(tree)
+
+    vm.interpret(chunk.also { c ->
+        println(c.disassemble("source string"))
+        println("=== source string ===")
+    })
 
 //    var i = 0
 //    while (true) {
