@@ -2,14 +2,13 @@ package codegen
 
 import lexer.TokenType
 import parser.ast.*
-import runtime.Chunk
-import runtime.Opcode
-import runtime.toInt
-import runtime.toValue
+import runtime.*
 
 public class CodeGenerator {
     private lateinit var currentChunk: Chunk
     private var line: Int = 1
+    private var returnEmitted: Boolean = false
+
     public fun generate(ast: List<Statement>): Chunk {
         this.currentChunk = Chunk()
 
@@ -30,7 +29,31 @@ public class CodeGenerator {
                     this.generateIf(it.condition, it.trueBranch, it.falseBranch)
                 }
                 is FunctionDeclaration -> {
-                    TODO()
+                    val binding = this.currentChunk.addConstant(it.name.lexeme.toValue())
+
+                    val oldChunk = this.currentChunk
+
+                    this.currentChunk = Chunk()
+                    this.returnEmitted = false
+
+                    // TODO: generate parameters
+
+                    this.generateStatements(it.body)
+
+                    if (!returnEmitted) {
+                        this.currentChunk.write(Opcode.Return.toInt(), this.line++)
+                    }
+
+                    val function = ObjectFunction(Function(it.name.lexeme, it.arity, this.currentChunk))
+
+                    this.currentChunk = oldChunk
+
+                    val constant = this.currentChunk.addConstant(function)
+                    this.currentChunk.write(Opcode.ObjectConstant.toInt(), this.line)
+                    this.currentChunk.write(constant, this.line++)
+
+                    this.currentChunk.write(Opcode.DefineGlobal.toInt(), this.line)
+                    this.currentChunk.write(binding, this.line++)
                 }
                 is VariableStatement -> {
                     val binding = this.currentChunk.addConstant(it.name.lexeme.toValue())
@@ -58,7 +81,17 @@ public class CodeGenerator {
                     this.currentChunk.write(Opcode.Pop.toInt(), this.line++)
                 }
                 is ReturnStatement -> {
-                    TODO()
+                    this.returnEmitted = true
+
+                    it.value?.let { returnValue ->
+                        this.dfs(returnValue)
+                    } ?: run {
+                        val constant = this.currentChunk.addConstant(UnitValue)
+                        this.currentChunk.write(Opcode.ObjectConstant.toInt(), this.line)
+                        this.currentChunk.write(constant, this.line)
+                    }
+
+                    this.currentChunk.write(Opcode.Return.toInt(), this.line++)
                 }
             }
         }

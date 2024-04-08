@@ -20,13 +20,17 @@ public class Chunk(
             appendLine("=== $name ===")
 
             var offset = 0
+            val functions = mutableListOf<ObjectFunction>()
             while (offset < this@Chunk.code.size) {
-                offset = disassembleInstruction(offset)
+                offset = disassembleInstruction(offset, functions)
+            }
+            functions.forEach {
+                append(it.value.chunk.disassemble(it.value.name))
             }
         }
     }
 
-    private fun StringBuilder.disassembleInstruction(offset: Int): Int {
+    private fun StringBuilder.disassembleInstruction(offset: Int, functions: MutableList<ObjectFunction>): Int {
         append("%04d".format(offset))
 
         if (offset > 0 && this@Chunk.lineInfo[offset] == this@Chunk.lineInfo[offset - 1]) {
@@ -43,7 +47,12 @@ public class Chunk(
             Opcode.GetGlobal,
             Opcode.SetGlobal -> {
                 val constant = this@Chunk.code[offset + 1]
-                appendLine("%-16s %4d ${this@Chunk.constants[constant]}".format(instruction, constant))
+                appendLine("%-16s %4d ${this@Chunk.constants[constant].also {
+                    when (it) {
+                        is ObjectFunction -> functions.add(it)
+                        else -> {}
+                    }
+                }}".format(instruction, constant))
                 offset + 2
             }
             Opcode.Call -> {

@@ -22,7 +22,7 @@ public class VM(
     public fun interpret(chunk: Chunk): Int {
         this.frames.addFirst(CallFrame(
             ObjectFunction(Function("script", 0, chunk)),
-            List(256) { NullValue }
+            emptyList()
         ))
         this.ip = 0
 
@@ -242,7 +242,15 @@ public class VM(
 
                     when (callee) {
                         is ObjectFunction -> {
-                            TODO()
+                            CallFrame(
+                                callee,
+                                args,
+                                returnIp = this.ip
+                            ).also {
+                                this.frames.addFirst(it)
+                                this.ip = 0
+                                this.currentChunk = it.function.value.chunk
+                            }
                         }
                         is ObjectNativeFunction -> {
                             val result = callee.value.function(args)
@@ -256,7 +264,20 @@ public class VM(
                     this.pop()
                 }
                 Opcode.Return -> {
-                    return 0
+                    val result = this.pop()
+                    this.frames.removeFirst().let {
+                        this.ip = it.returnIp
+                    }
+
+                    if (this.frames.size == 1) {
+                        this.pop()
+                        return 0
+                    }
+
+                    this.frames.first().let {
+                        this.push(result)
+                        this.currentChunk = it.function.value.chunk
+                    }
                 }
             }
         }

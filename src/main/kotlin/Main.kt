@@ -245,31 +245,31 @@ public fun repl() {
         readln().toDouble().toValue()
     }
 
-    val srcString = """
-        var a: Int = 0;
-        var b: Int = 1;
-        val n: Int = readInt();
-        // val test: Double = readDouble();
-
-        print("fib(");
-        print(n);
-        print(") = ");
-        if (n == 0) {
-            println(0);
-        } else {
-            var i: Int = 0;
-            while (i < n - 1) {
-                val tmp: Int = a + b;
-                a = b;
-                b = tmp;
-                i = i + 1;
-            }
-
-            println(b);
-        }
-        println(pow(2.0, 8.5));
-        // println(test);
-    """.trimIndent()
+//    val srcString = """
+//        var a: Int = 0;
+//        var b: Int = 1;
+//        val n: Int = readInt();
+//        // val test: Double = readDouble();
+//
+//        print("fib(");
+//        print(n);
+//        print(") = ");
+//        if (n == 0) {
+//            println(0);
+//        } else {
+//            var i: Int = 0;
+//            while (i < n - 1) {
+//                val tmp: Int = a + b;
+//                a = b;
+//                b = tmp;
+//                i = i + 1;
+//            }
+//
+//            println(b);
+//        }
+//        println(pow(2.0, 8.5));
+//        // println(test);
+//    """.trimIndent()
 
 //    val srcString = """
 //        fun foo(bar: Int, baz: Boolean): String {
@@ -287,6 +287,18 @@ public fun repl() {
 //
 //        test();
 //    """.trimIndent()
+
+    val srcString = """
+        fun greeting(): String {
+            return "Hello World";
+        }
+        
+        fun test() {
+            println(greeting());
+        }
+        
+        println(test());
+    """.trimIndent()
 
     val lexer = Lexer(srcString)
     val parser = Parser(lexer.tokens)
