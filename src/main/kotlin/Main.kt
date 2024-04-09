@@ -245,60 +245,78 @@ public fun repl() {
         readln().toDouble().toValue()
     }
 
-//    val srcString = """
-//        var a: Int = 0;
-//        var b: Int = 1;
-//        val n: Int = readInt();
-//        // val test: Double = readDouble();
-//
-//        print("fib(");
-//        print(n);
-//        print(") = ");
-//        if (n == 0) {
-//            println(0);
-//        } else {
-//            var i: Int = 0;
-//            while (i < n - 1) {
-//                val tmp: Int = a + b;
-//                a = b;
-//                b = tmp;
-//                i = i + 1;
-//            }
-//
-//            println(b);
-//        }
-//        println(pow(2.0, 8.5));
-//        // println(test);
-//    """.trimIndent()
+   // val srcString = """
+   //     var a: Int = 0;
+   //     var b: Int = 1;
+   //     val n: Int = readInt();
+   //     // val test: Double = readDouble();
+   //
+   //     print("fib(");
+   //     print(n);
+   //     print(") = ");
+   //     if (n == 0) {
+   //         println(0);
+   //     } else {
+   //         var i: Int = 0;
+   //         while (i < n - 1) {
+   //             val tmp: Int = a + b;
+   //             a = b;
+   //             b = tmp;
+   //             i = i + 1;
+   //         }
+   //
+   //         println(b);
+   //     }
+   //     println(pow(2.0, 8.5));
+   //     // println(test);
+   // """.trimIndent()
 
-//    val srcString = """
-//        fun foo(bar: Int, baz: Boolean): String {
-//            if (baz) {
-//                return "test";
-//            } else {
-//                return "hello world";
-//            }
-//        }
-//
-//        fun test() {
-//            println(foo(10, false));
-//            return;
-//        }
-//
-//        test();
-//    """.trimIndent()
+   // val srcString = """
+   //     fun foo(bar: Int, baz: Boolean): String {
+   //         if (baz) {
+   //             return "test";
+   //         } else {
+   //             return "hello world";
+   //         }
+   //     }
+   //
+   //     fun test() {
+   //         println(foo(10, false));
+   //         return;
+   //     }
+   //
+   //     test();
+   // """.trimIndent()
+
+    // val srcString = """
+    //     fun greeting(): String {
+    //         return "Hello World";
+    //     }
+    //
+    //     fun test(input: String) {
+    //         println(input);
+    //     }
+    //
+    //     println(test(greeting()));
+    //     println("test");
+    // """.trimIndent()
 
     val srcString = """
-        fun greeting(): String {
-            return "Hello World";
+        fun fib(n: Int): Int {
+            if (n == 0 || n == 1) {
+                return n;
+            } else {
+                return fib(n - 1) + fib(n - 2);
+            }
         }
         
-        fun test(input: String) {
-            println(input);
-        }
+        print("n = ");
+        val n: Int = readInt();
         
-        println(test(greeting()));
-        println("test");
+        print("fib(");
+        print(n);
+        print(") = ");
+        println(fib(n));
     """.trimIndent()
 
     val lexer = Lexer(srcString)

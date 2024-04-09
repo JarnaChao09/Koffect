@@ -25,6 +25,12 @@ public class TypeChecker(public var environment: Environment) {
                     val parameterTypes = it.parameters.map { (_, type) -> type }
                     val returnType = it.returnType
 
+                    val functionType = TConstructor("Function${it.arity}", parameterTypes + listOf(returnType))
+
+                    val oldFunctionType = this.environment.getOrDefault(name, setOf())
+
+                    this.environment += (name to setOf(functionType) + oldFunctionType)
+
                     val oldEnv = this.environment
 
                     it.parameters.forEach { (name, type) ->
@@ -46,12 +52,6 @@ public class TypeChecker(public var environment: Environment) {
                     }
 
                     this.environment = oldEnv
-
-                    val functionType = TConstructor("Function${it.arity}", parameterTypes + listOf(returnType))
-
-                    val oldFunctionType = this.environment.getOrDefault(name, setOf())
-
-                    this.environment += (name to setOf(functionType) + oldFunctionType)
                 }
                 is VariableStatement -> {
                     val type = it.type ?: error("Variables must be annotated with a type (type inference is not implemented)")
