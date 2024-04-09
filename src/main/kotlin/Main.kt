@@ -293,11 +293,12 @@ public fun repl() {
             return "Hello World";
         }
         
-        fun test() {
-            println(greeting());
+        fun test(input: String) {
+            println(input);
         }
         
-        println(test());
+        println(test(greeting()));
+        println("test");
     """.trimIndent()
 
     val lexer = Lexer(srcString)

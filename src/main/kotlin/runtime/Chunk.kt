@@ -45,7 +45,7 @@ public class Chunk(
             Opcode.ObjectConstant,
             Opcode.DefineGlobal,
             Opcode.GetGlobal,
-            Opcode.SetGlobal -> {
+            Opcode.SetGlobal, -> {
                 val constant = this@Chunk.code[offset + 1]
                 appendLine("%-16s %4d ${this@Chunk.constants[constant].also {
                     when (it) {
@@ -55,7 +55,9 @@ public class Chunk(
                 }}".format(instruction, constant))
                 offset + 2
             }
-            Opcode.Call -> {
+            Opcode.Call,
+            Opcode.GetLocal,
+            Opcode.SetLocal, -> {
                 val slot = this@Chunk.code[offset + 1]
                 appendLine("%-16s %4d".format(instruction, slot))
                 offset + 2

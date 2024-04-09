@@ -8,12 +8,14 @@ public class CodeGenerator {
     private lateinit var currentChunk: Chunk
     private var line: Int = 1
     private var returnEmitted: Boolean = false
+    private val stack: ArrayDeque<MutableMap<String, Int>> = ArrayDeque()
 
     public fun generate(ast: List<Statement>): Chunk {
         this.currentChunk = Chunk()
 
         this.generateStatements(ast)
 
+        this.currentChunk.write(Opcode.Null.toInt(), this.line++)
         this.currentChunk.write(Opcode.Return.toInt(), this.line++)
 
         return this.currentChunk
@@ -24,6 +26,7 @@ public class CodeGenerator {
             when(it) {
                 is ExpressionStatement -> {
                     dfs(it.expression)
+                    this.currentChunk.write(Opcode.Pop.toInt(), this.line++)
                 }
                 is IfStatement -> {
                     this.generateIf(it.condition, it.trueBranch, it.falseBranch)
@@ -37,16 +40,29 @@ public class CodeGenerator {
                     this.returnEmitted = false
 
                     // TODO: generate parameters
+                    val parameters = mutableMapOf<String, Int>()
+
+                    it.parameters.forEachIndexed { i, parameter ->
+                        parameters[parameter.name.lexeme] = i
+                    }
+
+                    this.stack.addFirst(parameters)
 
                     this.generateStatements(it.body)
 
                     if (!returnEmitted) {
+                        val constant = this.currentChunk.addConstant(UnitValue)
+
+                        this.currentChunk.write(Opcode.ObjectConstant.toInt(), this.line)
+                        this.currentChunk.write(constant, this.line++)
+
                         this.currentChunk.write(Opcode.Return.toInt(), this.line++)
                     }
 
                     val function = ObjectFunction(Function(it.name.lexeme, it.arity, this.currentChunk))
 
                     this.currentChunk = oldChunk
+                    this.stack.removeFirst()
 
                     val constant = this.currentChunk.addConstant(function)
                     this.currentChunk.write(Opcode.ObjectConstant.toInt(), this.line)
@@ -100,12 +116,22 @@ public class CodeGenerator {
     private fun dfs(root: Expression) {
         when (root) {
             is Assign -> {
-                val binding = this.currentChunk.addConstant(root.name.lexeme.toValue())
+                if (this.stack.isEmpty()) {
+                    val binding = this.currentChunk.addConstant(root.name.lexeme.toValue())
 
-                dfs(root.expression)
+                    dfs(root.expression)
 
-                this.currentChunk.write(Opcode.SetGlobal.toInt(), this.line)
-                this.currentChunk.write(binding, this.line++)
+                    this.currentChunk.write(Opcode.SetGlobal.toInt(), this.line)
+                    this.currentChunk.write(binding, this.line++)
+                } else {
+                    dfs(root.expression)
+
+                    this.currentChunk.write(Opcode.SetLocal.toInt(), this.line)
+                    this.currentChunk.write(
+                        this.stack.first()[root.name.lexeme] ?: error("unknown variable (should be unreachable)"),
+                        this.line++
+                    )
+                }
             }
             is Binary -> {
                 dfs(root.left)
@@ -414,10 +440,18 @@ public class CodeGenerator {
                 }.toInt(), this.line++)
             }
             is Variable -> {
-                val binding = this.currentChunk.addConstant(root.name.lexeme.toValue())
+                if (this.stack.isEmpty() || root.name.lexeme !in this.stack.first()) {
+                    val binding = this.currentChunk.addConstant(root.name.lexeme.toValue())
 
-                this.currentChunk.write(Opcode.GetGlobal.toInt(), this.line)
-                this.currentChunk.write(binding, this.line++)
+                    this.currentChunk.write(Opcode.GetGlobal.toInt(), this.line)
+                    this.currentChunk.write(binding, this.line++)
+                } else {
+                    this.currentChunk.write(Opcode.GetLocal.toInt(), this.line)
+                    this.currentChunk.write(
+                        this.stack.first()[root.name.lexeme] ?: error("unknown variable (should be unreachable)"),
+                        this.line++
+                    )
+                }
             }
         }
     }

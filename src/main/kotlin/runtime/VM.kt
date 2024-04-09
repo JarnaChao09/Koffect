@@ -22,7 +22,7 @@ public class VM(
     public fun interpret(chunk: Chunk): Int {
         this.frames.addFirst(CallFrame(
             ObjectFunction(Function("script", 0, chunk)),
-            emptyList()
+            mutableListOf(),
         ))
         this.ip = 0
 
@@ -229,22 +229,35 @@ public class VM(
                         error("Undefined variable \"$name\"")
                     }
                 }
+                Opcode.GetLocal -> {
+                    val index = this.currentChunk!!.let {
+                        it.code[this.ip++]
+                    }
+
+                    this.push(this.frames.first().locals[index])
+                }
+                Opcode.SetLocal -> {
+                    val index = this.currentChunk!!.let {
+                        it.code[this.ip++]
+                    }
+
+                    this.frames.first().locals[index] = this.pop()
+                }
                 Opcode.Call -> {
                     val argCount = this.currentChunk!!.code[this.ip++]
 
                     val callee = this.peek(argCount)
-                    val args = buildList {
-                        repeat(argCount) {
-                            add(0, this@VM.pop())
-                        }
-                        this@VM.pop()
+                    val args = MutableList<Value<*>>(argCount) { NullValue }
+                    repeat(argCount) {
+                        args[argCount - it - 1] = this.pop()
                     }
+                    this.pop()
 
                     when (callee) {
                         is ObjectFunction -> {
                             CallFrame(
                                 callee,
-                                args,
+                                args.toMutableList(),
                                 returnIp = this.ip
                             ).also {
                                 this.frames.addFirst(it)
@@ -269,8 +282,11 @@ public class VM(
                         this.ip = it.returnIp
                     }
 
-                    if (this.frames.size == 1) {
-                        this.pop()
+                    if (this.frames.size == 0) {
+                        // popping off script function object from stack
+                        // (no longer holding script function object on the stack)
+                        // todo: rework call operator to reflect this change
+                        // this.pop()
                         return 0
                     }
 

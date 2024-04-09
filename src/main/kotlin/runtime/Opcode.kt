@@ -40,6 +40,8 @@ public enum class Opcode {
     DefineGlobal,
     GetGlobal,
     SetGlobal,
+    GetLocal,
+    SetLocal,
     Call,
     Pop,
     Return;
