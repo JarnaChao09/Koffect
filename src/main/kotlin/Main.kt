@@ -301,22 +301,32 @@ public fun repl() {
     //     println("test");
     // """.trimIndent()
 
+    // val srcString = """
+    //     fun fib(n: Int): Int {
+    //         if (n == 0 || n == 1) {
+    //             return n;
+    //         } else {
+    //             return fib(n - 1) + fib(n - 2);
+    //         }
+    //     }
+    //
+    //     print("n = ");
+    //     val n: Int = readInt();
+    //
+    //     print("fib(");
+    //     print(n);
+    //     print(") = ");
+    //     println(fib(n));
+    // """.trimIndent()
+
     val srcString = """
-        fun fib(n: Int): Int {
-            if (n == 0 || n == 1) {
-                return n;
-            } else {
-                return fib(n - 1) + fib(n - 2);
+        class Foo(): Bar {
+            val baz: Int = 10;
+
+            fun qux(): Int {
+                return this.baz;
             }
         }
-        
-        print("n = ");
-        val n: Int = readInt();
-        
-        print("fib(");
-        print(n);
-        print(") = ");
-        println(fib(n));
     """.trimIndent()
 
     val lexer = Lexer(srcString)

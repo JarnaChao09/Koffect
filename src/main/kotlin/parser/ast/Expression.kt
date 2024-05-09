@@ -60,15 +60,9 @@ public data class Call(
     override var type: Type? = null,
 ) : Expression
 
-public data class Unary(val operator: Token, val expression: Expression, override var type: Type? = null) : Expression
+public data class Get(val instance: Expression, val name: Token, override var type: Type? = null) : Expression
 
 public data class Grouping(val expression: Expression, override var type: Type? = null) : Expression
-
-public data class Logical(val left: Expression, val operator: Token, val right: Expression) : Expression {
-    override var type: Type?
-        get() = TConstructor("Boolean")
-        set(_) = error("Logical operators must always return Boolean")
-}
 
 public data class IfExpression(
     val condition: Expression,
@@ -76,5 +70,15 @@ public data class IfExpression(
     val falseBranch: List<Statement>,
     override var type: Type? = null,
 ) : Expression
+
+public data class Logical(val left: Expression, val operator: Token, val right: Expression) : Expression {
+    override var type: Type?
+        get() = TConstructor("Boolean")
+        set(_) = error("Logical operators must always return Boolean")
+}
+
+public data class This(val keyword: Token, override var type: Type? = null) : Expression
+
+public data class Unary(val operator: Token, val expression: Expression, override var type: Type? = null) : Expression
 
 public data class Variable(val name: Token, override var type: Type? = null) : Expression

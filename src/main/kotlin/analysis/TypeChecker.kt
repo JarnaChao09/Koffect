@@ -2,14 +2,17 @@ package analysis
 
 import lexer.TokenType
 import parser.ast.*
-import parser.ast.Grouping
+import parser.ast.Type
 
-public typealias Environment = Map<String, Set<Type>>
+public typealias TmpEnvironment = Map<String, Set<Type>>
 
-public class TypeChecker(public var environment: Environment) {
+public class TypeChecker(public var environment: TmpEnvironment) {
     public fun check(statements: List<Statement>, returnTypes: MutableList<Type> = mutableListOf()) {
         statements.forEach {
             when (it) {
+                is ClassDeclaration -> {
+                    TODO()
+                }
                 is ExpressionStatement -> it.expression.check()
                 is IfStatement -> {
                     when (val conditionType = it.condition.check()) {
@@ -179,6 +182,9 @@ public class TypeChecker(public var environment: Environment) {
                     }
                 }
             }
+            is Get -> {
+                TODO()
+            }
             is Grouping -> {
                 val type = this.expression.check()
                 this.type = type
@@ -229,6 +235,9 @@ public class TypeChecker(public var environment: Environment) {
                 }
 
                 found ?: error("Invalid Logical Operator, could not find definition using types $leftType and $rightType that returned Boolean")
+            }
+            is This -> {
+                TODO()
             }
             is Unary -> {
                 val expressionType = this.expression.check()

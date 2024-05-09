@@ -19,6 +19,9 @@ public class Parser(tokenSequence: Sequence<Token>) {
 
     private fun declaration(): Statement {
         return when {
+            match(TokenType.CLASS) -> {
+                this.classDeclaration()
+            }
             match(TokenType.VAL, TokenType.VAR) -> {
                 this.variableDeclaration()
             }
@@ -31,7 +34,49 @@ public class Parser(tokenSequence: Sequence<Token>) {
         }
     }
 
-    private fun variableDeclaration(): Statement {
+    private fun classDeclaration(): Statement {
+        val name = expect(TokenType.IDENTIFIER, "Expect class name")
+        val primaryConstructor = if (match(TokenType.LEFT_PAREN)) {
+            // todo: constructors
+            expect(TokenType.RIGHT_PAREN, "Expect class primary constructor to end with right parentheses")
+        } else {
+            null
+        }
+
+        val inherits = buildList<Type> {
+            if (match(TokenType.COLON)) {
+                do {
+                    // todo: replace with type parsing
+                    val type = expect(TokenType.IDENTIFIER, "Expected superclass or interface name")
+                    add(TConstructor(type.lexeme))
+                } while (this@Parser.match(TokenType.COMMA))
+            }
+        }
+        // todo: filter out the inheritance list into superclass and interfaces
+
+        expect(TokenType.LEFT_BRACE, "Expected a '{' before a class body")
+
+        val fields = mutableListOf<VariableStatement>()
+        val methods = mutableListOf<FunctionDeclaration>()
+
+        while (!checkCurrent(TokenType.RIGHT_BRACE) && !this.isAtEnd()) {
+            // todo: secondary constructors
+            when {
+                match(TokenType.FUN) -> {
+                    methods += this.functionDeclaration()
+                }
+                match(TokenType.VAL, TokenType.VAR) -> {
+                    fields += this.variableDeclaration()
+                }
+            }
+        }
+
+        expect(TokenType.RIGHT_BRACE, "Expected a '}' after a class body")
+
+        return ClassDeclaration(name, inherits.firstOrNull(), inherits, fields, methods)
+    }
+
+    private fun variableDeclaration(): VariableStatement {
         val type = this.previous.type
         val name = expect(TokenType.IDENTIFIER, "Expected a variable name")
 
@@ -285,10 +330,10 @@ public class Parser(tokenSequence: Sequence<Token>) {
         while (true) {
             if (match(TokenType.LEFT_PAREN)) {
                 expr = this.finishCall(expr)
-            } /* else if (match(TokenType.DOT)) {
+            } else if (match(TokenType.DOT)) {
                 val name = expect(TokenType.IDENTIFIER, "Expected property name after '.'.")
                 expr = Get(expr, name)
-            } */ else {
+            } else {
                 break
             }
         }
@@ -316,13 +361,13 @@ public class Parser(tokenSequence: Sequence<Token>) {
             match(TokenType.TRUE) -> Literal(true)
             match(TokenType.FALSE) -> Literal(false)
             match(TokenType.NULL) -> Literal(null)
-//            match(TokenType.SUPER) -> {
-//                val keyword = this.previous
-//                expect(TokenType.DOT, "Expect '.' after 'super'.")
-//                val method = expect(TokenType.IDENTIFIER, "Expect superclass method name")
-//                Super(keyword, method)
-//            }
-//            match(TokenType.THIS) -> This(this.previous())
+            // match(TokenType.SUPER) -> {
+            //     val keyword = this.previous
+            //     expect(TokenType.DOT, "Expect '.' after 'super'.")
+            //     val method = expect(TokenType.IDENTIFIER, "Expect superclass method name")
+            //     Super(keyword, method)
+            // }
+            match(TokenType.THIS) -> This(this.previous)
             match(TokenType.IDENTIFIER) -> Variable(this.previous)
             match(TokenType.NUMBER, TokenType.STRING) -> Literal(this.previous.literal)
             match(TokenType.LEFT_PAREN) -> {

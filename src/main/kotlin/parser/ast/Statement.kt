@@ -5,6 +5,14 @@ import lexer.TokenType
 
 public sealed interface Statement
 
+public data class ClassDeclaration(
+    val name: Token,
+    val superClass: Type?,
+    val interfaces: List<Type>,
+    val field: List<VariableStatement>,
+    val methods: List<FunctionDeclaration>,
+) : Statement
+
 public data class ExpressionStatement(public val expression: Expression) : Statement
 
 public data class FunctionDeclaration(val name: Token, val parameters: List<Parameter>, val returnType: Type, val body: List<Statement>) : Statement {

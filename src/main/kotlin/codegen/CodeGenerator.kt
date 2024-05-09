@@ -24,6 +24,9 @@ public class CodeGenerator {
     private fun generateStatements(ast: List<Statement>) {
         ast.forEach {
             when(it) {
+                is ClassDeclaration -> {
+                    TODO()
+                }
                 is ExpressionStatement -> {
                     dfs(it.expression)
                     this.currentChunk.write(Opcode.Pop.toInt(), this.line++)
@@ -337,6 +340,9 @@ public class CodeGenerator {
                 this.currentChunk.write(Opcode.Call.toInt(), this.line)
                 this.currentChunk.write(argCount, this.line++)
             }
+            is Get -> {
+                TODO()
+            }
             is Grouping -> {
                 dfs(root.expression)
             }
@@ -383,6 +389,9 @@ public class CodeGenerator {
                 dfs(root.right)
 
                 this.currentChunk.patchJump(jump)
+            }
+            is This -> {
+                TODO()
             }
             is Unary -> {
                 dfs(root.expression)
