@@ -5,18 +5,25 @@ import lexer.TokenType
 
 public sealed interface Statement
 
+public sealed interface Declaration : Statement
+
 public data class ClassDeclaration(
     val name: Token,
     val superClass: Type?,
     val interfaces: List<Type>,
     val field: List<VariableStatement>,
     val methods: List<FunctionDeclaration>,
-) : Statement
+) : Declaration
 
 public data class ExpressionStatement(public val expression: Expression) : Statement
 
-public data class FunctionDeclaration(val name: Token, val parameters: List<Parameter>, val returnType: Type, val body: List<Statement>) : Statement {
-    public data class Parameter(val name: Token, val type: Type)
+public data class FunctionDeclaration(
+    val name: Token,
+    val parameters: List<Parameter>,
+    val returnType: Token,
+    val body: List<Statement>,
+) : Declaration {
+    public data class Parameter(val name: Token, val type: Token)
 
     public val arity: Int
         get() = this.parameters.size
@@ -31,24 +38,24 @@ public data class IfStatement(
 public sealed interface VariableStatement : Statement {
     public val name: Token
 
-    public val type: Type?
+    public val type: Token?
 
     public val initializer: Expression?
 
     public companion object {
         public operator fun invoke(variableType: TokenType, name: Token, type: Token?, init: Expression?): VariableStatement {
             return when (variableType) {
-                TokenType.VAL -> Val(name, type?.let { TConstructor(it.lexeme) }, init)
-                TokenType.VAR -> Var(name, type?.let { TConstructor(it.lexeme) }, init)
+                TokenType.VAL -> Val(name, type, init)
+                TokenType.VAR -> Var(name, type, init)
                 else -> error("unreachable: should only be triggered with val/var")
             }
         }
     }
 }
 
-public data class Var(override val name: Token, override val type: Type?, override val initializer: Expression?) : VariableStatement
+public data class Var(override val name: Token, override val type: Token?, override val initializer: Expression?) : VariableStatement
 
-public data class Val(override val name: Token, override val type: Type?, override val initializer: Expression?) : VariableStatement
+public data class Val(override val name: Token, override val type: Token?, override val initializer: Expression?) : VariableStatement
 
 public data class ReturnStatement(val keyword: Token, val value: Expression?) : Statement
 

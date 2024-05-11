@@ -111,18 +111,18 @@ public class Parser(tokenSequence: Sequence<Token>) {
                     expect(TokenType.COLON, "Expected type annotation after parameter name")
                     val parameterType = expect(TokenType.IDENTIFIER, "Expected parameter type")
 
-                    add(FunctionDeclaration.Parameter(parameterName, TConstructor(parameterType.lexeme)))
+                    add(FunctionDeclaration.Parameter(parameterName, parameterType))
                 } while (match(TokenType.COMMA))
             }
         }
         expect(TokenType.RIGHT_PAREN, "Expect ')' after parameter list")
 
-        val returnType: Type = when {
+        val returnType = when {
             match(TokenType.COLON) -> {
                 this.advance()
-                TConstructor(this.previous.lexeme)
+                this.previous
             }
-            else -> TConstructor("Unit")
+            else -> this.previous.copy(type = TokenType.IDENTIFIER, lexeme = "Unit")
         }
 
 

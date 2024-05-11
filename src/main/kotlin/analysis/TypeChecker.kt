@@ -1,51 +1,67 @@
 package analysis
 
+import analysis.ast.*
+import analysis.ast.Type
 import lexer.TokenType
 import parser.ast.*
-import parser.ast.Type
 
-public typealias TmpEnvironment = Map<String, Set<Type>>
+// public typealias Environment = Map<String, Set<Type>>
 
-public class TypeChecker(public var environment: TmpEnvironment) {
-    public fun check(statements: List<Statement>, returnTypes: MutableList<Type> = mutableListOf()) {
-        statements.forEach {
+public class TypeChecker(public var environment: Environment) {
+    public fun check(statements: List<Statement>, returnTypes: MutableList<Type> = mutableListOf()): List<TypedStatement> {
+        return statements.map {
             when (it) {
                 is ClassDeclaration -> {
                     TODO()
                 }
-                is ExpressionStatement -> it.expression.check()
+                is ExpressionStatement -> {
+                    TypedExpressionStatement(it.expression.toTypedExpression())
+                }
                 is IfStatement -> {
-                    when (val conditionType = it.condition.check()) {
-                        is TConstructor -> if (conditionType.name != "Boolean") {
-                            error("Condition expected to return a Boolean, but a ${conditionType.name} was found")
-                        }
+                    val typedCondition = it.condition.toTypedExpression()
+
+                    require(typedCondition.type == VariableType("Boolean")) {
+                        error("Condition expected to return a Boolean, but a ${typedCondition.type} was found")
                     }
-                    check(it.trueBranch, returnTypes)
-                    check(it.falseBranch, returnTypes)
+
+                    val typedTrueBranch = check(it.trueBranch, returnTypes)
+                    val typedFalseBranch = check(it.falseBranch, returnTypes)
+
+                    TypedIfStatement(it.condition.toTypedExpression(), typedTrueBranch, typedFalseBranch)
                 }
                 is FunctionDeclaration -> {
                     val name = it.name.lexeme
-                    val parameterTypes = it.parameters.map { (_, type) -> type }
-                    val returnType = it.returnType
+                    val typedParameters = it.parameters.map { (name, type) ->
+                        TypedFunctionDeclaration.Parameter(name, VariableType(type.lexeme))
+                    }
+                    val returnType = VariableType(it.returnType.lexeme)
 
-                    val functionType = TConstructor("Function${it.arity}", parameterTypes + listOf(returnType))
+                    var oldFunctionType = this.environment.getVariable(name)
 
-                    val oldFunctionType = this.environment.getOrDefault(name, setOf())
+                    if (oldFunctionType == null) {
+                        val funcType = FunctionType(name)
+                        oldFunctionType = funcType
+                        this.environment.addVariable(name, oldFunctionType)
+                    } else {
+                        require(oldFunctionType is FunctionType) {
+                            "Function overloads cannot shadow variables currently" // todo: update environment to allow for both variables and functions to have the same identifier
+                        }
+                    }
 
-                    this.environment += (name to setOf(functionType) + oldFunctionType)
+                    oldFunctionType.addOverload(typedParameters.map { (_, type) -> type }, returnType)
 
-                    val oldEnv = this.environment
+                    this.environment = Environment(this.environment)
 
-                    it.parameters.forEach { (name, type) ->
-                        this.environment += (name.lexeme to setOf(type))
+                    typedParameters.forEach { (parameterName, parameterType) ->
+                        this.environment.addVariable(parameterName.lexeme, parameterType)
                     }
 
                     val returns = mutableListOf<Type>()
 
-                    check(it.body, returns)
+                    val typedBody = check(it.body, returns)
 
-                    if (returns.isEmpty() && returnType != TConstructor("Unit")) {
-                        error("Expected function $name to return $returnType but found no return values")
+                    if (returns.isEmpty() && returnType != VariableType("Unit")) {
+                        error("Expected function $name to return $returnType but found Unit")
                     }
 
                     for (type in returns) {
@@ -54,11 +70,16 @@ public class TypeChecker(public var environment: TmpEnvironment) {
                         }
                     }
 
-                    this.environment = oldEnv
+                    this.environment = this.environment.enclosing!!
+
+                    TypedFunctionDeclaration(it.name, typedParameters, returnType, typedBody)
                 }
                 is VariableStatement -> {
-                    val type = it.type ?: error("Variables must be annotated with a type (type inference is not implemented)")
-                    val initializerType = it.initializer?.check()
+                    val typeToken = it.type ?: error("Variables must be annotated with a type (type inference is not implemented)")
+                    val type = VariableType(typeToken.lexeme)
+
+                    val typedInitializer = it.initializer?.toTypedExpression()
+                    val initializerType = typedInitializer?.type
 
                     initializerType?.let { initType ->
                         if (initType != type) {
@@ -66,215 +87,249 @@ public class TypeChecker(public var environment: TmpEnvironment) {
                         }
                     }
 
-                    this.environment += (it.name.lexeme to setOf(type))
+                    this.environment.addVariable(it.name.lexeme, type)
+
+                    TypedVariableStatement(it, type, typedInitializer)
                 }
                 is WhileStatement -> {
-                    when (val conditionType = it.condition.check()) {
-                        is TConstructor -> if (conditionType.name != "Boolean") {
-                            error("Condition expected to return a Boolean, but a ${conditionType.name} was found")
-                        }
+                    val typedCondition = it.condition.toTypedExpression()
+
+                    require(typedCondition.type == VariableType("Boolean")) {
+                        error("Condition expected to return a Boolean, but a ${typedCondition.type} was found")
                     }
-                    check(it.body, returnTypes)
+
+                    val typedBody = check(it.body, returnTypes)
+
+                    TypedWhileStatement(typedCondition, typedBody)
                 }
                 is ReturnStatement -> {
-                    val returnType = it.value?.check()
+                    val typedReturnExpression = it.value?.toTypedExpression()
 
-                    returnTypes.add(returnType ?: TConstructor("Unit"))
+                    val returnType = typedReturnExpression?.type ?: VariableType("Unit")
+
+                    returnTypes.add(returnType)
+
+                    TypedReturnStatement(it.keyword, typedReturnExpression)
                 }
             }
         }
     }
 
-    private fun Expression.check(): Type {
+    private fun Expression.toTypedExpression(): TypedExpression {
         return when (this) {
             is Assign -> {
-                val assignment = this.expression.check()
-                val type = this@TypeChecker.environment[this.name.lexeme]!!.first()
+                val typedAssignment = this.expression.toTypedExpression()
+                val variableType = this@TypeChecker.environment.getVariable(this.name.lexeme) ?: error("Undefined variable ${this.name.lexeme}")
 
-                if (type == assignment) {
-                    this.type = type
-                    type
+                if (typedAssignment.type == variableType) {
+                    TypedAssign(this.name, typedAssignment)
                 } else {
-                    error("Unable to assign type $assignment to type $type")
+                    error("Unable to assign value of type ${typedAssignment.type} to variable ${this.name.lexeme} with type $variableType")
                 }
             }
             is Binary -> {
-                val leftType = this.left.check()
-                val rightType = this.right.check()
+                val leftTypedExpression = this.left.toTypedExpression()
+                val rightTypedExpression = this.right.toTypedExpression()
+
                 val function = when (this.operator.type) {
                     TokenType.PLUS -> "plus"
                     TokenType.MINUS -> "minus"
                     TokenType.STAR -> "times"
                     TokenType.SLASH -> "div"
                     TokenType.MOD -> "mod"
-                    TokenType.EQUALS, TokenType.NOT_EQ, TokenType.GE, TokenType.LE, TokenType.GT, TokenType.LT ->
-                        this.operator.lexeme
-                    else -> error("Invalid Binary Operator") // should be unreachable
+                    TokenType.EQUALS,
+                    TokenType.NOT_EQ,
+                    TokenType.GE,
+                    TokenType.LE,
+                    TokenType.GT,
+                    TokenType.LT -> this.operator.lexeme // reminder todo: update to compareTo
+                    else -> error("Custom binary operators are unsupported. Invalid Binary Operator ${this.operator.lexeme}") // should be unreachable for now
                 }
 
-                var found: Type? = null
+                val leftTypeName = when (val leftType = leftTypedExpression.type) {
+                    is VariableType -> leftType.name
+                    is FunctionType -> error("Lookup of function types is currently not supported during type checking")
+                }
 
-                for (currentType in this@TypeChecker.environment[function]!!) {
-                    when (currentType) {
-                        is TConstructor -> {
-                            if (leftType == currentType.generics[0] && rightType == currentType.generics[1]) {
-                                found = currentType.generics[2]
-                                break
-                            }
-                        }
+                val rightType = rightTypedExpression.type
+                val rightTypeName = when (rightType) {
+                    is VariableType -> rightType.name
+                    is FunctionType -> error("Lookup of function types is currently not supported during type checking")
+                }
+
+                val receiverReference = this@TypeChecker.environment.getClass(leftTypeName) ?: error("Unknown class '$leftTypeName'")
+
+                val functionReference = receiverReference.functions[function] ?: error("Unknown function '$function' with receiver type '$leftTypeName'")
+
+                var returnType: Type? = null
+
+                for (functionOverload in functionReference.functionType.overloads) {
+                    // todo: update to check for operator status once operator distinction is added
+                    if (functionOverload.arity != 1) {
+                        continue
+                    }
+
+                    if (rightType == functionOverload.parameterTypes[0]) {
+                        returnType = functionOverload.returnType
+                        break
                     }
                 }
 
-                this.type = found
+                if (returnType == null) {
+                    error("Unable to find function definition on type $leftTypeName for $function with parameter $rightTypeName. Known candidates are: ${functionReference.functionType}")
+                }
 
-                found ?: error("Invalid Binary Operator, could not find definition using types $leftType and $rightType")
+                TypedBinary(leftTypedExpression, this.operator, rightTypedExpression, returnType)
             }
             is Call -> {
-                val calleeType = when (this.callee) {
-                    is Variable -> this@TypeChecker.environment[this.callee.name.lexeme]!!
-                    else -> error("Invalid Callee, expected a variable")
+                val typedCallee = this.callee.toTypedExpression()
+                val calleeType = typedCallee.type
+
+                require(calleeType is FunctionType) {
+                    "Invoke on custom types is currently unsupportd. Callee must be a function."
                 }
-                val paramTypes = this.arguments.map {
-                    it.check()
+
+                val typedArguments = this.arguments.map {
+                    it.toTypedExpression()
                 }
 
                 // todo: return back to figure out a solution to give better error diagnostics
                 var found: Type? = null
-                for (possibleType in calleeType) {
-                    when (possibleType) {
-                        is TConstructor -> {
-                            if ("Function" !in possibleType.name) {
-                                error("Invalid call target: ${this.callee} is not of type Function")
-                            } else if (paramTypes.size != possibleType.generics.size - 1) {
-                                // error("Invalid number of arguments for call to ${this.callee}: got ${paramTypes.size} but expected ${possibleType.generics.size - 1}")
-                            } else {
-                                var acc = true
-                                for (i in paramTypes.indices) {
-                                    when (val paramType = paramTypes[i]) {
-                                        is TConstructor -> {
-                                            when (val argType = possibleType.generics[i]) {
-                                                is TConstructor -> {
-                                                    acc = acc && paramType == argType
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
+                for (functionOverload in calleeType.overloads) {
+                    if (functionOverload.arity != typedArguments.size) {
+                        continue // error diagnostic?
+                    }
 
-                                if (acc) {
-                                    found = possibleType
-                                    break
-                                }
-                            }
-                        }
+                    var acc = true
+                    for (i in typedArguments.indices) {
+                        val argumentType = typedArguments[i].type
+
+                        acc = acc && argumentType == functionOverload.parameterTypes[i]
+                    }
+
+                    if (acc) {
+                        found = functionOverload.returnType
+                        break // return type based overload resolution?
                     }
                 }
 
-                when (found) {
-                    is TConstructor -> {
-                        found.generics.last().also {
-                            this.callee.type = found
-                            this.type = it
-                        }
-                    }
-                    null-> {
-                        error("No valid function matching the call signature for ${this.callee.name} was found")
-                    }
+                if (found == null) {
+                    error("No valid function matching the call signature for ${calleeType.name} was found. Known candidates are: $calleeType")
                 }
+
+                TypedCall(typedCallee, this.paren, typedArguments, found)
             }
-            is Get -> {
-                TODO()
-            }
+            is Get -> TODO()
             is Grouping -> {
-                val type = this.expression.check()
-                this.type = type
-                type
+                TypedGrouping(this.expression.toTypedExpression())
             }
             is IfExpression -> {
-                val conditionType = this.condition.check()
-                check(this.trueBranch)
-                check(this.falseBranch)
-                val trueType: Type = when (val trueBranchLast = this.trueBranch.last()) {
-                    is ExpressionStatement -> trueBranchLast.expression.type!!
-                    else -> TConstructor("Unit")
-                }
-                val falseType = when (val falseBranchLast = this.falseBranch.last()) {
-                    is ExpressionStatement -> falseBranchLast.expression.type!!
-                    else -> TConstructor("Unit")
+                val typedCondition = this.condition.toTypedExpression()
+
+                val typedTrueBranch = check(this.trueBranch)
+                val trueType = when (val trueBranchLast = typedTrueBranch.lastOrNull()) {
+                    is TypedExpressionStatement -> trueBranchLast.expression.type
+                    else -> VariableType("Unit")
                 }
 
-                require(conditionType == TConstructor("Boolean")) {
-                    "the conditional must be of type Boolean, found $conditionType"
+                val typedFalseBranch = check(this.falseBranch)
+                val falseType = when (val falseBranchLast = typedFalseBranch.lastOrNull()) {
+                    is TypedExpressionStatement -> falseBranchLast.expression.type
+                    else -> VariableType("Unit")
+                }
+
+                require(typedCondition.type == VariableType("Boolean")) {
+                    "the conditional expression must return a type of Boolean, found ${typedCondition.type}"
                 }
 
                 require(trueType == falseType) {
-                    "the types of the branches must be the same, $trueType != $falseType"
+                    "the types of the if branches must be the same, $trueType != $falseType"
                 }
 
-                this.type = trueType
-
-                trueType
+                TypedIfExpression(typedCondition, typedTrueBranch, typedFalseBranch, trueType)
             }
-            is DoubleLiteral, is IntLiteral, is BooleanLiteral, NullLiteral, is ObjectLiteral<*> -> this.type!!
+            is BooleanLiteral, is DoubleLiteral, is IntLiteral, NullLiteral, is StringLiteral -> TypedLiteral(this as Literal<*>)
             is Logical -> {
-                val leftType = this.left.check()
-                val rightType = this.right.check()
+                val leftTypedExpression = this.left.toTypedExpression()
+                val rightTypedExpression = this.right.toTypedExpression()
                 val function = this.operator.lexeme
 
-                var found: Type? = null
+                val leftTypeName = when (val leftType = leftTypedExpression.type) {
+                    is VariableType -> leftType.name
+                    is FunctionType -> error("Lookup of function types is currently not supported during type checking")
+                }
 
-                for (currentType in this@TypeChecker.environment[function]!!) {
-                    when (currentType) {
-                        is TConstructor -> {
-                            if (leftType == currentType.generics[0] && rightType == currentType.generics[1]) {
-                                found = this.type!!.takeIf { it == currentType.generics[2] }
-                                break
-                            }
-                        }
+                val rightType = rightTypedExpression.type
+                val rightTypeName = when (rightType) {
+                    is VariableType -> rightType.name
+                    is FunctionType -> error("Lookup of function types is currently not supported during type checking")
+                }
+
+                val receiverReference = this@TypeChecker.environment.getClass(leftTypeName) ?: error("Unknown class '$leftTypeName'")
+
+                val functionReference = receiverReference.functions[function] ?: error("Unknown function '$function' with receiver type '$leftTypeName'")
+
+                var returnType: Type? = null
+
+                for (functionOverload in functionReference.functionType.overloads) {
+                    if (functionOverload.arity != 1) {
+                        continue
+                    }
+
+                    if (rightType == functionOverload.parameterTypes[0]) {
+                        returnType = functionOverload.returnType
+                        break
                     }
                 }
 
-                found ?: error("Invalid Logical Operator, could not find definition using types $leftType and $rightType that returned Boolean")
+                if (returnType == null) {
+                    error("Unable to find function definition on type $leftTypeName for $function with parameter $rightTypeName. Known candidates are: ${functionReference.functionType}")
+                }
+
+                if (returnType != VariableType("Boolean")) {
+                    error("Logical operations must return type Boolean") // should be unreachable
+                }
+
+                TypedLogical(leftTypedExpression, this.operator, rightTypedExpression)
             }
-            is This -> {
-                TODO()
-            }
+            is This -> TODO()
             is Unary -> {
-                val expressionType = this.expression.check()
+                val typedExpression = this.expression.toTypedExpression()
                 val function = when (this.operator.type) {
                     TokenType.PLUS -> "unaryPlus"
                     TokenType.MINUS -> "unaryMinus"
                     TokenType.NOT -> "not"
-                    else -> error("Invalid Unary Operator") // should be unreachable
+                    else -> error("Custom Unary Operators are unsupported. Invalid Unary Operator ${this.operator.lexeme}")
+                }
+                val receiverTypeName = when (val receiverType = typedExpression.type) {
+                    is VariableType -> receiverType.name
+                    is FunctionType -> error("Lookup of function types is currently not supported during type checking")
                 }
 
-                var found: Type? = null
+                val receiverReference = this@TypeChecker.environment.getClass(receiverTypeName) ?: error("Unknown class '$receiverTypeName'")
 
-                for (currentType in this@TypeChecker.environment[function]!!) {
-                    when (currentType) {
-                        is TConstructor -> {
-                            if (expressionType == currentType.generics[0]) {
-                                found = currentType.generics[1]
-                                break
-                            }
-                        }
+                val functionReference = receiverReference.functions[function] ?: error("Unknown function '$function' with receiver type '$receiverTypeName'")
+
+                var returnType: Type? = null
+
+                for (functionOverload in functionReference.functionType.overloads) {
+                    // todo: update to check for operator status once operator distinction is added
+                    if (functionOverload.arity != 0) {
+                        continue
                     }
+
+                    returnType = functionOverload.returnType
                 }
 
-                this.type = found
+                if (returnType == null) {
+                    error("Unable to find function definition on type $receiverTypeName for $function. Known candidates are: ${functionReference.functionType}")
+                }
 
-                found ?: error("Invalid Unary Operator, could not find definition using type $expressionType")
+                TypedUnary(this.operator, typedExpression, returnType)
             }
             is Variable -> {
-                val type = environment[this.name.lexeme]!!
-
-                if (type.size != 1) {
-                    error("Variable has more than one possible type, ambiguous variable")
-                }
-
-                type.first().also {
-                    this.type = it
-                }
+                val variableType = this@TypeChecker.environment.getVariable(this.name.lexeme) ?: error("Undefined variable ${this.name.lexeme}")
+                TypedVariable(this.name, variableType)
             }
         }
     }

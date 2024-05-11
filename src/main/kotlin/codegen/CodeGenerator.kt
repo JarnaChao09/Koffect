@@ -1,7 +1,7 @@
 package codegen
 
+import analysis.ast.*
 import lexer.TokenType
-import parser.ast.*
 import runtime.*
 
 public class CodeGenerator {
@@ -10,7 +10,7 @@ public class CodeGenerator {
     private var returnEmitted: Boolean = false
     private val stack: ArrayDeque<MutableMap<String, Int>> = ArrayDeque()
 
-    public fun generate(ast: List<Statement>): Chunk {
+    public fun generate(ast: List<TypedStatement>): Chunk {
         this.currentChunk = Chunk()
 
         this.generateStatements(ast)
@@ -21,20 +21,20 @@ public class CodeGenerator {
         return this.currentChunk
     }
 
-    private fun generateStatements(ast: List<Statement>) {
+    private fun generateStatements(ast: List<TypedStatement>) {
         ast.forEach {
             when(it) {
-                is ClassDeclaration -> {
+                is TypedClassDeclaration -> {
                     TODO()
                 }
-                is ExpressionStatement -> {
+                is TypedExpressionStatement -> {
                     dfs(it.expression)
                     this.currentChunk.write(Opcode.Pop.toInt(), this.line++)
                 }
-                is IfStatement -> {
+                is TypedIfStatement -> {
                     this.generateIf(it.condition, it.trueBranch, it.falseBranch)
                 }
-                is FunctionDeclaration -> {
+                is TypedFunctionDeclaration -> {
                     val binding = this.currentChunk.addConstant(it.name.lexeme.toValue())
 
                     val oldChunk = this.currentChunk
@@ -74,7 +74,7 @@ public class CodeGenerator {
                     this.currentChunk.write(Opcode.DefineGlobal.toInt(), this.line)
                     this.currentChunk.write(binding, this.line++)
                 }
-                is VariableStatement -> {
+                is TypedVariableStatement -> {
                     val binding = this.currentChunk.addConstant(it.name.lexeme.toValue())
 
                     it.initializer?.let { expr ->
@@ -84,7 +84,7 @@ public class CodeGenerator {
                     this.currentChunk.write(Opcode.DefineGlobal.toInt(), this.line)
                     this.currentChunk.write(binding, this.line++)
                 }
-                is WhileStatement -> {
+                is TypedWhileStatement -> {
                     val loopStart = this.currentChunk.code.size
 
                     this.dfs(it.condition)
@@ -99,7 +99,7 @@ public class CodeGenerator {
                     this.currentChunk.patchJump(exitJump)
                     this.currentChunk.write(Opcode.Pop.toInt(), this.line++)
                 }
-                is ReturnStatement -> {
+                is TypedReturnStatement -> {
                     this.returnEmitted = true
 
                     it.value?.let { returnValue ->
@@ -116,9 +116,9 @@ public class CodeGenerator {
         }
     }
 
-    private fun dfs(root: Expression) {
+    private fun dfs(root: TypedExpression) {
         when (root) {
-            is Assign -> {
+            is TypedAssign -> {
                 if (this.stack.isEmpty()) {
                     val binding = this.currentChunk.addConstant(root.name.lexeme.toValue())
 
@@ -136,14 +136,14 @@ public class CodeGenerator {
                     )
                 }
             }
-            is Binary -> {
+            is TypedBinary -> {
                 dfs(root.left)
                 dfs(root.right)
 
                 this.currentChunk.write(when (root.operator.type) {
                     TokenType.PLUS -> {
-                        when (val type = root.type ?: error("Type must be annotated")) {
-                            is TConstructor -> {
+                        when (val type = root.type ) {
+                            is VariableType -> {
                                 when (type.name) {
                                     "Double" -> {
                                         Opcode.DoubleAdd
@@ -156,11 +156,14 @@ public class CodeGenerator {
                                     }
                                 }
                             }
+                            else -> {
+                                error("Invalid binary operator type") // should be unreachable
+                            }
                         }
                     }
                     TokenType.MINUS -> {
-                        when (val type = root.type ?: error("Type must be annotated")) {
-                            is TConstructor -> {
+                        when (val type = root.type) {
+                            is VariableType -> {
                                 when (type.name) {
                                     "Double" -> {
                                         Opcode.DoubleSubtract
@@ -173,11 +176,14 @@ public class CodeGenerator {
                                     }
                                 }
                             }
+                            else -> {
+                                error("Invalid binary operator type") // should be unreachable
+                            }
                         }
                     }
                     TokenType.STAR -> {
-                        when (val type = root.type ?: error("Type must be annotated")) {
-                            is TConstructor -> {
+                        when (val type = root.type) {
+                            is VariableType -> {
                                 when (type.name) {
                                     "Double" -> {
                                         Opcode.DoubleMultiply
@@ -190,11 +196,14 @@ public class CodeGenerator {
                                     }
                                 }
                             }
+                            else -> {
+                                error("Invalid binary operator type") // should be unreachable
+                            }
                         }
                     }
                     TokenType.SLASH -> {
-                        when (val type = root.type ?: error("Type must be annotated")) {
-                            is TConstructor -> {
+                        when (val type = root.type) {
+                            is VariableType -> {
                                 when (type.name) {
                                     "Double" -> {
                                         Opcode.DoubleDivide
@@ -207,11 +216,14 @@ public class CodeGenerator {
                                     }
                                 }
                             }
+                            else -> {
+                                error("Invalid binary operator type") // should be unreachable
+                            }
                         }
                     }
                     TokenType.MOD -> {
-                        when (val type = root.type ?: error("Type must be annotated")) {
-                            is TConstructor -> {
+                        when (val type = root.type) {
+                            is VariableType -> {
                                 when (type.name) {
                                     "Double" -> {
                                         Opcode.DoubleMod
@@ -224,11 +236,14 @@ public class CodeGenerator {
                                     }
                                 }
                             }
+                            else -> {
+                                error("Invalid binary operator type") // should be unreachable
+                            }
                         }
                     }
                     TokenType.EQUALS -> {
-                        when (val type = root.left.type ?: error("Type must be annotated")) {
-                            is TConstructor -> {
+                        when (val type = root.left.type) {
+                            is VariableType -> {
                                 when (type.name) {
                                     "Double" -> {
                                         Opcode.DoubleEquals
@@ -241,11 +256,14 @@ public class CodeGenerator {
                                     }
                                 }
                             }
+                            else -> {
+                                error("Invalid binary operator type") // should be unreachable
+                            }
                         }
                     }
                     TokenType.NOT_EQ -> {
-                        when (val type = root.left.type ?: error("Type must be annotated")) {
-                            is TConstructor -> {
+                        when (val type = root.left.type) {
+                            is VariableType -> {
                                 when (type.name) {
                                     "Double" -> {
                                         Opcode.DoubleNotEq
@@ -258,11 +276,14 @@ public class CodeGenerator {
                                     }
                                 }
                             }
+                            else -> {
+                                error("Invalid binary operator type") // should be unreachable
+                            }
                         }
                     }
                     TokenType.GE -> {
-                        when (val type = root.left.type ?: error("Type must be annotated")) {
-                            is TConstructor -> {
+                        when (val type = root.left.type) {
+                            is VariableType -> {
                                 when (type.name) {
                                     "Double" -> {
                                         Opcode.DoubleGreaterEq
@@ -275,11 +296,14 @@ public class CodeGenerator {
                                     }
                                 }
                             }
+                            else -> {
+                                error("Invalid binary operator type") // should be unreachable
+                            }
                         }
                     }
                     TokenType.LE -> {
-                        when (val type = root.left.type ?: error("Type must be annotated")) {
-                            is TConstructor -> {
+                        when (val type = root.left.type) {
+                            is VariableType -> {
                                 when (type.name) {
                                     "Double" -> {
                                         Opcode.DoubleLessEq
@@ -292,11 +316,14 @@ public class CodeGenerator {
                                     }
                                 }
                             }
+                            else -> {
+                                error("Invalid binary operator type") // should be unreachable
+                            }
                         }
                     }
                     TokenType.GT -> {
-                        when (val type = root.left.type ?: error("Type must be annotated")) {
-                            is TConstructor -> {
+                        when (val type = root.left.type) {
+                            is VariableType -> {
                                 when (type.name) {
                                     "Double" -> {
                                         Opcode.DoubleGreaterThan
@@ -309,11 +336,14 @@ public class CodeGenerator {
                                     }
                                 }
                             }
+                            else -> {
+                                error("Invalid binary operator type") // should be unreachable
+                            }
                         }
                     }
                     TokenType.LT -> {
-                        when (val type = root.left.type ?: error("Type must be annotated")) {
-                            is TConstructor -> {
+                        when (val type = root.left.type) {
+                            is VariableType -> {
                                 when (type.name) {
                                     "Double" -> {
                                         Opcode.DoubleLessThan
@@ -326,12 +356,15 @@ public class CodeGenerator {
                                     }
                                 }
                             }
+                            else -> {
+                                error("Invalid binary operator type") // should be unreachable
+                            }
                         }
                     }
                     else -> error("invalid binary operator")
                 }.toInt(), this.line++)
             }
-            is Call -> {
+            is TypedCall -> {
                 dfs(root.callee)
 
                 val argCount = root.arguments.size
@@ -340,40 +373,40 @@ public class CodeGenerator {
                 this.currentChunk.write(Opcode.Call.toInt(), this.line)
                 this.currentChunk.write(argCount, this.line++)
             }
-            is Get -> {
+            is TypedGet -> {
                 TODO()
             }
-            is Grouping -> {
+            is TypedGrouping -> {
                 dfs(root.expression)
             }
-            is IfExpression -> {
+            is TypedIfExpression -> {
                 this.generateIf(root.condition, root.trueBranch, root.falseBranch)
             }
-            is DoubleLiteral -> {
+            is TypedDoubleLiteral -> {
                 val constant = this.currentChunk.addConstant(root.value.toValue())
                 this.currentChunk.write(Opcode.DoubleConstant.toInt(), this.line)
                 this.currentChunk.write(constant, this.line++)
             }
-            is IntLiteral -> {
+            is TypedIntLiteral -> {
                 val constant = this.currentChunk.addConstant(root.value.toValue())
                 this.currentChunk.write(Opcode.IntConstant.toInt(), this.line)
                 this.currentChunk.write(constant, this.line++)
             }
-            is BooleanLiteral -> {
+            is TypedBooleanLiteral -> {
                 this.currentChunk.write(when (root.value) {
                     true -> Opcode.True
                     false -> Opcode.False
                 }.toInt(), this.line++)
             }
-            NullLiteral -> {
+            TypedNullLiteral -> {
                 this.currentChunk.write(Opcode.Null.toInt(), this.line++)
             }
-            is ObjectLiteral<*> -> {
+            is TypedStringLiteral -> {
                 val constant = this.currentChunk.addConstant(root.value.toValue())
                 this.currentChunk.write(Opcode.ObjectConstant.toInt(), this.line)
                 this.currentChunk.write(constant, this.line++)
             }
-            is Logical -> {
+            is TypedLogical -> {
                 dfs(root.left)
 
                 val jumpType = when (root.operator.type) {
@@ -390,16 +423,16 @@ public class CodeGenerator {
 
                 this.currentChunk.patchJump(jump)
             }
-            is This -> {
+            is TypedThis -> {
                 TODO()
             }
-            is Unary -> {
+            is TypedUnary -> {
                 dfs(root.expression)
 
                 this.currentChunk.write(when (root.operator.type) {
                     TokenType.PLUS -> {
                         when (val type = root.type ?: error("Type must be annotated")) {
-                            is TConstructor -> {
+                            is VariableType -> {
                                 when (type.name) {
                                     "Double" -> {
                                         Opcode.DoubleIdentity
@@ -412,11 +445,14 @@ public class CodeGenerator {
                                     }
                                 }
                             }
+                            else -> {
+                                error("Invalid unary operator type")
+                            }
                         }
                     }
                     TokenType.MINUS -> {
-                        when (val type = root.type ?: error("Type must be annotated")) {
-                            is TConstructor -> {
+                        when (val type = root.type) {
+                            is VariableType -> {
                                 when (type.name) {
                                     "Double" -> {
                                         Opcode.DoubleNegate
@@ -429,26 +465,32 @@ public class CodeGenerator {
                                     }
                                 }
                             }
+                            else -> {
+                                error("Invalid unary operator type")
+                            }
                         }
                     }
                     TokenType.NOT -> {
-                        when (val type = root.type ?: error("Type must be annotated")) {
-                            is TConstructor -> {
+                        when (val type = root.type) {
+                            is VariableType -> {
                                 when (type.name) {
                                     "Boolean" -> {
                                         Opcode.Not
                                     }
                                     else -> {
-                                        error("Invlaid unary operator type") // should be unreachable
+                                        error("Invalid unary operator type") // should be unreachable
                                     }
                                 }
+                            }
+                            else -> {
+                                error("Invalid unary operator type")
                             }
                         }
                     }
                     else -> error("invalid unary operator")
                 }.toInt(), this.line++)
             }
-            is Variable -> {
+            is TypedVariable -> {
                 if (this.stack.isEmpty() || root.name.lexeme !in this.stack.first()) {
                     val binding = this.currentChunk.addConstant(root.name.lexeme.toValue())
 
@@ -465,7 +507,7 @@ public class CodeGenerator {
         }
     }
 
-    private fun generateIf(condition: Expression, trueBranch: List<Statement>, falseBranch: List<Statement>) {
+    private fun generateIf(condition: TypedExpression, trueBranch: List<TypedStatement>, falseBranch: List<TypedStatement>) {
         this.dfs(condition)
 
         val elseBranch = this.currentChunk.emitJump(Opcode.JumpIfFalse)
