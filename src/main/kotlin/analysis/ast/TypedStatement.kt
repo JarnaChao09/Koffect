@@ -17,7 +17,26 @@ public data class TypedClassDeclaration(
     val interfaces: List<Type>,
     val field: List<TypedVariableStatement>,
     val methods: List<TypedFunctionDeclaration>,
-) : TypedDeclaration
+) : TypedDeclaration {
+    private fun printInheritors(): String {
+        return if (this.superClass == null && this.interfaces.isEmpty()) {
+            ""
+        } else {
+            " : ${this.superClass?.let { "$it, " } ?: ""}${this.interfaces.joinToString(", ")}"
+        }
+    }
+    override fun toString(): String {
+        val ret =
+            """
+                |class ${this.name.lexeme}${this.printInheritors()} {
+                |${this.field.joinToString("\n")}
+                |${this.methods.joinToString("\n")}
+                |}
+            """.trimMargin()
+
+        return ret
+    }
+}
 
 public data class TypedExpressionStatement(public val expression: TypedExpression) : TypedStatement {
     override fun toString(): String {

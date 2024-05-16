@@ -202,11 +202,31 @@ public fun repl() {
     val srcString = """
         class Foo(): Bar {
             val baz: Int = 10;
+            val qux: Int = this.baz;
 
-            fun qux(): Int {
-                return this.baz;
+            fun quux(): Int {
+                return this.qux + baz;
+            }
+            
+            fun corge(): Int {
+                return quux();
+            }
+            
+            fun grault(): Int {
+                return this.corge() + quux();
             }
         }
+        
+        val foo: Foo = Foo();
+        val ret: Int = foo.grault();
+        println(ret);
+        
+        
+        // println(baz);
+        // println(qux);
+        // println(quux());
+        // println(corge());
+        // println(grault());
     """.trimIndent()
 
     val lexer = Lexer(srcString)
@@ -221,15 +241,12 @@ public fun repl() {
 
     typedTree.forEach(::println)
 
-//    println(typechecker.environment["foo"])
-//    println(typechecker.environment["test"])
-
-    val chunk = codegen.generate(typedTree)
-
-    vm.interpret(chunk.also { c ->
-        println(c.disassemble("source string"))
-        println("=== source string ===")
-    })
+    // val chunk = codegen.generate(typedTree)
+    //
+    // vm.interpret(chunk.also { c ->
+    //     println(c.disassemble("source string"))
+    //     println("=== source string ===")
+    // })
 
 //    var i = 0
 //    while (true) {

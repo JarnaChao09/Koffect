@@ -8,11 +8,66 @@ import parser.ast.*
 // public typealias Environment = Map<String, Set<Type>>
 
 public class TypeChecker(public var environment: Environment) {
+    private var currentClass: ClassType? = null
     public fun check(statements: List<Statement>, returnTypes: MutableList<Type> = mutableListOf()): List<TypedStatement> {
         return statements.map {
             when (it) {
                 is ClassDeclaration -> {
-                    TODO()
+                    if (this.environment.getClass(it.name.lexeme) != null) {
+                        error("Class ${it.name.lexeme} is already defined")
+                    }
+
+                    val currentClassType = ClassType(
+                        it.name.lexeme,
+                        null, // todo: superclasses
+                        emptyList(), // todo: interfaces
+                        mutableMapOf(),
+                        mutableMapOf(),
+                    )
+                    val previousCurrentClass = this.currentClass
+                    this.currentClass = currentClassType
+
+                    this.environment.addClass(it.name.lexeme, currentClassType)
+                    this.environment.addVariable(
+                        it.name.lexeme,
+                        FunctionType(
+                            it.name.lexeme,
+                            mutableSetOf(
+                                FunctionType.Overload(
+                                emptyList(),
+                                VariableType(it.name.lexeme)
+                            ))
+                        )
+                    )
+                    this.environment = Environment(this.environment)
+
+                    val typedFields = check(it.field)
+                    val typedMethods = check(it.methods)
+
+                    this.environment = this.environment.enclosing!!
+
+                    // todo: superclasses
+                    val superClassType = it.superClass?.let { superClass ->
+                        superClass as TConstructor
+                        VariableType(superClass.name)
+                    }
+
+                    // todo: interfaces
+                    val interfaceTypes = it.interfaces.map { i ->
+                        i as TConstructor
+                        VariableType(i.name)
+                    }
+
+                    this.currentClass = previousCurrentClass
+
+                    @Suppress("UNCHECKED_CAST")
+                    TypedClassDeclaration(
+                        it.name,
+                        superClassType,
+                        interfaceTypes,
+                        typedFields as List<TypedVariableStatement>,
+                        typedMethods as List<TypedFunctionDeclaration>,
+                    )
                 }
                 is ExpressionStatement -> {
                     TypedExpressionStatement(it.expression.toTypedExpression())
@@ -48,7 +103,12 @@ public class TypeChecker(public var environment: Environment) {
                         }
                     }
 
-                    oldFunctionType.addOverload(typedParameters.map { (_, type) -> type }, returnType)
+                    val parameterTypes = typedParameters.map { (_, type) -> type }
+
+                    oldFunctionType.addOverload(parameterTypes, returnType)
+                    this.currentClass?.run {
+                        addFunction(it.name.lexeme, parameterTypes, returnType)
+                    }
 
                     this.environment = Environment(this.environment)
 
@@ -88,6 +148,10 @@ public class TypeChecker(public var environment: Environment) {
                     }
 
                     this.environment.addVariable(it.name.lexeme, type)
+
+                    this.currentClass?.run {
+                        addProperty(it.name.lexeme, type)
+                    }
 
                     TypedVariableStatement(it, type, typedInitializer)
                 }
@@ -186,7 +250,7 @@ public class TypeChecker(public var environment: Environment) {
                 val calleeType = typedCallee.type
 
                 require(calleeType is FunctionType) {
-                    "Invoke on custom types is currently unsupportd. Callee must be a function."
+                    "Invoke on custom types is currently unsupported. Callee must be a function."
                 }
 
                 val typedArguments = this.arguments.map {
@@ -219,7 +283,21 @@ public class TypeChecker(public var environment: Environment) {
 
                 TypedCall(typedCallee, this.paren, typedArguments, found)
             }
-            is Get -> TODO()
+            is Get -> {
+                val typedInstance = this.instance.toTypedExpression()
+
+                val receiverName = when (val type = typedInstance.type) {
+                    is VariableType -> type.name
+                    is FunctionType -> error("Lookup of function types is currently not supported during type checking")
+                }
+
+                val classRef = this@TypeChecker.environment.getClass(receiverName) ?: error("Unknown class '$receiverName'")
+
+                // todo: new ast node for getting a function?
+                val getType = classRef.properties[this.name.lexeme]?.type ?: classRef.functions[this.name.lexeme]?.functionType ?: error("Unknown property ${this.name.lexeme} on class '$receiverName'")
+
+                TypedGet(typedInstance, this.name, getType)
+            }
             is Grouping -> {
                 TypedGrouping(this.expression.toTypedExpression())
             }
@@ -292,7 +370,14 @@ public class TypeChecker(public var environment: Environment) {
 
                 TypedLogical(leftTypedExpression, this.operator, rightTypedExpression)
             }
-            is This -> TODO()
+            is This -> {
+                TypedThis(
+                    this.keyword,
+                    VariableType(
+                        this@TypeChecker.currentClass?.name ?: error("Invalid use of 'this' when not inside a class scope")
+                    )
+                )
+            }
             is Unary -> {
                 val typedExpression = this.expression.toTypedExpression()
                 val function = when (this.operator.type) {

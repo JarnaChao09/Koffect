@@ -15,23 +15,23 @@ public data class FunctionType(
     private val mutableOverloads: MutableSet<Overload> = mutableSetOf()
 ) : Type {
     public data class Overload(public val parameterTypes: List<Type>, public val returnType: Type) {
-        val arity: Int = parameterTypes.size
+        public val arity: Int = this.parameterTypes.size
         override fun toString(): String {
-            return "(${parameterTypes.joinToString(separator = ", ")}) -> $returnType"
+            return "(${this.parameterTypes.joinToString(separator = ", ")}) -> ${this.returnType}"
         }
     }
 
     public val overloads: Set<Overload>
-        get() = mutableOverloads
+        get() = this.mutableOverloads
 
     public fun addOverload(parameterTypes: List<Type>, returnType: Type): Overload {
         return Overload(parameterTypes, returnType).also {
-            mutableOverloads.add(it)
+            this.mutableOverloads.add(it)
         }
     }
 
     override fun toString(): String {
-        return "{ ${overloads.joinToString(", ")} }"
+        return "{ ${this.overloads.joinToString(", ")} }"
     }
 }
 
@@ -39,11 +39,38 @@ public data class ClassType(
     public val name: String,
     public val superclass: ClassType?,
     public val interfaces: List<InterfaceType>,
-    public val properties: Map<String, Property>,
-    public val functions: Map<String, Function>,
+    private val mutableProperties: MutableMap<String, Property>,
+    private val mutableFunctions: MutableMap<String, Function>,
 ) {
+    public val properties: Map<String, Property>
+        get() = this.mutableProperties
+
+    public val functions: Map<String, Function>
+        get() = this.mutableFunctions
+
     public data class Property(val name: String, val type: Type)
     public data class Function(val name: String, val functionType: FunctionType)
+
+    public fun addProperty(name: String, type: Type): Property {
+        if (this.mutableProperties.containsKey(name)) {
+            error("A property with name $name already exists inside of class ${this.name}")
+        }
+        return Property(name, type).also {
+            this.mutableProperties[name] = it
+        }
+    }
+
+    public fun addFunction(name: String, parameterTypes: List<Type>, returnType: Type): Function {
+        return if (this.mutableFunctions.containsKey(name)) {
+            this.mutableFunctions[name]!!.also {
+                it.functionType.addOverload(parameterTypes, returnType)
+            }
+        } else {
+            Function(name, FunctionType(name, mutableSetOf(FunctionType.Overload(parameterTypes, returnType)))).also {
+                this.mutableFunctions[name] = it
+            }
+        }
+    }
 }
 
 // TODO
