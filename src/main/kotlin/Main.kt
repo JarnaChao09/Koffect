@@ -200,8 +200,7 @@ public fun repl() {
     // """.trimIndent()
 
     val srcString = """
-        class Foo(): Bar {
-            val baz: Int = 10;
+        class Foo(val baz: Int = 10) : Bar {
             val qux: Int = this.baz;
 
             fun quux(): Int {

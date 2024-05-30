@@ -13,11 +13,41 @@ public sealed interface TypedDeclaration : TypedStatement
 
 public data class TypedClassDeclaration(
     val name: Token,
+    val primaryConstructor: TypedConstructor?,
+    val secondaryConstructors: List<TypedConstructor>,
     val superClass: Type?,
     val interfaces: List<Type>,
-    val field: List<TypedVariableStatement>,
+    val fields: List<TypedVariableStatement>,
     val methods: List<TypedFunctionDeclaration>,
 ) : TypedDeclaration {
+    public data class TypedConstructor(val parameters: List<TypedConstructorParameter>)
+
+    public data class TypedConstructorParameter(
+        val name: Token,
+        val type: Type,
+        val fieldType: FieldType,
+        val value: TypedExpression?,
+    )
+
+    public enum class FieldType {
+        VAL,
+        VAR,
+        NONE,
+    }
+
+    private fun printPrimaryConstructor(): String {
+        return this.primaryConstructor?.let {
+            "(${it.parameters.joinToString(", ") { param ->
+                "${when (param.fieldType) {
+                    FieldType.VAL -> "val "
+                    FieldType.VAR -> "var "
+                    FieldType.NONE -> ""
+                }}${param.name.lexeme}${param.value?.let { v ->
+                    " = $v"
+                } ?: ""}"
+            }})"
+        } ?: ""
+    }
     private fun printInheritors(): String {
         return if (this.superClass == null && this.interfaces.isEmpty()) {
             ""
@@ -28,8 +58,8 @@ public data class TypedClassDeclaration(
     override fun toString(): String {
         val ret =
             """
-                |class ${this.name.lexeme}${this.printInheritors()} {
-                |${this.field.joinToString("\n")}
+                |class ${this.name.lexeme}${this.printPrimaryConstructor()}${this.printInheritors()} {
+                |${this.fields.joinToString("\n")}
                 |${this.methods.joinToString("\n")}
                 |}
             """.trimMargin()
@@ -46,11 +76,11 @@ public data class TypedExpressionStatement(public val expression: TypedExpressio
 
 public data class TypedFunctionDeclaration(
     val name: Token,
-    val parameters: List<Parameter>,
+    val parameters: List<TypedParameter>,
     val returnType: Type,
     val body: List<TypedStatement>,
 ) : TypedDeclaration {
-    public data class Parameter(val name: Token, val type: Type) {
+    public data class TypedParameter(val name: Token, val type: Type) {
         override fun toString(): String {
             return "${name.lexeme}: $type"
         }

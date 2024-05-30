@@ -37,19 +37,45 @@ public class Parser(tokenSequence: Sequence<Token>) {
     private fun classDeclaration(): Statement {
         val name = expect(TokenType.IDENTIFIER, "Expect class name")
         val primaryConstructor = if (match(TokenType.LEFT_PAREN)) {
-            // todo: constructors
+            val parameters = buildList {
+                if (!checkCurrent(TokenType.RIGHT_PAREN)) {
+                    do {
+                        if (size >= 255) {
+                            error("Cannot have more than 255 parameters")
+                        }
+
+                        val parameterFieldType = when {
+                            match(TokenType.VAL) -> ClassDeclaration.FieldType.VAL
+                            match(TokenType.VAR) -> ClassDeclaration.FieldType.VAR
+                            else -> ClassDeclaration.FieldType.NONE
+                        }
+
+                        val parameterName = expect(TokenType.IDENTIFIER, "Expected parameter name")
+                        expect(TokenType.COLON, "Expected type annotation after parameter name")
+                        val parameterType = expect(TokenType.IDENTIFIER, "Expected parameter type")
+
+                        val parameterInitialValue = if (match(TokenType.ASSIGN)) {
+                            this@Parser.expression()
+                        } else {
+                            null
+                        }
+
+                        add(ClassDeclaration.ConstructorParameter(parameterName, parameterType, parameterFieldType, parameterInitialValue))
+                    } while (match(TokenType.COMMA))
+                }
+            }
             expect(TokenType.RIGHT_PAREN, "Expect class primary constructor to end with right parentheses")
+            ClassDeclaration.Constructor(parameters)
         } else {
             null
         }
 
-        val inherits = buildList<Type> {
+        val inherits = buildList {
             if (match(TokenType.COLON)) {
                 do {
                     // todo: replace with type parsing
-                    val type = expect(TokenType.IDENTIFIER, "Expected superclass or interface name")
-                    add(TConstructor(type.lexeme))
-                } while (this@Parser.match(TokenType.COMMA))
+                    add(expect(TokenType.IDENTIFIER, "Expected superclass or interface name"))
+                } while (match(TokenType.COMMA))
             }
         }
         // todo: filter out the inheritance list into superclass and interfaces
@@ -73,7 +99,15 @@ public class Parser(tokenSequence: Sequence<Token>) {
 
         expect(TokenType.RIGHT_BRACE, "Expected a '}' after a class body")
 
-        return ClassDeclaration(name, inherits.firstOrNull(), inherits, fields, methods)
+        return ClassDeclaration(
+            name = name,
+            primaryConstructor = primaryConstructor,
+            secondaryConstructors = emptyList(),
+            superClass = inherits.firstOrNull(),
+            interfaces = inherits,
+            fields = fields,
+            methods = methods,
+        )
     }
 
     private fun variableDeclaration(): VariableStatement {

@@ -4,6 +4,7 @@ public sealed interface Type {
     // public val isNullable: Boolean // todo add nullable types later
 }
 
+// todo: handle generics
 public data class VariableType(public val name: String) : Type {
     override fun toString(): String {
         return this.name
@@ -26,6 +27,9 @@ public data class FunctionType(
 
     public fun addOverload(parameterTypes: List<Type>, returnType: Type): Overload {
         return Overload(parameterTypes, returnType).also {
+            if (it in this.mutableOverloads) {
+                error("Overload for function ${this.name} with type $it already exists")
+            }
             this.mutableOverloads.add(it)
         }
     }

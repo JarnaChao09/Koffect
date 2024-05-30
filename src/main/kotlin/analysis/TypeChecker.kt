@@ -13,9 +13,39 @@ public class TypeChecker(public var environment: Environment) {
         return statements.map {
             when (it) {
                 is ClassDeclaration -> {
+                    fun ClassDeclaration.Constructor.toTypedConstructor(): TypedClassDeclaration.TypedConstructor {
+                        return TypedClassDeclaration.TypedConstructor(
+                            this.parameters.map { (name, type, fieldType, value) ->
+                                TypedClassDeclaration.TypedConstructorParameter(
+                                    name,
+                                    VariableType(type.lexeme),
+                                    when (fieldType) {
+                                        ClassDeclaration.FieldType.VAL -> TypedClassDeclaration.FieldType.VAL
+                                        ClassDeclaration.FieldType.VAR -> TypedClassDeclaration.FieldType.VAR
+                                        ClassDeclaration.FieldType.NONE -> TypedClassDeclaration.FieldType.NONE
+                                    },
+                                    value?.toTypedExpression(),
+                                )
+                            }
+                        )
+                    }
                     if (this.environment.getClass(it.name.lexeme) != null) {
                         error("Class ${it.name.lexeme} is already defined")
                     }
+
+                    // todo: superclasses
+                    val superClassType = it.superClass?.let { superClass ->
+                        VariableType(superClass.lexeme)
+                    }
+
+                    // todo: interfaces
+                    val interfaceTypes = it.interfaces.map { i ->
+                        VariableType(i.lexeme)
+                    }
+
+                    val primaryConstructor = it.primaryConstructor?.toTypedConstructor()
+
+                    val secondaryConstructors = it.secondaryConstructors.map(ClassDeclaration.Constructor::toTypedConstructor)
 
                     val currentClassType = ClassType(
                         it.name.lexeme,
@@ -27,46 +57,71 @@ public class TypeChecker(public var environment: Environment) {
                     val previousCurrentClass = this.currentClass
                     this.currentClass = currentClassType
 
+                    val classType = VariableType(it.name.lexeme)
+                    val classConstructorFunctionType = FunctionType(it.name.lexeme).apply {
+                        var generateNoArgs = true
+                        primaryConstructor?.let { pc ->
+                            if (pc.parameters.isEmpty()) {
+                                generateNoArgs = false
+                            }
+
+                            addOverload(pc.parameters.map(TypedClassDeclaration.TypedConstructorParameter::type), classType)
+                        }
+
+                        secondaryConstructors.forEach { sc ->
+                            if (sc.parameters.isEmpty()) {
+                                generateNoArgs = false
+                            }
+
+                            addOverload(sc.parameters.map(TypedClassDeclaration.TypedConstructorParameter::type), classType)
+                        }
+
+                        if (generateNoArgs) {
+                            addOverload(emptyList(), classType)
+                        }
+                    }
+
                     this.environment.addClass(it.name.lexeme, currentClassType)
                     this.environment.addVariable(
                         it.name.lexeme,
-                        FunctionType(
-                            it.name.lexeme,
-                            mutableSetOf(
-                                FunctionType.Overload(
-                                emptyList(),
-                                VariableType(it.name.lexeme)
-                            ))
-                        )
+                        classConstructorFunctionType,
                     )
+
                     this.environment = Environment(this.environment)
 
-                    val typedFields = check(it.field)
+                    primaryConstructor?.let { pc ->
+                        pc.parameters.forEach { pcp ->
+                            when (pcp.fieldType) {
+                                TypedClassDeclaration.FieldType.VAL, TypedClassDeclaration.FieldType.VAR -> {
+                                    this.environment.addVariable(pcp.name.lexeme, pcp.type)
+                                    this.currentClass?.addProperty(pcp.name.lexeme, pcp.type)
+                                }
+                                TypedClassDeclaration.FieldType.NONE -> {}
+                            }
+                        }
+                    }
+
+                    /*
+                    todo:
+                     FieldType.NONE parameters inside the primary constructor should be visible within property
+                     initializers but not within method bodies
+                     */
+                    val typedFields = check(it.fields)
                     val typedMethods = check(it.methods)
 
                     this.environment = this.environment.enclosing!!
-
-                    // todo: superclasses
-                    val superClassType = it.superClass?.let { superClass ->
-                        superClass as TConstructor
-                        VariableType(superClass.name)
-                    }
-
-                    // todo: interfaces
-                    val interfaceTypes = it.interfaces.map { i ->
-                        i as TConstructor
-                        VariableType(i.name)
-                    }
 
                     this.currentClass = previousCurrentClass
 
                     @Suppress("UNCHECKED_CAST")
                     TypedClassDeclaration(
-                        it.name,
-                        superClassType,
-                        interfaceTypes,
-                        typedFields as List<TypedVariableStatement>,
-                        typedMethods as List<TypedFunctionDeclaration>,
+                        name = it.name,
+                        primaryConstructor = primaryConstructor,
+                        secondaryConstructors = secondaryConstructors,
+                        superClass = superClassType,
+                        interfaces = interfaceTypes,
+                        fields = typedFields as List<TypedVariableStatement>,
+                        methods = typedMethods as List<TypedFunctionDeclaration>,
                     )
                 }
                 is ExpressionStatement -> {
@@ -87,7 +142,7 @@ public class TypeChecker(public var environment: Environment) {
                 is FunctionDeclaration -> {
                     val name = it.name.lexeme
                     val typedParameters = it.parameters.map { (name, type) ->
-                        TypedFunctionDeclaration.Parameter(name, VariableType(type.lexeme))
+                        TypedFunctionDeclaration.TypedParameter(name, VariableType(type.lexeme))
                     }
                     val returnType = VariableType(it.returnType.lexeme)
 
@@ -106,9 +161,7 @@ public class TypeChecker(public var environment: Environment) {
                     val parameterTypes = typedParameters.map { (_, type) -> type }
 
                     oldFunctionType.addOverload(parameterTypes, returnType)
-                    this.currentClass?.run {
-                        addFunction(it.name.lexeme, parameterTypes, returnType)
-                    }
+                    this.currentClass?.addFunction(it.name.lexeme, parameterTypes, returnType)
 
                     this.environment = Environment(this.environment)
 
@@ -149,9 +202,7 @@ public class TypeChecker(public var environment: Environment) {
 
                     this.environment.addVariable(it.name.lexeme, type)
 
-                    this.currentClass?.run {
-                        addProperty(it.name.lexeme, type)
-                    }
+                    this.currentClass?.addProperty(it.name.lexeme, type)
 
                     TypedVariableStatement(it, type, typedInitializer)
                 }
