@@ -431,7 +431,7 @@ public class CodeGenerator {
 
                 this.currentChunk.write(when (root.operator.type) {
                     TokenType.PLUS -> {
-                        when (val type = root.type ?: error("Type must be annotated")) {
+                        when (val type = root.type) {
                             is VariableType -> {
                                 when (type.name) {
                                     "Double" -> {

@@ -3,7 +3,6 @@ import analysis.buildEnvironment
 import codegen.CodeGenerator
 import lexer.Lexer
 import parser.Parser
-import parser.ast.TConstructor
 import runtime.*
 import kotlin.math.pow
 import kotlin.system.exitProcess
