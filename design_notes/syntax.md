@@ -74,5 +74,72 @@ fun printSum(a: Int, b: Int, c: Int) {
 }
 ```
 
+## Variables
+
+Variables can be declared starting with either the `val` or `var` keyword, then the variables name, and finally followed
+by the type declaration of the variable. 
+
+The `val` keyword declares a variable that are only assignable to a value once. These variables are immutable, read-only
+bindings that cannot be assigned a different value after initialization.
+
+> Currently, `val` declarations are reassign-able, this is a WIP feature
+
+```kotlin
+// Declaring the variable `x` with the initial value of 5 and type of Int
+val x: Int = 5
+```
+
+The `var` keyword declares a variable that are reassign-able. These variables are mutable bindings that can be assigned
+a different value after initialization.
+
+```kotlin
+// Declaring the variable `x` with the initial value of 5 and type of Int
+var x: Int = 5
+
+// Reassigns a new value of 6 to the variable `x`
+x += 1
+```
+
+Koffect supports type inference on variable declarations, automatically determining the data type of the declared variable.
+This means that type declarations can be omitted after the variable name.
+
+> Currently, type inference is not implemented, this is a WIP feature
+
+```kotlin
+// Declaring the variable `x` with the initial value of 5 and the type is inferred as Int
+val x = 5
+
+// Declaring the variable `y` with the initial value of 4.2 and the type is inferred as Double
+var y = 4.2
+```
+
+Variables can only be used after initialization. Variable initialization can happen at its declaration or a variable can
+be first declared and initialized later. If the latter is the case, the type of the variable must be declared as well.
+
+```kotlin
+// Initializes the variable `x` at the moment of declaration and therefore the type is not required and is inferred as Int 
+val x = 5
+
+// Declares the variable `y` without initialization and therefore the type is required
+val y: Int
+// Initializes the variable `y` after declaration 
+y = 10
+```
+
+Variables can be defined at top level, commonly known as global variables.
+
+```kotlin
+val PI = 3.14
+var foo = 0
+
+fun incrementFooPlease() {
+    foo += 1
+}
+
+// x = 0; PI = 3.14
+// incrementFooPlease()
+// x = 1; PI = 3.14
+```
+
 ## Conditional Expressions
 
