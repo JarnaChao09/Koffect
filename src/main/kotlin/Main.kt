@@ -201,6 +201,8 @@ public fun repl() {
     val srcString = """
         class Foo(val baz: Int = 10) : Bar {
             val qux: Int = this.baz;
+            
+            constructor(test1: Int, test2: Int)
 
             fun quux(): Int {
                 return this.qux + baz;

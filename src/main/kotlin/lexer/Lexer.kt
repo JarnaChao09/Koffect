@@ -15,6 +15,7 @@ private val defaultKeywords: Map<String, TokenType> = mapOf(
     "fun" to TokenType.FUN,
     "return" to TokenType.RETURN,
     "class" to TokenType.CLASS,
+    "constructor" to TokenType.CONSTRUCTOR,
     "abstract" to TokenType.ABSTRACT,
     "interface" to TokenType.INTERFACE,
     "this" to TokenType.THIS,

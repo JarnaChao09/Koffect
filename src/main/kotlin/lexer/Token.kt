@@ -66,6 +66,7 @@ public enum class TokenType {
     RETURN,
 
     CLASS,
+    CONSTRUCTOR,
     ABSTRACT,
     INTERFACE,
     THIS,

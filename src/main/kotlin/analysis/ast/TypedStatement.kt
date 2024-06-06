@@ -20,14 +20,32 @@ public data class TypedClassDeclaration(
     val fields: List<TypedVariableStatement>,
     val methods: List<TypedFunctionDeclaration>,
 ) : TypedDeclaration {
-    public data class TypedConstructor(val parameters: List<TypedConstructorParameter>)
+    public data class TypedConstructor(val parameters: List<TypedConstructorParameter>) {
+        override fun toString(): String {
+            return "constructor(${this.parameters.joinToString(", ")})"
+        }
+    }
 
     public data class TypedConstructorParameter(
         val name: Token,
         val type: Type,
         val fieldType: FieldType,
         val value: TypedExpression?,
-    )
+    ) {
+        override fun toString(): String {
+            return "${
+                when (this.fieldType) {
+                    FieldType.VAL -> "val "
+                    FieldType.VAR -> "var "
+                    FieldType.NONE -> ""
+                }
+            }${this.name.lexeme}: ${this.type}${
+                this.value?.let { v ->
+                    " = $v"
+                } ?: ""
+            }"
+        }
+    }
 
     public enum class FieldType {
         VAL,
@@ -37,17 +55,10 @@ public data class TypedClassDeclaration(
 
     private fun printPrimaryConstructor(): String {
         return this.primaryConstructor?.let {
-            "(${it.parameters.joinToString(", ") { param ->
-                "${when (param.fieldType) {
-                    FieldType.VAL -> "val "
-                    FieldType.VAR -> "var "
-                    FieldType.NONE -> ""
-                }}${param.name.lexeme}${param.value?.let { v ->
-                    " = $v"
-                } ?: ""}"
-            }})"
+            "(${it.parameters.joinToString(", ")})"
         } ?: ""
     }
+
     private fun printInheritors(): String {
         return if (this.superClass == null && this.interfaces.isEmpty()) {
             ""
@@ -55,10 +66,12 @@ public data class TypedClassDeclaration(
             " : ${this.superClass?.let { "$it, " } ?: ""}${this.interfaces.joinToString(", ")}"
         }
     }
+
     override fun toString(): String {
         val ret =
             """
                 |class ${this.name.lexeme}${this.printPrimaryConstructor()}${this.printInheritors()} {
+                |${this.secondaryConstructors.joinToString("\n")}
                 |${this.fields.joinToString("\n")}
                 |${this.methods.joinToString("\n")}
                 |}
@@ -90,7 +103,11 @@ public data class TypedFunctionDeclaration(
         get() = this.parameters.size
 
     override fun toString(): String {
-        return "fun ${this.name.lexeme}(${this.parameters.joinToString(", ")}): ${this.returnType} {\n${this.body.joinToString("\n")}\n}"
+        return "fun ${this.name.lexeme}(${this.parameters.joinToString(", ")}): ${this.returnType} {\n${
+            this.body.joinToString(
+                "\n"
+            )
+        }\n}"
     }
 }
 
@@ -100,7 +117,11 @@ public data class TypedIfStatement(
     val falseBranch: List<TypedStatement>,
 ) : TypedStatement {
     override fun toString(): String {
-        return "if (${this.condition}) {\n${this.trueBranch.joinToString("\n")}\n} else {\n${this.falseBranch.joinToString("\n")}\n}"
+        return "if (${this.condition}) {\n${this.trueBranch.joinToString("\n")}\n} else {\n${
+            this.falseBranch.joinToString(
+                "\n"
+            )
+        }\n}"
     }
 }
 
@@ -112,7 +133,11 @@ public sealed interface TypedVariableStatement : TypedStatement {
     public val initializer: TypedExpression?
 
     public companion object {
-        public operator fun invoke(variableStatement: VariableStatement, variableType: Type, typedInitializer: TypedExpression?): TypedVariableStatement {
+        public operator fun invoke(
+            variableStatement: VariableStatement,
+            variableType: Type,
+            typedInitializer: TypedExpression?,
+        ): TypedVariableStatement {
             return when (variableStatement) {
                 is Val -> TypedVal(variableStatement.name, variableType, typedInitializer)
                 is Var -> TypedVar(variableStatement.name, variableType, typedInitializer)
@@ -121,13 +146,21 @@ public sealed interface TypedVariableStatement : TypedStatement {
     }
 }
 
-public data class TypedVar(override val name: Token, override val type: Type?, override val initializer: TypedExpression?) : TypedVariableStatement {
+public data class TypedVar(
+    override val name: Token,
+    override val type: Type?,
+    override val initializer: TypedExpression?,
+) : TypedVariableStatement {
     override fun toString(): String {
         return "var ${this.name.lexeme}: ${this.type} = ${this.initializer ?: "uninitialized"}"
     }
 }
 
-public data class TypedVal(override val name: Token, override val type: Type?, override val initializer: TypedExpression?) : TypedVariableStatement {
+public data class TypedVal(
+    override val name: Token,
+    override val type: Type?,
+    override val initializer: TypedExpression?,
+) : TypedVariableStatement {
     override fun toString(): String {
         return "val ${this.name.lexeme}: ${this.type} = ${this.initializer ?: "uninitialized"}"
     }

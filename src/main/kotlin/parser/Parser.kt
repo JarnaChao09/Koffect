@@ -84,6 +84,7 @@ public class Parser(tokenSequence: Sequence<Token>) {
 
         val fields = mutableListOf<VariableStatement>()
         val methods = mutableListOf<FunctionDeclaration>()
+        val secondaryConstructors = mutableListOf<ClassDeclaration.Constructor>()
 
         while (!checkCurrent(TokenType.RIGHT_BRACE) && !this.isAtEnd()) {
             // todo: secondary constructors
@@ -94,6 +95,31 @@ public class Parser(tokenSequence: Sequence<Token>) {
                 match(TokenType.VAL, TokenType.VAR) -> {
                     fields += this.variableDeclaration()
                 }
+                match(TokenType.CONSTRUCTOR) -> {
+                    expect(TokenType.LEFT_PAREN, "Expected a '(' after constructor declaration")
+
+                    val parameters = buildList {
+                        if (!this@Parser.checkCurrent(TokenType.RIGHT_PAREN)) {
+                            do {
+                                if (size >= 255) {
+                                    error("Cannot have more than 255 parameters")
+                                }
+
+                                val parameterName = expect(TokenType.IDENTIFIER, "Expected parameter name")
+                                expect(TokenType.COLON, "Expected type annotation after parameter name")
+                                val parameterType = expect(TokenType.IDENTIFIER, "Expected parameter type")
+
+                                add(ClassDeclaration.ConstructorParameter(parameterName, parameterType, ClassDeclaration.FieldType.NONE, null))
+                            } while (match(TokenType.COMMA))
+                        }
+                    }
+
+                    expect(TokenType.RIGHT_PAREN, "Expected a ')' after constructor parameter list")
+
+                    // todo: secondary constructor delegation and body
+
+                    secondaryConstructors.add(ClassDeclaration.Constructor(parameters))
+                }
             }
         }
 
@@ -102,7 +128,7 @@ public class Parser(tokenSequence: Sequence<Token>) {
         return ClassDeclaration(
             name = name,
             primaryConstructor = primaryConstructor,
-            secondaryConstructors = emptyList(),
+            secondaryConstructors = secondaryConstructors,
             superClass = inherits.firstOrNull(),
             interfaces = inherits,
             fields = fields,
