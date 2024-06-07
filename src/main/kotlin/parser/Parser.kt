@@ -60,12 +60,12 @@ public class Parser(tokenSequence: Sequence<Token>) {
                             null
                         }
 
-                        add(ClassDeclaration.ConstructorParameter(parameterName, parameterType, parameterFieldType, parameterInitialValue))
+                        add(Parameter(parameterName, parameterType, parameterInitialValue) to parameterFieldType)
                     } while (match(TokenType.COMMA))
                 }
             }
             expect(TokenType.RIGHT_PAREN, "Expect class primary constructor to end with right parentheses")
-            ClassDeclaration.Constructor(parameters)
+            ClassDeclaration.PrimaryConstructor(parameters.map { it.first }, parameters.map { it.second })
         } else {
             null
         }
@@ -84,7 +84,7 @@ public class Parser(tokenSequence: Sequence<Token>) {
 
         val fields = mutableListOf<VariableStatement>()
         val methods = mutableListOf<FunctionDeclaration>()
-        val secondaryConstructors = mutableListOf<ClassDeclaration.Constructor>()
+        val secondaryConstructors = mutableListOf<ClassDeclaration.SecondaryConstructor>()
 
         while (!checkCurrent(TokenType.RIGHT_BRACE) && !this.isAtEnd()) {
             // todo: secondary constructors
@@ -98,27 +98,22 @@ public class Parser(tokenSequence: Sequence<Token>) {
                 match(TokenType.CONSTRUCTOR) -> {
                     expect(TokenType.LEFT_PAREN, "Expected a '(' after constructor declaration")
 
-                    val parameters = buildList {
-                        if (!this@Parser.checkCurrent(TokenType.RIGHT_PAREN)) {
-                            do {
-                                if (size >= 255) {
-                                    error("Cannot have more than 255 parameters")
-                                }
+                    val parameters = this.parameterList()
 
-                                val parameterName = expect(TokenType.IDENTIFIER, "Expected parameter name")
-                                expect(TokenType.COLON, "Expected type annotation after parameter name")
-                                val parameterType = expect(TokenType.IDENTIFIER, "Expected parameter type")
+                    // todo: secondary constructor delegation
 
-                                add(ClassDeclaration.ConstructorParameter(parameterName, parameterType, ClassDeclaration.FieldType.NONE, null))
-                            } while (match(TokenType.COMMA))
+                    val body = when {
+                        match(TokenType.LEFT_BRACE) -> buildList {
+                            while (!this@Parser.checkCurrent(TokenType.RIGHT_BRACE) && !this@Parser.isAtEnd()) {
+                                add(this@Parser.declaration())
+                            }
+
+                            this@Parser.expect(TokenType.RIGHT_BRACE, "Expect '}' after a block")
                         }
+                        else -> emptyList()
                     }
 
-                    expect(TokenType.RIGHT_PAREN, "Expected a ')' after constructor parameter list")
-
-                    // todo: secondary constructor delegation and body
-
-                    secondaryConstructors.add(ClassDeclaration.Constructor(parameters))
+                    secondaryConstructors.add(ClassDeclaration.SecondaryConstructor(parameters, body))
                 }
             }
         }
@@ -160,22 +155,7 @@ public class Parser(tokenSequence: Sequence<Token>) {
     private fun functionDeclaration(): FunctionDeclaration {
         val name = expect(TokenType.IDENTIFIER, "Expect function name")
         expect(TokenType.LEFT_PAREN, "Expect '(' after function name")
-        val parameters = buildList {
-            if (!this@Parser.checkCurrent(TokenType.RIGHT_PAREN)) {
-                do {
-                    if (size >= 255) {
-                        error("Cannot have more than 255 parameters")
-                    }
-
-                    val parameterName = expect(TokenType.IDENTIFIER, "Expected parameter name")
-                    expect(TokenType.COLON, "Expected type annotation after parameter name")
-                    val parameterType = expect(TokenType.IDENTIFIER, "Expected parameter type")
-
-                    add(FunctionDeclaration.Parameter(parameterName, parameterType))
-                } while (match(TokenType.COMMA))
-            }
-        }
-        expect(TokenType.RIGHT_PAREN, "Expect ')' after parameter list")
+        val parameters = this.parameterList()
 
         val returnType = when {
             match(TokenType.COLON) -> {
@@ -199,6 +179,33 @@ public class Parser(tokenSequence: Sequence<Token>) {
         }
 
         return FunctionDeclaration(name, parameters, returnType, body)
+    }
+
+    private fun parameterList(): List<Parameter> {
+        val ret = buildList {
+            if (!this@Parser.checkCurrent(TokenType.RIGHT_PAREN)) {
+                do {
+                    if (size >= 255) {
+                        error("Cannot have more than 255 parameters")
+                    }
+
+                    val parameterName = expect(TokenType.IDENTIFIER, "Expected parameter name")
+                    expect(TokenType.COLON, "Expected type annotation after parameter name")
+                    val parameterType = expect(TokenType.IDENTIFIER, "Expected parameter type")
+
+                    val parameterInitialValue = if (match(TokenType.ASSIGN)) {
+                        this@Parser.expression()
+                    } else {
+                        null
+                    }
+
+                    add(Parameter(parameterName, parameterType, parameterInitialValue))
+                } while (match(TokenType.COMMA))
+            }
+        }
+        expect(TokenType.RIGHT_PAREN, "Expect ')' after parameter list")
+
+        return ret
     }
 
     private fun statement(): Statement {
@@ -402,6 +409,7 @@ public class Parser(tokenSequence: Sequence<Token>) {
     }
 
     private fun finishCall(callee: Expression): Expression {
+        // todo: named arguments
         val arguments = buildList {
             if (!this@Parser.checkCurrent(TokenType.RIGHT_PAREN)) {
                 do {

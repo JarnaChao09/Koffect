@@ -201,27 +201,34 @@ public fun repl() {
     val srcString = """
         class Foo(val baz: Int = 10) : Bar {
             val qux: Int = this.baz;
-            
-            constructor(test1: Int, test2: Int)
+
+            constructor(test1: Int, test2: Int = 20) {
+                println("secondary constructor");
+            }
 
             fun quux(): Int {
                 return this.qux + baz;
             }
-            
+
             fun corge(): Int {
                 return quux();
             }
-            
+
             fun grault(): Int {
                 return this.corge() + quux();
             }
         }
-        
+
         val foo: Foo = Foo();
         val ret: Int = foo.grault();
         println(ret);
-        
-        
+
+        fun id(test: Int = 10): Int {
+            return test;
+        }
+
+        val a: Int = id(20);
+
         // println(baz);
         // println(qux);
         // println(quux());

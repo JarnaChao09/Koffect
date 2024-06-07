@@ -9,21 +9,16 @@ public sealed interface Declaration : Statement
 
 public data class ClassDeclaration(
     val name: Token,
-    val primaryConstructor: Constructor?,
-    val secondaryConstructors: List<Constructor>,
+    val primaryConstructor: PrimaryConstructor?,
+    val secondaryConstructors: List<SecondaryConstructor>,
     val superClass: Token?,
     val interfaces: List<Token>,
     val fields: List<VariableStatement>,
     val methods: List<FunctionDeclaration>,
 ) : Declaration {
-    public data class Constructor(val parameters: List<ConstructorParameter>)
+    public data class PrimaryConstructor(val parameters: List<Parameter>, val parameterType: List<FieldType>)
 
-    public data class ConstructorParameter(
-        val name: Token,
-        val type: Token,
-        val fieldType: FieldType,
-        val value: Expression?,
-    )
+    public data class SecondaryConstructor(val parameters: List<Parameter>, val body: List<Statement>)
 
     public enum class FieldType {
         VAL,
@@ -40,11 +35,11 @@ public data class FunctionDeclaration(
     val returnType: Token,
     val body: List<Statement>,
 ) : Declaration {
-    public data class Parameter(val name: Token, val type: Token)
-
     public val arity: Int
         get() = this.parameters.size
 }
+
+public data class Parameter(val name: Token, val type: Token, val value: Expression?)
 
 public data class IfStatement(
     val condition: Expression,

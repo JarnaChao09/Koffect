@@ -13,37 +13,39 @@ public sealed interface TypedDeclaration : TypedStatement
 
 public data class TypedClassDeclaration(
     val name: Token,
-    val primaryConstructor: TypedConstructor?,
-    val secondaryConstructors: List<TypedConstructor>,
+    val primaryConstructor: TypedPrimaryConstructor?,
+    val secondaryConstructors: List<TypedSecondaryConstructor>,
     val superClass: Type?,
     val interfaces: List<Type>,
     val fields: List<TypedVariableStatement>,
     val methods: List<TypedFunctionDeclaration>,
 ) : TypedDeclaration {
-    public data class TypedConstructor(val parameters: List<TypedConstructorParameter>) {
+    public data class TypedPrimaryConstructor(
+        val parameters: List<TypedParameter>,
+        val parameterTypes: List<FieldType>,
+    ) {
         override fun toString(): String {
-            return "constructor(${this.parameters.joinToString(", ")})"
+            return buildString {
+                append("(")
+                this@TypedPrimaryConstructor.parameters.zip(this@TypedPrimaryConstructor.parameterTypes)
+                    .forEach { (param, paramType) ->
+                        append(
+                            when (paramType) {
+                                FieldType.VAL -> "val "
+                                FieldType.VAR -> "var "
+                                FieldType.NONE -> ""
+                            }
+                        )
+                        append(param)
+                    }
+                append(")")
+            }
         }
     }
 
-    public data class TypedConstructorParameter(
-        val name: Token,
-        val type: Type,
-        val fieldType: FieldType,
-        val value: TypedExpression?,
-    ) {
+    public data class TypedSecondaryConstructor(val parameters: List<TypedParameter>, val body: List<TypedStatement>) {
         override fun toString(): String {
-            return "${
-                when (this.fieldType) {
-                    FieldType.VAL -> "val "
-                    FieldType.VAR -> "var "
-                    FieldType.NONE -> ""
-                }
-            }${this.name.lexeme}: ${this.type}${
-                this.value?.let { v ->
-                    " = $v"
-                } ?: ""
-            }"
+            return "constructor(${this.parameters.joinToString(", ")}) {\n${this.body.joinToString("\n").prependIndent()}\n}"
         }
     }
 
@@ -51,12 +53,6 @@ public data class TypedClassDeclaration(
         VAL,
         VAR,
         NONE,
-    }
-
-    private fun printPrimaryConstructor(): String {
-        return this.primaryConstructor?.let {
-            "(${it.parameters.joinToString(", ")})"
-        } ?: ""
     }
 
     private fun printInheritors(): String {
@@ -70,10 +66,10 @@ public data class TypedClassDeclaration(
     override fun toString(): String {
         val ret =
             """
-                |class ${this.name.lexeme}${this.printPrimaryConstructor()}${this.printInheritors()} {
-                |${this.secondaryConstructors.joinToString("\n")}
-                |${this.fields.joinToString("\n")}
-                |${this.methods.joinToString("\n")}
+                |class ${this.name.lexeme}${this.primaryConstructor ?: "()"}${this.printInheritors()} {
+                |${this.secondaryConstructors.joinToString("\n").prependIndent()}
+                |${this.fields.joinToString("\n").prependIndent()}
+                |${this.methods.joinToString("\n").prependIndent()}
                 |}
             """.trimMargin()
 
@@ -93,12 +89,6 @@ public data class TypedFunctionDeclaration(
     val returnType: Type,
     val body: List<TypedStatement>,
 ) : TypedDeclaration {
-    public data class TypedParameter(val name: Token, val type: Type) {
-        override fun toString(): String {
-            return "${name.lexeme}: $type"
-        }
-    }
-
     public val arity: Int
         get() = this.parameters.size
 
@@ -106,8 +96,18 @@ public data class TypedFunctionDeclaration(
         return "fun ${this.name.lexeme}(${this.parameters.joinToString(", ")}): ${this.returnType} {\n${
             this.body.joinToString(
                 "\n"
-            )
+            ).prependIndent()
         }\n}"
+    }
+}
+
+public data class TypedParameter(val name: Token, val type: Type, val value: TypedExpression?) {
+    override fun toString(): String {
+        return "${this.name.lexeme}: ${this.type}${
+            this.value?.let { v ->
+                " = $v"
+            } ?: ""
+        }"
     }
 }
 
@@ -117,10 +117,10 @@ public data class TypedIfStatement(
     val falseBranch: List<TypedStatement>,
 ) : TypedStatement {
     override fun toString(): String {
-        return "if (${this.condition}) {\n${this.trueBranch.joinToString("\n")}\n} else {\n${
+        return "if (${this.condition}) {\n${this.trueBranch.joinToString("\n").prependIndent()}\n} else {\n${
             this.falseBranch.joinToString(
                 "\n"
-            )
+            ).prependIndent()
         }\n}"
     }
 }
@@ -174,6 +174,6 @@ public data class TypedReturnStatement(val keyword: Token, val value: TypedExpre
 
 public data class TypedWhileStatement(val condition: TypedExpression, val body: List<TypedStatement>) : TypedStatement {
     override fun toString(): String {
-        return "while (${this.condition}) {\n${this.body.joinToString("\n")}\n}"
+        return "while (${this.condition}) {\n${this.body.joinToString("\n").prependIndent()}\n}"
     }
 }

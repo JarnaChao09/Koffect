@@ -10,25 +10,43 @@ import parser.ast.*
 public class TypeChecker(public var environment: Environment) {
     private var currentClass: ClassType? = null
     public fun check(statements: List<Statement>, returnTypes: MutableList<Type> = mutableListOf()): List<TypedStatement> {
+        fun Parameter.toTypedParameter(): TypedParameter {
+            val parameterType = VariableType(this.type.lexeme)
+
+            val typedValue = this.value?.let { v ->
+                v.toTypedExpression().also { tv ->
+                    require(tv.type == parameterType) {
+                        "Type Mismatch: Parameter ${this.name.lexeme} expected type $parameterType but found ${tv.type}"
+                    }
+                }
+            }
+
+            return TypedParameter(
+                this.name,
+                parameterType,
+                typedValue,
+            )
+        }
+
         return statements.map {
             when (it) {
                 is ClassDeclaration -> {
-                    fun ClassDeclaration.Constructor.toTypedConstructor(): TypedClassDeclaration.TypedConstructor {
-                        return TypedClassDeclaration.TypedConstructor(
-                            this.parameters.map { (name, type, fieldType, value) ->
-                                TypedClassDeclaration.TypedConstructorParameter(
-                                    name,
-                                    VariableType(type.lexeme),
-                                    when (fieldType) {
-                                        ClassDeclaration.FieldType.VAL -> TypedClassDeclaration.FieldType.VAL
-                                        ClassDeclaration.FieldType.VAR -> TypedClassDeclaration.FieldType.VAR
-                                        ClassDeclaration.FieldType.NONE -> TypedClassDeclaration.FieldType.NONE
-                                    },
-                                    value?.toTypedExpression(),
-                                )
+                    fun ClassDeclaration.PrimaryConstructor.toTypedConstructor(): TypedClassDeclaration.TypedPrimaryConstructor {
+                        return TypedClassDeclaration.TypedPrimaryConstructor(
+                            this.parameters.map(Parameter::toTypedParameter),
+                            this.parameterType.map { fieldType ->
+                                when (fieldType) {
+                                    ClassDeclaration.FieldType.VAL -> TypedClassDeclaration.FieldType.VAL
+                                    ClassDeclaration.FieldType.VAR -> TypedClassDeclaration.FieldType.VAR
+                                    ClassDeclaration.FieldType.NONE -> TypedClassDeclaration.FieldType.NONE
+                                }
                             }
                         )
                     }
+                    fun ClassDeclaration.SecondaryConstructor.toTypedConstructor(): TypedClassDeclaration.TypedSecondaryConstructor {
+                        return TypedClassDeclaration.TypedSecondaryConstructor(this.parameters.map(Parameter::toTypedParameter), check(this.body))
+                    }
+
                     if (this.environment.getClass(it.name.lexeme) != null) {
                         error("Class ${it.name.lexeme} is already defined")
                     }
@@ -45,7 +63,7 @@ public class TypeChecker(public var environment: Environment) {
 
                     val primaryConstructor = it.primaryConstructor?.toTypedConstructor()
 
-                    val secondaryConstructors = it.secondaryConstructors.map(ClassDeclaration.Constructor::toTypedConstructor)
+                    val secondaryConstructors = it.secondaryConstructors.map(ClassDeclaration.SecondaryConstructor::toTypedConstructor)
 
                     val currentClassType = ClassType(
                         it.name.lexeme,
@@ -65,7 +83,7 @@ public class TypeChecker(public var environment: Environment) {
                                 generateNoArgs = false
                             }
 
-                            addOverload(pc.parameters.map(TypedClassDeclaration.TypedConstructorParameter::type), classType)
+                            addOverload(pc.parameters.map(TypedParameter::type), classType)
                         }
 
                         secondaryConstructors.forEach { sc ->
@@ -73,7 +91,7 @@ public class TypeChecker(public var environment: Environment) {
                                 generateNoArgs = false
                             }
 
-                            addOverload(sc.parameters.map(TypedClassDeclaration.TypedConstructorParameter::type), classType)
+                            addOverload(sc.parameters.map(TypedParameter::type), classType)
                         }
 
                         if (generateNoArgs) {
@@ -90,11 +108,12 @@ public class TypeChecker(public var environment: Environment) {
                     this.environment = Environment(this.environment)
 
                     primaryConstructor?.let { pc ->
-                        pc.parameters.forEach { pcp ->
-                            when (pcp.fieldType) {
+                        pc.parameterTypes.forEachIndexed { index, type ->
+                            val currParam = pc.parameters[index]
+                            when (type) {
                                 TypedClassDeclaration.FieldType.VAL, TypedClassDeclaration.FieldType.VAR -> {
-                                    this.environment.addVariable(pcp.name.lexeme, pcp.type)
-                                    this.currentClass?.addProperty(pcp.name.lexeme, pcp.type)
+                                    this.environment.addVariable(currParam.name.lexeme, currParam.type)
+                                    this.currentClass?.addProperty(currParam.name.lexeme, currParam.type)
                                 }
                                 TypedClassDeclaration.FieldType.NONE -> {}
                             }
@@ -141,9 +160,7 @@ public class TypeChecker(public var environment: Environment) {
                 }
                 is FunctionDeclaration -> {
                     val name = it.name.lexeme
-                    val typedParameters = it.parameters.map { (name, type) ->
-                        TypedFunctionDeclaration.TypedParameter(name, VariableType(type.lexeme))
-                    }
+                    val typedParameters = it.parameters.map(Parameter::toTypedParameter)
                     val returnType = VariableType(it.returnType.lexeme)
 
                     var oldFunctionType = this.environment.getVariable(name)
@@ -158,7 +175,7 @@ public class TypeChecker(public var environment: Environment) {
                         }
                     }
 
-                    val parameterTypes = typedParameters.map { (_, type) -> type }
+                    val parameterTypes = typedParameters.map(TypedParameter::type)
 
                     oldFunctionType.addOverload(parameterTypes, returnType)
                     this.currentClass?.addFunction(it.name.lexeme, parameterTypes, returnType)
