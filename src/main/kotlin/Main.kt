@@ -202,8 +202,11 @@ public fun repl() {
         class Foo(val baz: Int = 10) : Bar {
             val qux: Int = this.baz;
 
-            constructor(test1: Int, test2: Int = 20) {
-                println("secondary constructor");
+            constructor(test1: Int, test2: Int = 20) : this(test1 + test2) {
+                print("secondary constructor with values");
+                print(test1);
+                print(" ");
+                println(test2);
             }
 
             fun quux(): Int {

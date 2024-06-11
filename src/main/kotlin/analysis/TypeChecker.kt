@@ -44,7 +44,23 @@ public class TypeChecker(public var environment: Environment) {
                         )
                     }
                     fun ClassDeclaration.SecondaryConstructor.toTypedConstructor(): TypedClassDeclaration.TypedSecondaryConstructor {
-                        return TypedClassDeclaration.TypedSecondaryConstructor(this.parameters.map(Parameter::toTypedParameter), check(this.body))
+                        this@TypeChecker.environment = Environment(this@TypeChecker.environment)
+
+                        val typedParameters = this.parameters.map { param ->
+                            val tp = param.toTypedParameter()
+
+                            this@TypeChecker.environment.addVariable(tp.name.lexeme, tp.type)
+
+                            tp
+                        }
+                        val typedDelegatedArguments = this.delegatedArguments.map { arg ->
+                            arg.toTypedExpression()
+                        }
+                        val typedBody = check(this.body)
+
+                        this@TypeChecker.environment = this@TypeChecker.environment.enclosing!!
+
+                        return TypedClassDeclaration.TypedSecondaryConstructor(typedParameters, typedDelegatedArguments, typedBody)
                     }
 
                     if (this.environment.getClass(it.name.lexeme) != null) {
@@ -117,6 +133,23 @@ public class TypeChecker(public var environment: Environment) {
                                 }
                                 TypedClassDeclaration.FieldType.NONE -> {}
                             }
+                        }
+                    }
+
+                    secondaryConstructors.forEach { sc ->
+                        val parameterTypes = sc.parameters.map(TypedParameter::type)
+                        val argumentTypes = sc.delegatedArguments.map(TypedExpression::type)
+
+                        require(parameterTypes != argumentTypes) {
+                            "Cyclic constructor call detected"
+                        }
+
+                        val currentConstructorType = FunctionType.Overload(argumentTypes, classType)
+
+                        val constructorOverloads = classConstructorFunctionType.overloads
+
+                        require(currentConstructorType in constructorOverloads) {
+                            "Undefined constructor with type $currentConstructorType"
                         }
                     }
 

@@ -18,7 +18,7 @@ public data class ClassDeclaration(
 ) : Declaration {
     public data class PrimaryConstructor(val parameters: List<Parameter>, val parameterType: List<FieldType>)
 
-    public data class SecondaryConstructor(val parameters: List<Parameter>, val body: List<Statement>)
+    public data class SecondaryConstructor(val parameters: List<Parameter>, val delegatedArguments: List<Expression>, val body: List<Statement>)
 
     public enum class FieldType {
         VAL,

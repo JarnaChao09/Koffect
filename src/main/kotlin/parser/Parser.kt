@@ -87,7 +87,6 @@ public class Parser(tokenSequence: Sequence<Token>) {
         val secondaryConstructors = mutableListOf<ClassDeclaration.SecondaryConstructor>()
 
         while (!checkCurrent(TokenType.RIGHT_BRACE) && !this.isAtEnd()) {
-            // todo: secondary constructors
             when {
                 match(TokenType.FUN) -> {
                     methods += this.functionDeclaration()
@@ -100,7 +99,22 @@ public class Parser(tokenSequence: Sequence<Token>) {
 
                     val parameters = this.parameterList()
 
-                    // todo: secondary constructor delegation
+                    expect(TokenType.COLON, "Expected a delegation to the primary constructor or another secondary constructor")
+                    expect(TokenType.THIS, "Expected a delegation to the primary constructor or another secondary constructor")
+                    expect(TokenType.LEFT_PAREN, "Expected a delegation to the primary constructor or another secondary constructor")
+
+                    val delegatedConstructorArgs = buildList {
+                        if (!this@Parser.checkCurrent(TokenType.RIGHT_PAREN)) {
+                            do {
+                                if (size >= 255) {
+                                    error("Can't have more than 255 arguments to a constructor")
+                                }
+                                add(this@Parser.expression())
+                            } while (this@Parser.match(TokenType.COMMA))
+                        }
+                    }
+
+                    expect(TokenType.RIGHT_PAREN, "Expect ')' after constructor arguments")
 
                     val body = when {
                         match(TokenType.LEFT_BRACE) -> buildList {
@@ -113,7 +127,7 @@ public class Parser(tokenSequence: Sequence<Token>) {
                         else -> emptyList()
                     }
 
-                    secondaryConstructors.add(ClassDeclaration.SecondaryConstructor(parameters, body))
+                    secondaryConstructors.add(ClassDeclaration.SecondaryConstructor(parameters, delegatedConstructorArgs, body))
                 }
             }
         }
@@ -421,7 +435,7 @@ public class Parser(tokenSequence: Sequence<Token>) {
             }
         }
 
-        return Call(callee, this.expect(TokenType.RIGHT_PAREN, "Expect ')' after arguments"), arguments)
+        return Call(callee, expect(TokenType.RIGHT_PAREN, "Expect ')' after arguments"), arguments)
     }
 
     private fun atom(): Expression {

@@ -43,9 +43,9 @@ public data class TypedClassDeclaration(
         }
     }
 
-    public data class TypedSecondaryConstructor(val parameters: List<TypedParameter>, val body: List<TypedStatement>) {
+    public data class TypedSecondaryConstructor(val parameters: List<TypedParameter>, val delegatedArguments: List<TypedExpression>, val body: List<TypedStatement>) {
         override fun toString(): String {
-            return "constructor(${this.parameters.joinToString(", ")}) {\n${this.body.joinToString("\n").prependIndent()}\n}"
+            return "constructor(${this.parameters.joinToString(", ")}) : this(${this.delegatedArguments.joinToString(", ")}) {\n${this.body.joinToString("\n").prependIndent()}\n}"
         }
     }
 
