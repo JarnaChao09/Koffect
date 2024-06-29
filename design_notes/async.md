@@ -299,6 +299,15 @@ for bringing the actor model to the Koffect async ecosystem.
 > context, unlike being able to modify coroutines for use in synchronous situations. This gives further confidence that
 > following Kotlin's implementation and design of coroutines for the foundational async solution in Koffect is the best
 > candidate as it is the most flexible and the most primitive (seeing as other models can be built on top of coroutines).
+ 
+> From a deep dive into Swift structured concurrency, it also gives confidence that the flexibility of the async API should
+> be given outright on release. As Swift slowly added more and more flexibility with each release: 5.5 released structured
+> concurrency, 5.7 released clarifications on where tasks ran, 5.9 released custom actor executors, and 6.0 released (not
+> yet as of writing, 6.0 is due to release in 09/2024) task executor preference. This gives importance to fully bake an
+> async API with a focus on flexibility when designing, or else Koffect will fall into the same cycle of retrofitting in
+> flexibility into the design that Swift fell into (see kotlinx-coroutines releasing 1.0 will the ability specify on which
+> dispatcher a coroutine should be launched and the ability to make custom dispatchers. The confusion around where code 
+> was running was never an issue).
 
 > As of writing, Kotlin's implementation and design of coroutines has greatly more confidence and will be the most likely
 > candidate for the async solution in Koffect.
