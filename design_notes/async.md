@@ -62,12 +62,12 @@ downside of forcing the user to deal with the overhead of the asynchronous/concu
 stack switches when a fiber yields. Furthermore, the runtime is mandatory and unable to opt-out (usually), meaning that 
 the user must deal with the performance overhead of the runtime/engine even if the code written does not utilize the 
 asynchronous/concurrency API given by the language (This is also a problem with the actor model) (see [here](#flexibility1)
-for updated thoughts on flexibility of the asynchronous engine). Finally, this means that the asynchronous/concurrency API 
-is unable to be utilized for synchronous applications. The API may not be as flexible (at least current implementations 
-such as goroutines and crystal fibers do not allow for utilization of the underlying API facilities for the implementation
-of synchronous coroutines) since the runtime/engine handles many of the intrinsic details such as scheduling and stack 
-management, it may be purposely designed for asynchrony/concurrency and may have challenges in creating an API such that
-allows for injection of user designed control schemes.
+and [here](#flexibility2) for updated thoughts on flexibility of the asynchronous engine). Finally, this means that the
+asynchronous/concurrency API is unable to be utilized for synchronous applications. The API may not be as flexible (at 
+least current implementations such as goroutines and crystal fibers do not allow for utilization of the underlying API 
+facilities for the implementation of synchronous coroutines) since the runtime/engine handles many of the intrinsic details
+such as scheduling and stack management, it may be purposely designed for asynchrony/concurrency and may have challenges
+in creating an API such that allows for injection of user designed control schemes.
 
 > Research into Project Loom and the executors system to see how flexible and "hackable" the API is to use stackfull 
 > coroutines for synchronous purposes.
