@@ -36,7 +36,9 @@ public class Parser(tokenSequence: Sequence<Token>) {
 
     private fun classDeclaration(): Statement {
         val name = expect(TokenType.IDENTIFIER, "Expect class name")
-        val primaryConstructor = if (match(TokenType.LEFT_PAREN)) {
+        val primaryConstructor = if (match(TokenType.CONSTRUCTOR, TokenType.LEFT_PAREN)) {
+            match(TokenType.LEFT_PAREN) // constructor path taken inside match
+
             val parameters = buildList {
                 if (!checkCurrent(TokenType.RIGHT_PAREN)) {
                     do {
