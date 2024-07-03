@@ -22,7 +22,7 @@ public class VM(
     public fun interpret(chunk: Chunk): Int {
         this.frames.addFirst(CallFrame(
             ObjectFunction(Function("script", 0, chunk)),
-            mutableListOf(),
+            MutableList(256) { NullValue },
         ))
         this.ip = 0
 
@@ -241,13 +241,13 @@ public class VM(
                         it.code[this.ip++]
                     }
 
-                    this.frames.first().locals[index] = this.pop()
+                    this.frames.first().locals[index] = this.peek()
                 }
                 Opcode.Call -> {
                     val argCount = this.currentChunk!!.code[this.ip++]
 
                     val callee = this.peek(argCount)
-                    val args = MutableList<Value<*>>(argCount) { NullValue }
+                    val args = MutableList<Value<*>>(256) { NullValue }
                     repeat(argCount) {
                         args[argCount - it - 1] = this.pop()
                     }

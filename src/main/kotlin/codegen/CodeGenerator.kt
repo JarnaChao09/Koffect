@@ -3,12 +3,15 @@ package codegen
 import analysis.ast.*
 import lexer.TokenType
 import runtime.*
+import kotlin.contracts.ExperimentalContracts
+import kotlin.contracts.InvocationKind
+import kotlin.contracts.contract
 
 public class CodeGenerator {
     private lateinit var currentChunk: Chunk
     private var line: Int = 1
     private var returnEmitted: Boolean = false
-    private val stack: ArrayDeque<MutableMap<String, Int>> = ArrayDeque()
+    private val stack: LocalsStack = LocalsStack()
 
     public fun generate(ast: List<TypedStatement>): Chunk {
         this.currentChunk = Chunk()
@@ -42,30 +45,28 @@ public class CodeGenerator {
                     this.currentChunk = Chunk()
                     this.returnEmitted = false
 
-                    // TODO: generate parameters
-                    val parameters = mutableMapOf<String, Int>()
+                    val function: ObjectFunction
 
-                    it.parameters.forEachIndexed { i, parameter ->
-                        parameters[parameter.name.lexeme] = i
+                    this.stack.withNewScope {
+                        it.parameters.forEach { parameter ->
+                            this.stack.addVariable(parameter.name.lexeme)
+                        }
+
+                        this.generateStatements(it.body)
+
+                        if (!returnEmitted) {
+                            val constant = this.currentChunk.addConstant(UnitValue)
+
+                            this.currentChunk.write(Opcode.ObjectConstant.toInt(), this.line)
+                            this.currentChunk.write(constant, this.line++)
+
+                            this.currentChunk.write(Opcode.Return.toInt(), this.line++)
+                        }
+
+                        function = ObjectFunction(Function(it.name.lexeme, it.arity, this.currentChunk))
+
+                        this.currentChunk = oldChunk
                     }
-
-                    this.stack.addFirst(parameters)
-
-                    this.generateStatements(it.body)
-
-                    if (!returnEmitted) {
-                        val constant = this.currentChunk.addConstant(UnitValue)
-
-                        this.currentChunk.write(Opcode.ObjectConstant.toInt(), this.line)
-                        this.currentChunk.write(constant, this.line++)
-
-                        this.currentChunk.write(Opcode.Return.toInt(), this.line++)
-                    }
-
-                    val function = ObjectFunction(Function(it.name.lexeme, it.arity, this.currentChunk))
-
-                    this.currentChunk = oldChunk
-                    this.stack.removeFirst()
 
                     val constant = this.currentChunk.addConstant(function)
                     this.currentChunk.write(Opcode.ObjectConstant.toInt(), this.line)
@@ -75,14 +76,23 @@ public class CodeGenerator {
                     this.currentChunk.write(binding, this.line++)
                 }
                 is TypedVariableStatement -> {
-                    val binding = this.currentChunk.addConstant(it.name.lexeme.toValue())
-
                     it.initializer?.let { expr ->
                         dfs(expr)
                     } ?: this.currentChunk.write(Opcode.Null.toInt(), this.line++)
 
-                    this.currentChunk.write(Opcode.DefineGlobal.toInt(), this.line)
-                    this.currentChunk.write(binding, this.line++)
+                    if (this.stack.inGlobalScope()) {
+                        val binding = this.currentChunk.addConstant(it.name.lexeme.toValue())
+
+                        this.currentChunk.write(Opcode.DefineGlobal.toInt(), this.line)
+                        this.currentChunk.write(binding, this.line++)
+                    } else {
+                        this.currentChunk.write(Opcode.SetLocal.toInt(), this.line)
+                        this.currentChunk.write(
+                            this.stack.addVariable(it.name.lexeme),
+                            this.line
+                        )
+                        this.currentChunk.write(Opcode.Pop.toInt(), this.line++)
+                    }
                 }
                 is TypedWhileStatement -> {
                     val loopStart = this.currentChunk.code.size
@@ -92,7 +102,9 @@ public class CodeGenerator {
                     val exitJump = this.currentChunk.emitJump(Opcode.JumpIfFalse)
                     this.currentChunk.write(Opcode.Pop.toInt(), this.line++)
 
-                    this.generateStatements(it.body)
+                    this.stack.withNestedScope {
+                        this.generateStatements(it.body)
+                    }
 
                     this.currentChunk.patchLoop(loopStart)
 
@@ -119,19 +131,17 @@ public class CodeGenerator {
     private fun dfs(root: TypedExpression) {
         when (root) {
             is TypedAssign -> {
-                if (this.stack.isEmpty()) {
-                    val binding = this.currentChunk.addConstant(root.name.lexeme.toValue())
+                dfs(root.expression)
 
-                    dfs(root.expression)
+                if (this.stack.inGlobalScope() || !this.stack.isLocal(root.name.lexeme)) {
+                    val binding = this.currentChunk.addConstant(root.name.lexeme.toValue())
 
                     this.currentChunk.write(Opcode.SetGlobal.toInt(), this.line)
                     this.currentChunk.write(binding, this.line++)
                 } else {
-                    dfs(root.expression)
-
                     this.currentChunk.write(Opcode.SetLocal.toInt(), this.line)
                     this.currentChunk.write(
-                        this.stack.first()[root.name.lexeme] ?: error("unknown variable (should be unreachable)"),
+                        this.stack.getVariable(root.name.lexeme),
                         this.line++
                     )
                 }
@@ -491,7 +501,7 @@ public class CodeGenerator {
                 }.toInt(), this.line++)
             }
             is TypedVariable -> {
-                if (this.stack.isEmpty() || root.name.lexeme !in this.stack.first()) {
+                if (this.stack.inGlobalScope() || !this.stack.isLocal(root.name.lexeme)) {
                     val binding = this.currentChunk.addConstant(root.name.lexeme.toValue())
 
                     this.currentChunk.write(Opcode.GetGlobal.toInt(), this.line)
@@ -499,7 +509,7 @@ public class CodeGenerator {
                 } else {
                     this.currentChunk.write(Opcode.GetLocal.toInt(), this.line)
                     this.currentChunk.write(
-                        this.stack.first()[root.name.lexeme] ?: error("unknown variable (should be unreachable)"),
+                        this.stack.getVariable(root.name.lexeme),
                         this.line++
                     )
                 }
@@ -513,13 +523,17 @@ public class CodeGenerator {
         val elseBranch = this.currentChunk.emitJump(Opcode.JumpIfFalse)
         this.currentChunk.write(Opcode.Pop.toInt(), this.line++)
 
-        this.generateStatements(trueBranch)
+        this.stack.withNestedScope {
+            this.generateStatements(trueBranch)
+        }
 
         val skipElseBranch = this.currentChunk.emitJump(Opcode.Jump)
         this.currentChunk.patchJump(elseBranch)
         this.currentChunk.write(Opcode.Pop.toInt(), this.line++)
 
-        this.generateStatements(falseBranch)
+        this.stack.withNestedScope {
+            this.generateStatements(falseBranch)
+        }
 
         this.currentChunk.patchJump(skipElseBranch)
     }
@@ -542,5 +556,67 @@ public class CodeGenerator {
         val offset = this.code.size - loopStart + 1
 
         this.write(-offset, this@CodeGenerator.line++)
+    }
+}
+
+public class LocalsStack {
+    public val stack: ArrayDeque<MutableMap<String, Int>> = ArrayDeque()
+    public val locals: ArrayDeque<MutableMap<String, Int>> = ArrayDeque()
+
+    public fun isLocal(variable: String): Boolean {
+        return variable in this.locals.first()
+    }
+
+    public fun inGlobalScope(): Boolean {
+        return this.stack.isEmpty()
+    }
+
+    @OptIn(ExperimentalContracts::class)
+    public inline fun withNewScope(block: () -> Unit) {
+        contract {
+            callsInPlace(block, InvocationKind.EXACTLY_ONCE)
+        }
+
+        this.stack.addLast(mutableMapOf())
+        this.locals.addLast(mutableMapOf())
+
+        block()
+
+        this.stack.removeLast()
+        this.locals.removeLast()
+    }
+
+    @OptIn(ExperimentalContracts::class)
+    public inline fun withNestedScope(block: () -> Unit) {
+        contract {
+            callsInPlace(block, InvocationKind.EXACTLY_ONCE)
+        }
+
+        this.stack.addLast(mutableMapOf())
+        this.locals.addLast(this.locals.lastOrNull()?.toMutableMap() ?: mutableMapOf())
+
+        block()
+
+        this.stack.removeLast()
+        this.locals.removeLast()
+    }
+
+    public fun addVariable(variable: String): Int {
+        val currStack = this.stack.last()
+        val currLocals = this.locals.last()
+
+        val localIndex = currLocals.size
+
+        currStack[variable] = localIndex
+        currLocals[variable] = this.stack.size - 1
+
+        return localIndex
+    }
+
+    public fun getVariable(variable: String): Int {
+        val currLocals= this.locals.last()
+        val index = currLocals[variable] ?: error("unknown variable (should be unreachable)")
+
+        return this.stack[index][variable] ?: error("unknown variable (should be unreachable)")
     }
 }
