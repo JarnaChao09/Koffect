@@ -564,7 +564,7 @@ public class LocalsStack {
     public val locals: ArrayDeque<MutableMap<String, Int>> = ArrayDeque()
 
     public fun isLocal(variable: String): Boolean {
-        return variable in this.locals.first()
+        return variable in this.locals.last()
     }
 
     public fun inGlobalScope(): Boolean {
