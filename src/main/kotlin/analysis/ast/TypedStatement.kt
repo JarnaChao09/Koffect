@@ -83,6 +83,12 @@ public data class TypedExpressionStatement(public val expression: TypedExpressio
     }
 }
 
+public data class TypedReturnExpressionStatement(public val returnExpression: TypedExpression) : TypedStatement {
+    override fun toString(): String {
+        return "${this.returnExpression}^"
+    }
+}
+
 public data class TypedFunctionDeclaration(
     val name: Token,
     val parameters: List<TypedParameter>,

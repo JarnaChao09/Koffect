@@ -405,16 +405,16 @@ public class TypeChecker(public var environment: Environment) {
             is IfExpression -> {
                 val typedCondition = this.condition.toTypedExpression()
 
-                val typedTrueBranch = check(this.trueBranch)
-                val trueType = when (val trueBranchLast = typedTrueBranch.lastOrNull()) {
-                    is TypedExpressionStatement -> trueBranchLast.expression.type
-                    else -> VariableType("Unit")
+                val typedTrue = check(this.trueBranch)
+                val (trueType, typedTrueBranch) = when (val trueBranchLast = typedTrue.lastOrNull()) {
+                    is TypedExpressionStatement -> trueBranchLast.expression.let { it.type to (typedTrue.dropLast(1) + TypedReturnExpressionStatement(it)) }
+                    else -> VariableType("Unit") to typedTrue // todo: Unit constructor
                 }
 
-                val typedFalseBranch = check(this.falseBranch)
-                val falseType = when (val falseBranchLast = typedFalseBranch.lastOrNull()) {
-                    is TypedExpressionStatement -> falseBranchLast.expression.type
-                    else -> VariableType("Unit")
+                val typedFalse = check(this.falseBranch)
+                val (falseType, typedFalseBranch) = when (val falseBranchLast = typedFalse.lastOrNull()) {
+                    is TypedExpressionStatement -> falseBranchLast.expression.let { it.type to (typedFalse.dropLast(1) + TypedReturnExpressionStatement(it)) }
+                    else -> VariableType("Unit") to typedFalse // todo: Unit constructor
                 }
 
                 require(typedCondition.type == VariableType("Boolean")) {

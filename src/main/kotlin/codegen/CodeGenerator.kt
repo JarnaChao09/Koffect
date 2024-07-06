@@ -34,6 +34,9 @@ public class CodeGenerator {
                     dfs(it.expression)
                     this.currentChunk.write(Opcode.Pop.toInt(), this.line++)
                 }
+                is TypedReturnExpressionStatement -> {
+                    dfs(it.returnExpression)
+                }
                 is TypedIfStatement -> {
                     this.generateIf(it.condition, it.trueBranch, it.falseBranch)
                 }

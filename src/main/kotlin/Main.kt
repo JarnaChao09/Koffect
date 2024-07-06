@@ -227,14 +227,13 @@ public fun repl() {
 
         var i: Int = 0;
         while (i < x) {
-            var tmp: Int;
-            if (i % 2 == 0) {
+            val tmp: Int = if (i % 2 == 0) {
                 val t1: Int = quadratic(a, b, c, i) * 2;
-                tmp = t1;
+                t1;
             } else {
                 val t2: Int = quadratic(a, b, c, i);
-                tmp = t2;
-            }
+                t2;
+            };
             print(i);
             print(" -> ");
             println(tmp);
