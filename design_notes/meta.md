@@ -58,12 +58,82 @@ capabilities will be.
 - [Zig `comptime`](https://ziglang.org/documentation/master/#comptime)
 - Ruby Metaprogramming
   - Ruby "hook" methods
+- Python Decorators
+  - [PEP 318: Decorators for Functions and Methods](https://peps.python.org/pep-0318/)
+  - [PEP 3129: Class Decorators](https://peps.python.org/pep-3129/)
 
 ## Solution in Koffect
 
 ### Motivation
 
+Metaprogramming can have many benefits, from reducing the need to write boilerplate to complete modifications of how a
+program is compiled. The following examples serve as motivations for metaprogramming in Koffect. Not every motivating 
+example will not require the same degree metaprogramming power. As such, these examples hope to discover and document each
+desired semantics' required metaprogramming power, advantages, and disadvantages. 
+
+<details>
+<summary><b>Domain Specific Languages</b></summary>
+
 > TODO
+
+</details>
+
+<details>
+<summary><b>Encoding of additional properties into the type system</b></summary>
+
+Encoding additional properties into the type system does not necessarily entail metaprogramming. Metadata on types can
+be encoded simply with marker interfaces (such as Java's [`RandomAccess`](https://docs.oracle.com/javase/8/docs/api/java/util/RandomAccess.html)
+interface). However, this is simply additional information about a type (hence the name metadata). Additional properties
+is a step further than just information, it is also the encoding of an (additional) API onto a type or family of types
+that can then be utilized by the developer. 
+
+A prime example of an additional property that also exposes an API is [commutativity](https://en.wikipedia.org/wiki/Commutative_property).
+For an arbitrary function `foo` of type `(A, B) -> C`, the only way to invoke the function is `foo(someA, someB)`, however, 
+in some cases of `foo` and cases of `A`, `B`, and `C`, `foo(someA, someB) == foo(someB, someA)` and so an equivalently
+valid overload for `foo` is `(B, A) -> C`. Under the commutativity property, a singular function can be called with a multitude
+of differing argument orders. An example function would be numerical addition. Let `foo = +` and `A == B == C`, then the
+operation `someA + someB == someC == someB + someA` is trivially solvable (definition of `+` on integers). For when `A != B`
+but `A == C || B == C`, this case can also be trivially solvable with a more robust type of `C = Dominating of A or B` 
+(definition of `+` on integers with implicit widening semantics, such that `i32 + i64` will implicitly be dominated by
+`i64` and therefore implicitly widened).
+
+If the property of commutativity is encoded into the type system, the compiler may be able to better inform overload
+resolution to more performant versions of functions. A prime example already of this is already seen in C++: [`std::reduce`](https://en.cppreference.com/w/cpp/algorithm/reduce)
+versus [`std::accumulate`](https://en.cppreference.com/w/cpp/algorithm/accumulate). Both `reduce` and `accumulate` perform
+the same operation, a `fold`, however, the difference between the two functions is the assumptions made about binary operation
+performed. `reduce` requires the binary operation to be *associative* and *commutative* due to the possibility of the order
+of operations being rearranged. This allows for `reduce` to be able to be trivially parallelizable and as such this is
+reflected in the API of both functions: `reduce` may accept an execution policy while `accumulate` may not.
+
+While C++ leaves this property of commutativity to be an implicit contract of the `reduce` function which if not followed
+leads to undefined behavior, said property could be promoted to a contextual declaration in Koffect. Furthermore, C++
+leaves the definition of the binary operation to be restricted to the first case discussed above (where the parameter and
+return types must be constructively equivalent, meaning they are either equivalent or implicitly convertible). To allow
+for Koffect to handle both cases discussed above, this proposed metaprogramming solution would be when a function `foo` 
+is marked with `context(Commutative)` (for example) with the type signature of `(A, B) -> C`, an equivalent overload is
+generated with the signature `(B, A) -> C` which essentially just flip the order of the operands to call to the first
+definition of `foo` (if `A == B` in the type signature, then secondary overload is necessary). In practice, this would 
+look like the following:
+
+```kotlin
+context(Commutative)
+fun intAddDouble(int: Int, double: Double): Double = int.toDouble() + double
+
+// the following function signature would be generated
+context(Commutative)
+fun intAddDouble(double: Double, int: Int): Double = intAddDouble(int, double)
+```
+
+> TODO power, pros and cons
+
+</details>
+
+<details>
+<summary><b>Additional Validation of API usage</b></summary>
+
+> TODO
+
+</details>
 
 ### Initial Thoughts
 
