@@ -254,13 +254,13 @@ program execution to hang as the actor is currently under execution but said exe
 another message. Pony actors are non-reentrant, however, do not suffer from deadlocks as unlike Erlang/Elixir and Swift
 actors, actor behaviors (what actor methods are called in Pony) are not able to return values. Therefore, an actor's execution
 cannot depend on the value returned by said actor's response to a different message and as such all messages are sequentially 
-(FIFO) ordered (an example of this can be seen [here](https://tutorial.ponylang.io/types/actors#sequential). Other examples
+(FIFO) ordered (an example of this can be seen [here](https://tutorial.ponylang.io/types/actors#sequential)). Other examples
 of avoiding deadlocks in non-reentrant actors can be seen [here](https://eduardbme.medium.com/erlang-gen-server-never-call-your-public-interface-functions-internally-c17c8f28a1ee). 
 Swift actors, on the other hand, are reentrant on recursive actor calls and suspension points (`await`). Thanks to actor
 isolation, any direct call to another method inside the same actor (a *recursive actor* call) is immediately executed 
 (since actor isolation is maintained, the method call does not need to go through the mailbox). Furthermore, thanks to 
 actor methods being implicitly `async`, if another `await` is present within the actor method, the actor method will 
-suspend allowing for other jobs (messages) on the current executor(mailbox) to be scheduled, which allows for cyclic call
+suspend allowing for other jobs (messages) on the current executor (mailbox) to be scheduled, which allows for cyclic call
 structures to avoid deadlocking (as long as the original call into the cycle is done through an `await`). While Swift actors
 are currently reentrant, this may be subject to change as seen in the [future directions](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0306-actors.md#future-directions)
 section of the SE-306 proposal.
