@@ -51,10 +51,13 @@ capabilities will be.
   - [Crystal Annotations](https://crystal-lang.org/reference/1.12/syntax_and_semantics/annotations/index.html)
   - [Crystal Macros](https://crystal-lang.org/reference/1.12/syntax_and_semantics/macros/index.html)
 - [C/C++ preprocessor](https://en.cppreference.com/w/cpp/preprocessor)
+- [Swift Macros](https://docs.swift.org/swift-book/documentation/the-swift-programming-language/macros/)
 - C++ compile time operations
   - [constexpr](https://en.cppreference.com/w/cpp/language/constexpr)
   - [consteval](https://en.cppreference.com/w/cpp/language/consteval)
-- [Nim Macros](https://nim-lang.org/docs/macros.html)
+- Nim Metaprogramming
+  - [Nim Templates](https://nim-lang.org/docs/tut2.html#templates)
+  - [Nim Macros](https://nim-lang.org/docs/macros.html)
 - [Zig `comptime`](https://ziglang.org/documentation/master/#comptime)
 - Ruby Metaprogramming
   - Ruby "hook" methods
