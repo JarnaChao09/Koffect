@@ -46,6 +46,10 @@ public fun repl() {
             emptyList<String>() returns "Double"
         }
 
+        function("clock") {
+            emptyList<String>() returns "Double"
+        }
+
         for (type in listOf("Int", "Double")) {
             type {
                 for (functionName in listOf("plus", "minus", "times", "div", "mod")) {
@@ -124,6 +128,12 @@ public fun repl() {
         readln().toDouble().toValue()
     }
 
+    vm.addNativeFunction("clock") {
+        assert(it.isEmpty())
+
+        (System.currentTimeMillis() / 1000.0).toValue()
+    }
+
    // val srcString = """
    //     var a: Int = 0;
    //     var b: Int = 1;
@@ -199,47 +209,62 @@ public fun repl() {
     // """.trimIndent()
 
     val srcString = """
-        fun quadratic(a: Int, b: Int, c: Int, x: Int): Int {
-            var ret: Int = c;
-
-            val q0: Int = a * x * x;
-            ret = ret + q0;
-
-            val q1: Int = b * x;
-            ret = ret + q1;
-
-            return ret;
-        }
-
-        print("a = ");
-        val a: Int = readInt();
-
-        print("b = ");
-        val b: Int = readInt();
-
-        print("c = ");
-        val c: Int = readInt();
-
-        print("up to x = ");
-        val x: Int = readInt();
-
-        println("the answers are:");
-
-        var i: Int = 0;
-        while (i < x) {
-            val tmp: Int = if (i % 2 == 0) {
-                val t1: Int = quadratic(a, b, c, i) * 2;
-                t1;
+        fun fib(n: Int): Int {
+            if (n == 0 || n == 1) {
+                return n;
             } else {
-                val t2: Int = quadratic(a, b, c, i);
-                t2;
-            };
-            print(i);
-            print(" -> ");
-            println(tmp);
-            i = i + 1;
+                return fib(n - 1) + fib(n - 2);
+            }
         }
+        
+        val before: Double = clock();
+        println(fib(40));
+        val after: Double = clock();
+        println(after - before);
     """.trimIndent()
+
+    // val srcString = """
+    //     fun quadratic(a: Int, b: Int, c: Int, x: Int): Int {
+    //         var ret: Int = c;
+    //
+    //         val q0: Int = a * x * x;
+    //         ret = ret + q0;
+    //
+    //         val q1: Int = b * x;
+    //         ret = ret + q1;
+    //
+    //         return ret;
+    //     }
+    //
+    //     print("a = ");
+    //     val a: Int = readInt();
+    //
+    //     print("b = ");
+    //     val b: Int = readInt();
+    //
+    //     print("c = ");
+    //     val c: Int = readInt();
+    //
+    //     print("up to x = ");
+    //     val x: Int = readInt();
+    //
+    //     println("the answers are:");
+    //
+    //     var i: Int = 0;
+    //     while (i < x) {
+    //         val tmp: Int = if (i % 2 == 0) {
+    //             val t1: Int = quadratic(a, b, c, i) * 2;
+    //             t1;
+    //         } else {
+    //             val t2: Int = quadratic(a, b, c, i);
+    //             t2;
+    //         };
+    //         print(i);
+    //         print(" -> ");
+    //         println(tmp);
+    //         i = i + 1;
+    //     }
+    // """.trimIndent()
 
     // val srcString = """
     //     print("a = ");
