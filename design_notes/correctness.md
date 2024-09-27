@@ -5,6 +5,7 @@
   * [Inspirations](#inspirations)
   * [Correctness in Koffect](#correctness-in-koffect)
     * [Initial Thoughts](#initial-thoughts)
+    * [1/26/2024](#1262024)
 <!-- TOC -->
 
 > This document is thoughts and notes about ensuring correctness in code.
