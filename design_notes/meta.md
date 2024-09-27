@@ -53,8 +53,15 @@ capabilities will be.
 - [C/C++ preprocessor](https://en.cppreference.com/w/cpp/preprocessor)
 - [Swift Macros](https://docs.swift.org/swift-book/documentation/the-swift-programming-language/macros/)
 - C++ compile time operations
+  - [template metaprogramming](https://en.cppreference.com/w/cpp/language/templates)
+    - [SFINAE](https://en.cppreference.com/w/cpp/language/sfinae)
+    - [CTAD](https://en.cppreference.com/w/cpp/language/class_template_argument_deduction)
+  - [concepts](https://en.cppreference.com/w/cpp/language/constraints)
   - [constexpr](https://en.cppreference.com/w/cpp/language/constexpr)
   - [consteval](https://en.cppreference.com/w/cpp/language/consteval)
+- DLang compile time operations
+  - [CTFE](https://tour.dlang.org/tour/en/gems/compile-time-function-evaluation-ctfe)
+  - [template metaprogramming](https://tour.dlang.org/tour/en/gems/template-meta-programming)
 - Nim Metaprogramming
   - [Nim Templates](https://nim-lang.org/docs/tut2.html#templates)
   - [Nim Macros](https://nim-lang.org/docs/macros.html)
