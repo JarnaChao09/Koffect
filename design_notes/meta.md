@@ -108,7 +108,7 @@ but `A == C || B == C`, this case can also be trivially solvable with a more rob
 `i64` and therefore implicitly widened).
 
 If the property of commutativity is encoded into the type system, the compiler may be able to better inform overload
-resolution to more performant versions of functions. A prime example already of this is already seen in C++: [`std::reduce`](https://en.cppreference.com/w/cpp/algorithm/reduce)
+resolution to more performant versions of functions. A prime example of this is already seen in C++: [`std::reduce`](https://en.cppreference.com/w/cpp/algorithm/reduce)
 versus [`std::accumulate`](https://en.cppreference.com/w/cpp/algorithm/accumulate). Both `reduce` and `accumulate` perform
 the same operation, a `fold`, however, the difference between the two functions is the assumptions made about binary operation
 performed. `reduce` requires the binary operation to be *associative* and *commutative* due to the possibility of the order
@@ -122,19 +122,82 @@ return types must be constructively equivalent, meaning they are either equivale
 for Koffect to handle both cases discussed above, this proposed metaprogramming solution would be when a function `foo` 
 is marked with `context(Commutative)` (for example) with the type signature of `(A, B) -> C`, an equivalent overload is
 generated with the signature `(B, A) -> C` which essentially just flip the order of the operands to call to the first
-definition of `foo` (if `A == B` in the type signature, then secondary overload is necessary). In practice, this would 
+definition of `foo` (if `A == B` in the type signature, then secondary overload is unnecessary). In practice, this would 
 look like the following:
+
+> The following code example is not final. The syntax may change as it is highly dependent on the design of "metacontext"s
 
 ```kotlin
 context(Commutative)
 fun intAddDouble(int: Int, double: Double): Double = int.toDouble() + double
 
-// the following function signature would be generated
+// the following function signature would be "generated"
 context(Commutative)
 fun intAddDouble(double: Double, int: Int): Double = intAddDouble(int, double)
 ```
 
-> TODO power, pros and cons
+The above function `intAddDouble` is of type `(Int, Double) -> Double` and has been marked with `context(Commutative)`. 
+This means that the definition of `intAddDouble` is a commutative operation and therefore is also of type `(Double, Int) -> 
+Double`. The second definition, `(Double, Int) -> Double`, will now be synthesized by the compiler to make calls to it
+valid which will simply flip the order of the arguments to rely on the original definition of `intAddDouble` (this synthesized
+definition could be marked as inline/tailcall to remove the need for an additional call frame to be added to the stack).
+
+The above example outlines the usage and benefits from being to encode commutativity into the type system. This can be
+generalized to any property, allowing for resolution to choose more performant algorithms with more knowledge about the
+arguments and the context in which function is operating in without limiting the API in which it can be applied on.
+Furthermore, it can further encode correctness into the type system without hindrance to the API. However, nothing is for
+free. The above example reuses context declarations as its magic "point of entry" and may make context declarations a loaded
+concept as they are for both regular contexts and "metacontexts". "Metacontext"s by definition are also a context, so this
+follows logical sense that both utilize the same mechanisms, however, it may lead to developer frustration as it is not
+understood how or why the magic happens (most likely causing build failures or undesired behavior).
+
+> The current design around "metacontext"s does not have any identifiable markers differentiating a normal context from
+> a "metacontext" without prior knowledge. Idealistically, documentation and proper naming of a "metacontext" would fill
+> this gap, though this is once again idealistic. Perhaps some sort of marker sigill could be utilized akin to `@` in 
+> Java/Kotlin annotations or Python decorators. Further deliberation is required.
+
+To achieve the desired usage of the above example, context declarations would now also effectively act as markers akin to
+annotations/decorators from other languages. Furthermore, some form of processing of source code is now tied to context
+declaration. This processing can have varying levels of power. Three main tiers of power stand out currently are:
+- Python decorators (the lowest tier): Decorators are simply functions which return new functions/classes. At its simplest,
+decorator functions are simply wrappers around the function which they decorate, allowing for injection of behavior such
+as logging or argument validation. More complex decorators can be created, as seen with decorators such as `@dataclass`
+which allow for introspection into a class object and creation of a new class, with additional methods and behavior.
+  - Pros: 
+    - simplistic: they are just HOFs
+  - Cons: 
+    - decorators may be too simplistic: to create decorators which do more than just simple behavior injection, the code 
+can become quite complex
+- Ruby "hook" methods (the middle tier): "Hook" methods are functions which are executed on an event. Ruby's dynamic and
+open nature allows these "hook" methods to perform a wide variety of actions, from simply executing logging logic to complete
+modification of a class/function/object and its properties. Such "hook" methods like `method_missing`, which is called when a
+method on an object is not found, and `included`/`extended`, which are called when a module is `include`d/`extend`ed.
+  - Pros: 
+    - no magic at usage: just implement a "hook" method corresponding to event and the usage will look the same
+    - defined per type: no validation that it is being used on the correct type is needed
+  - Cons: 
+    - reserving method names\[1\]: essentially introduces soft keywords
+    - spooky action from a distance: familiarity with each "hook" method required as there is no indication at usage which 
+requires a consumer to know that said type defines a "hook" method
+- Additional Build Step (the highest tier): An additional build step can come in many forms. Preprocessor macros, annotation
+processing, compiler plugins, and more. It can range from simple textual replacement to full source code analysis, generation,
+and modification. 
+  - Pros: 
+    - power: being an additional build step, the level of magic is choose-able. analysis can be performed to remove the
+need for markers at usage. additional code can be generated. existing code can be modified. anything is possible.
+  - Cons: 
+    - additional build step: this may lead to an increase in build times, as any analysis, generation, or modification may
+take place which the additional step is running
+
+> \[1\]: Crystal also has the notion of "hook methods", however, they are defined as "hook" macros. This somewhat alleviates
+> the downside of "hook" methods being reserved as macros as less commonly part of a public facing API and once again allow
+> for the "hook" method's name to be used as a method.
+
+Given these three tiers of power, the desired usage of the above example can most likely be achieved with all three tiers.
+Each tier of power has its own tradeoffs and for reasons stated below, the most likely candidate for implementing this
+type of metaprogramming in Koffect will be through an additional build step, ideally through compiler plugins.
+
+> TODO: how to implement said "metacontext"s (currently a black box)
 
 </details>
 
