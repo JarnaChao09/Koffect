@@ -193,9 +193,10 @@ take place which the additional step is running
 > the downside of "hook" methods being reserved as macros as less commonly part of a public facing API and once again allow
 > for the "hook" method's name to be used as a method.
 
-Given these three tiers of power, the desired usage of the above example can most likely be achieved with all three tiers.
-Each tier of power has its own tradeoffs and for reasons stated below, the most likely candidate for implementing this
-type of metaprogramming in Koffect will be through an additional build step, ideally through compiler plugins.
+> Given these three tiers of power, the desired usage of the above example can most likely be achieved with all three tiers.
+> Each tier of power has its own tradeoffs and for reasons stated below, the most likely candidate for implementing this 
+> type of metaprogramming in Koffect, as of writing, will be through an additional build step, ideally through compiler 
+> plugins.
 
 > TODO: how to implement said "metacontext"s (currently a black box)
 
