@@ -218,7 +218,7 @@ public fun repl() {
         }
         
         val before: Double = clock();
-        println(fib(40));
+        println(fib(20));
         val after: Double = clock();
         println(after - before);
     """.trimIndent()
