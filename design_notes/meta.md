@@ -211,4 +211,124 @@ take place which the additional step is running
 
 ### Initial Thoughts
 
-> TODO
+Executing code at compile time is a staple of metaprogramming solutions across many languages. However, not all solutions
+to compile time code execution are the same. Often times with differing tradeoffs and capabilities. The most common options
+are: through macros, through the type system, or through compile time function evaluation (CTFE).
+
+Macros cover a wide array of operations, ranging from simple text replacement to code generation. In some languages, it
+is hard to quantify if macros count as compile time code execution. For example, C/C++ macros are executed by a preprocessor
+which performs source text replacement. The level of computation possible by C/C++ macros is limited by the primitives to
+perform said computations, as well as other problems such as the hygiene problem. As such, most C/C++ macro usage does not
+go beyond conditional compilation as it is limited solely to text replacement. Another example is Scheme hygienic macros
+which allow for arbitrary execution and generation of code. Yet, due to Scheme's nature of being interpreted, it is fuzzy
+if said macros are considered compile time execution. 
+
+A final version of macros are known as procedural macros, as seen in Crystal, Rust, Nim, and Swift. Procedural macros, 
+also known as proc macros, are closer to being compile time code execution than the previous examples as their 
+implementations mostly occur in compiled languages. Proc macros are also hygienic, usually working directly on the AST 
+or lexer token stream, and are usually implemented within the host language allowing for them to be just as computationally
+powerful. Being implemented in the host language gives proc macros a lower barrier to entry. This lower friction allows 
+for users to be less intimidated by proc macros, allowing them to be picked up quicker by users of said language. This, 
+however, is a double-edged sword. It leads to "when you have a hammer you see everything as a nail" situations. In practice, 
+the solution is a documentation solution (see below) yet this still relies on the diligence of the programmer to be upheld. 
+Additionally, the computational power of proc macros comes at a cost. While it is mainly dependent on the complexity of 
+the macro, they often result in increased build times.
+
+> From the [nim manual](https://nim-lang.org/docs/manual.html#macros):
+>
+> Style note: For code readability, it is best to use the least powerful programming construct that remains expressive.
+> So the "check list" is:
+>
+> 1. Use an ordinary proc/iterator, if possible.
+> 2. Else: Use a generic proc/iterator, if possible.
+> 3. Else: Use a template, if possible.
+> 4. Else: Use a macro.
+
+A small outlier to friction issue is Crystal (and perhaps also Nim(?)), which differs from the other languages in the list 
+(Rust, Swift) by introducing a macro language. Macros in Crystal cannot be tied to a language construct and can only be 
+invoked through call syntax. As such, these macros can only work on elements supplied as macro parameters. Code generated
+by said macros is done by using Crystal syntax and the macro language is identified by delimiters. The macro language still
+allows for arbitrary computation, but has a higher friction as the syntax now relies on said delimiters, notifying the
+reader that a macro is in use. However, usage of a macro looks like any other function call so a reader may not know a 
+macro call is taking place just at a glance. Crystal macros are also used for Ruby style "hook methods" which can lead to
+some spooky action at a distance (as explained in the encoding additional properties into the type system motivating example)
+
+> TODO: Thoughts on macros are not complete. More research is needed on Lisp/Scheme and Nim.
+
+Turing Complete Type Systems can allow for compile time code execution, often stemming from type resolution algorithms.
+Common examples of this form of compile time code execution can be seen with C++ templates + concepts, D templates, Rust
+traits, and TypeScript types. These type systems are powerful, most often turing complete, which means that the computational
+power is comparable to the language the system is built on top of. Creation of complex types can have many benefits. They
+can help prove the correctness of a program (see Rust traits proving an ABI), improve the performance of a program (see 
+hardcoding values of performance heavy computations directly into resulting binaries), or even help better inform the 
+tooling when writing a program leading to an increase in developer experience (see TypeScript types working so nicely with
+the LSP). However, these systems often use a language (the type language) that is vastly different from the language in 
+which they are built on top of (the term/value language). This difference between the type language and term language often
+times requires users to learn a whole new way of programming just to take advantage of the power of the type system. This
+higher barrier to entry leads to a lot of friction in both understanding and creating complex types. Furthermore, as these
+types grow more and more complex, the type resolution and type inference algorithms may have trouble handling the type's
+unwieldiness, leading to an increase in build times or straight failure to resolve/infer a type. This difference in type
+language versus term language can also lead to archaic and cryptic error messages (made famous/infamous by C++ templates).
+Additionally, depending on how closely one models the types to the program, a duplication of logic is needed. The logic 
+implemented in the term language must be reflected within the type language and vice versa.
+
+> It is debate-able on how powerful a type system should be and how closely a program's types should model the program.
+> Contexts in Koffect will be kept on type signatures, so this may lead to a turing complete type system by accident.
+> More research is needed.
+
+Compile time function evaluation is the most direct approach to allowing for code execution to occur at compile time. This
+approach has been most commonly associated with Zig, however, languages such as C++, D, Rust, and Jai also support them. 
+These systems allow for the usage of the host language fully at compile time by evaluating functions, but unlike macros,
+code generation is not possible. The ability to evaluate a function at compile time can improve the performance of a program,
+mainly by hardcoding computationally intensive values directly into the resulting binary. And since the functions are written
+in the host language, the friction in using them is very low. No need to learn a new separate language just for compile 
+time. However, the ability to run a function at compile time introduces a function color problem. For D and Jai, the function 
+color problem is not as demanding. In D and Jai, any function can be executed at compile time through a marker (the color)
+at call site. For D, this is determined by the `static`, `immutable`, or `enum` keywords. If the keyword is present at
+call site, then the D compiler may decide to execute the function at compile time instead of runtime. For Jai, this is
+determined by if the function call is prefixed with `#run`. If present, then the compiler will be guaranteed to execute
+the function at compile time. For C++ and Rust, the function color problem is more apparent as a marker (the color) is
+introduced at the declaration of a function and the compile time function can only call other compile time functions. For
+C++, this is determined if the function declaration includes `constexpr` or `consteval`. If `constexpr` is present, then
+the function can appear in constant expressions and may be evaluated at compile time. If `consteval` is present, then the
+function must produce a compile time constant expression and will be guaranteed to be evaluated at compile time. For Rust,
+this is determined if the function declaration includes `const`. If present, then the function can appear in `const` locations
+and if so, will be evaluated at compile time. Zig, like D and Jai, only has the marker (the color) at call site needing
+function calls to be prefixed with `comptime`. However, like C++ and Rust, still has a separation between which functions
+can be executed at compile time. Due to functions not storing if they are `comptime` compatible or not, knowing if a function
+is `comptime` compatible is only discovered if the function is called within a `comptime` context. This can lead to mysterious
+and misleading errors. 
+
+> While Jai is mentioned as implementing CTFE, it will not be further explored as the language is, as of writing, not open
+> to the public.
+
+Some languages, mainly Zig, go beyond this capability by allowing for compile time functions to create new types. Zig 
+`comptime` serves not only as CTFE, but also as Zig's system for generics, in a system akin to C++/D templates. This double
+duty allows for Zig to remain more simplistic, not requiring a complex type system with complex resolution rules, while 
+maintaining the ability to be expressive and generic/parametric. This allows for a low barrier to entry into more complex
+topics such as generics, with low friction as there is no new syntax to learn. However, this leads to Zig's `comptime` 
+falling into many of the same pitfalls as stated above following C++ templates\[1\] as Zig's solution using `comptime`
+follows closely in line with C++ template expansion. Furthermore, the duplication of logic is once again a problem as type
+functions\[2\] requires duplicating the logic. This duplication of logic is not between the type language and the term
+language (as they are one and the same, almost\[3\]), but instead between the function and a type function\[4\]. These
+type functions are not expanded during error reporting, which would be quite difficult to do, leading to similarly archaic
+and cryptic error messages.
+
+> \[1\]: See [Zig-style generics are not well-suited for most languages](https://typesanitizer.com/blog/zig-generics.html)
+> for a further breakdown.
+> 
+> \[2\]: A type function is a function which returns a type. This can be a new `struct` definition to the `@TypeInfo` of
+> a variable.
+> 
+> \[3\]: See [Zig's two languages](https://marcelgarus.dev/comptime) for the differences between the term language and 
+> the type language.
+> 
+> \[4\]: See [Zig's two languages](https://marcelgarus.dev/comptime) for an example of the duplication of logic having to
+> wrap a duplicated function all in `@TypeInfo`.
+
+> As of writing, Koffect's metaprogramming solution will be ideally done through compiler plugins. Metaprogramming should
+> be powerful, yet have high friction. If a less powerful construct can be used, then it should be used. There should be
+> a pit of success one must climb out of before being able to use the power of metaprogramming. Furthermore, it should not
+> be relegated to a note in documentation ala Nim and left to the onus on the programmer. 
+
+> TODO: more research is needed for other inspirations. initial thoughts not complete
