@@ -9,6 +9,15 @@ import parser.ast.*
 
 public class TypeChecker(public var environment: Environment) {
     private var currentClass: ClassType? = null
+
+    private enum class Scope {
+        TOP_LEVEL,
+        FUNCTION_LEVEL,
+        CLASS_LEVEL,
+    }
+
+    private var scope: Scope = Scope.TOP_LEVEL
+
     public fun check(statements: List<Statement>, returnTypes: MutableList<Type> = mutableListOf()): List<TypedStatement> {
         fun Parameter.toTypedParameter(): TypedParameter {
             val parameterType = VariableType(this.type.lexeme)
@@ -66,6 +75,9 @@ public class TypeChecker(public var environment: Environment) {
                     if (this.environment.getClass(it.name.lexeme) != null) {
                         error("Class ${it.name.lexeme} is already defined")
                     }
+
+                    val previousScope = this.scope
+                    this.scope = Scope.CLASS_LEVEL
 
                     // todo: superclasses
                     val superClassType = it.superClass?.let { superClass ->
@@ -165,6 +177,8 @@ public class TypeChecker(public var environment: Environment) {
 
                     this.currentClass = previousCurrentClass
 
+                    this.scope = previousScope
+
                     @Suppress("UNCHECKED_CAST")
                     TypedClassDeclaration(
                         name = it.name,
@@ -211,7 +225,9 @@ public class TypeChecker(public var environment: Environment) {
                     val parameterTypes = typedParameters.map(TypedParameter::type)
 
                     oldFunctionType.addOverload(parameterTypes, returnType)
-                    this.currentClass?.addFunction(it.name.lexeme, parameterTypes, returnType)
+                    if (this.scope == Scope.CLASS_LEVEL) {
+                        this.currentClass!!.addFunction(it.name.lexeme, parameterTypes, returnType)
+                    }
 
                     this.environment = Environment(this.environment)
 
@@ -220,6 +236,9 @@ public class TypeChecker(public var environment: Environment) {
                     }
 
                     val returns = mutableListOf<Type>()
+
+                    val previousScope = this.scope
+                    this.scope = Scope.FUNCTION_LEVEL
 
                     val typedBody = check(it.body, returns)
 
@@ -234,6 +253,7 @@ public class TypeChecker(public var environment: Environment) {
                     }
 
                     this.environment = this.environment.enclosing!!
+                    this.scope = previousScope
 
                     TypedFunctionDeclaration(it.name, typedParameters, returnType, typedBody)
                 }
@@ -252,7 +272,9 @@ public class TypeChecker(public var environment: Environment) {
 
                     this.environment.addVariable(it.name.lexeme, type)
 
-                    this.currentClass?.addProperty(it.name.lexeme, type)
+                    if (this.scope == Scope.CLASS_LEVEL) {
+                        this.currentClass!!.addProperty(it.name.lexeme, type)
+                    }
 
                     TypedVariableStatement(it, type, typedInitializer)
                 }

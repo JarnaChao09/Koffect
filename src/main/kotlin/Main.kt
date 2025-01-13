@@ -69,6 +69,12 @@ public fun repl() {
                         listOf(type) returns "Boolean"
                     }
                 }
+
+                for ((functionName, returnType) in listOf("toInt" to "Int", "toDouble" to "Double")) {
+                    function(functionName) {
+                        emptyList<String>() returns returnType
+                    }
+                }
             }
         }
 
@@ -208,20 +214,20 @@ public fun repl() {
     //     println(fib(n));
     // """.trimIndent()
 
-    val srcString = """
-        fun fib(n: Int): Int {
-            if (n == 0 || n == 1) {
-                return n;
-            } else {
-                return fib(n - 1) + fib(n - 2);
-            }
-        }
-        
-        val before: Double = clock();
-        println(fib(20));
-        val after: Double = clock();
-        println(after - before);
-    """.trimIndent()
+    // val srcString = """
+    //     fun fib(n: Int): Int {
+    //         if (n == 0 || n == 1) {
+    //             return n;
+    //         } else {
+    //             return fib(n - 1) + fib(n - 2);
+    //         }
+    //     }
+    //
+    //     val before: Double = clock();
+    //     println(fib(20));
+    //     val after: Double = clock();
+    //     println(after - before);
+    // """.trimIndent()
 
     // val srcString = """
     //     fun quadratic(a: Int, b: Int, c: Int, x: Int): Int {
@@ -282,46 +288,47 @@ public fun repl() {
     //     println(toPrint);
     // """.trimIndent()
 
-    // val srcString = """
-    //     class Foo constructor(val baz: Int = 10) : Bar {
-    //         val qux: Int = this.baz;
-    //
-    //         constructor(test1: Int, test2: Int = 20) : this(test1 + test2) {
-    //             print("secondary constructor with values");
-    //             print(test1);
-    //             print(" ");
-    //             println(test2);
-    //         }
-    //
-    //         fun quux(): Int {
-    //             return this.qux + baz;
-    //         }
-    //
-    //         fun corge(): Int {
-    //             return quux();
-    //         }
-    //
-    //         fun grault(): Int {
-    //             return this.corge() + quux();
-    //         }
-    //     }
-    //
-    //     val foo: Foo = Foo();
-    //     val ret: Int = foo.grault();
-    //     println(ret);
-    //
-    //     fun id(test: Int = 10): Int {
-    //         return test;
-    //     }
-    //
-    //     val a: Int = id(20);
-    //
-    //     // println(baz);
-    //     // println(qux);
-    //     // println(quux());
-    //     // println(corge());
-    //     // println(grault());
-    // """.trimIndent()
+    val srcString = """
+        class Foo constructor(val baz: Double = 10.0) : Bar {
+            val qux: Int = this.baz.toInt();
+
+            constructor(test1: Int, test2: Int = 20) : this((test1 + test2).toDouble()) {
+                print("secondary constructor with values");
+                print(test1);
+                print(" ");
+                println(test2);
+            }
+
+            fun quux(): Int {
+                val baz: Int = 10;
+                return this.qux + baz + this.baz.toInt();
+            }
+
+            fun corge(): Int {
+                return quux();
+            }
+
+            fun grault(): Int {
+                return this.corge() + quux();
+            }
+        }
+
+        val foo: Foo = Foo();
+        val ret: Int = foo.grault();
+        println(ret);
+
+        fun id(test: Int = 10): Int {
+            return test;
+        }
+
+        val a: Int = id(20);
+
+        // println(baz);
+        // println(qux);
+        // println(quux());
+        // println(corge());
+        // println(grault());
+    """.trimIndent()
 
     val lexer = Lexer(srcString)
     val parser = Parser(lexer.tokens)
@@ -335,12 +342,12 @@ public fun repl() {
 
     typedTree.forEach(::println)
 
-    val chunk = codegen.generate(typedTree)
+    // val chunk = codegen.generate(typedTree)
 
-    vm.interpret(chunk.also { c ->
-        println(c.disassemble("source string"))
-        println("=== source string ===")
-    })
+    // vm.interpret(chunk.also { c ->
+    //     println(c.disassemble("source string"))
+    //     println("=== source string ===")
+    // })
 
 //    var i = 0
 //    while (true) {
