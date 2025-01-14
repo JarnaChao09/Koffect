@@ -28,6 +28,7 @@ public enum class TokenType {
     EOS,
 
     COLON,
+    ARROW,
 
     VAR,
     VAL,

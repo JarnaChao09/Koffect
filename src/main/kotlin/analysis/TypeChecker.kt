@@ -20,7 +20,7 @@ public class TypeChecker(public var environment: Environment) {
 
     public fun check(statements: List<Statement>, returnTypes: MutableList<Type> = mutableListOf()): List<TypedStatement> {
         fun Parameter.toTypedParameter(): TypedParameter {
-            val parameterType = VariableType(this.type.lexeme)
+            val parameterType = VariableType(this.type.toString())
 
             val typedValue = this.value?.let { v ->
                 v.toTypedExpression().also { tv ->

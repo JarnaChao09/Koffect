@@ -62,7 +62,7 @@ public class Lexer(private val source: String, private val keywords: Map<String,
 //                this.column = 0
 //            })
             '+' -> this.createToken(TokenType.PLUS)
-            '-' -> this.createToken(TokenType.MINUS)
+            '-' -> this.createToken(if (this.match('>')) TokenType.ARROW else TokenType.MINUS)
             '*' -> this.createToken(TokenType.STAR)
             '/' -> this.createToken(TokenType.SLASH)
             '%' -> this.createToken(TokenType.MOD)

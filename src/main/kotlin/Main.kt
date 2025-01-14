@@ -288,46 +288,64 @@ public fun repl() {
     //     println(toPrint);
     // """.trimIndent()
 
+    // val srcString = """
+    //     class Foo constructor(val baz: Double = 10.0) : Bar {
+    //         val qux: Int = this.baz.toInt();
+    //
+    //         constructor(test1: Int, test2: Int = 20) : this((test1 + test2).toDouble()) {
+    //             print("secondary constructor with values");
+    //             print(test1);
+    //             print(" ");
+    //             println(test2);
+    //         }
+    //
+    //         fun quux(): Int {
+    //             val baz: Int = 10;
+    //             return this.qux + baz + this.baz.toInt();
+    //         }
+    //
+    //         fun corge(): Int {
+    //             return quux();
+    //         }
+    //
+    //         fun grault(): Int {
+    //             return this.corge() + quux();
+    //         }
+    //     }
+    //
+    //     val foo: Foo = Foo();
+    //     val ret: Int = foo.grault();
+    //     println(ret);
+    //
+    //     fun id(test: Int = 10): Int {
+    //         return test;
+    //     }
+    //
+    //     val a: Int = id(20);
+    //
+    //     // println(baz);
+    //     // println(qux);
+    //     // println(quux());
+    //     // println(corge());
+    //     // println(grault());
+    // """.trimIndent()
+
     val srcString = """
-        class Foo constructor(val baz: Double = 10.0) : Bar {
-            val qux: Int = this.baz.toInt();
-
-            constructor(test1: Int, test2: Int = 20) : this((test1 + test2).toDouble()) {
-                print("secondary constructor with values");
-                print(test1);
-                print(" ");
-                println(test2);
-            }
-
-            fun quux(): Int {
-                val baz: Int = 10;
-                return this.qux + baz + this.baz.toInt();
-            }
-
-            fun corge(): Int {
-                return quux();
-            }
-
-            fun grault(): Int {
-                return this.corge() + quux();
-            }
+        fun test0(lambda: () -> Unit) {
+            lambda();
         }
-
-        val foo: Foo = Foo();
-        val ret: Int = foo.grault();
-        println(ret);
-
-        fun id(test: Int = 10): Int {
-            return test;
+        
+        fun test1(lambda: (Int) -> Int) {
+            lambda(1);
         }
-
-        val a: Int = id(20);
-
-        // println(baz);
-        // println(qux);
-        // println(quux());
-        // println(corge());
-        // println(grault());
+        
+        fun test2(lambda: (Int, Int) -> Int) {
+            lambda(1, 2);
+        }
+        
+        fun test3(lambda: ((Int, Int) -> Int)) {
+            lambda(1,2);
+        }
     """.trimIndent()
 
     val lexer = Lexer(srcString)

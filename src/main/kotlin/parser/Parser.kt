@@ -54,7 +54,7 @@ public class Parser(tokenSequence: Sequence<Token>) {
 
                         val parameterName = expect(TokenType.IDENTIFIER, "Expected parameter name")
                         expect(TokenType.COLON, "Expected type annotation after parameter name")
-                        val parameterType = expect(TokenType.IDENTIFIER, "Expected parameter type")
+                        val parameterType = type()
 
                         val parameterInitialValue = if (match(TokenType.ASSIGN)) {
                             this@Parser.expression()
@@ -207,7 +207,7 @@ public class Parser(tokenSequence: Sequence<Token>) {
 
                     val parameterName = expect(TokenType.IDENTIFIER, "Expected parameter name")
                     expect(TokenType.COLON, "Expected type annotation after parameter name")
-                    val parameterType = expect(TokenType.IDENTIFIER, "Expected parameter type")
+                    val parameterType = type()
 
                     val parameterInitialValue = if (match(TokenType.ASSIGN)) {
                         this@Parser.expression()
@@ -219,9 +219,42 @@ public class Parser(tokenSequence: Sequence<Token>) {
                 } while (match(TokenType.COMMA))
             }
         }
-        expect(TokenType.RIGHT_PAREN, "Expect ')' after parameter list")
+        expect(TokenType.RIGHT_PAREN, "Expected ')' after parameter list")
 
         return ret
+    }
+
+    private fun type(): Type {
+        if (match(TokenType.IDENTIFIER)) {
+            return TConstructor(this.previous.lexeme)
+        } else if (match(TokenType.LEFT_PAREN)) {
+            // parenthesized type (A) or function type (A, B) -> C
+
+            val types = if (match(TokenType.RIGHT_PAREN)) {
+                emptyList<Type>()
+            } else {
+                buildList {
+                    do {
+                        add(type())
+                    } while (match(TokenType.COMMA))
+                }.also {
+                    expect(TokenType.RIGHT_PAREN, "Expected ')' after type${if (it.size > 1) " list" else ""}")
+                }
+            }
+
+            if (types.size == 1 && this.peek().type != TokenType.ARROW) {
+                // parenthesized type (A)
+                return types.first()
+            }
+
+            expect(TokenType.ARROW, "Expected '->' to specify return type of a function type")
+
+            val returnType = type()
+
+            return TConstructor("Function${types.size}", types + returnType)
+        } else {
+            error("Expected a type")
+        }
     }
 
     private fun statement(): Statement {

@@ -39,7 +39,7 @@ public data class FunctionDeclaration(
         get() = this.parameters.size
 }
 
-public data class Parameter(val name: Token, val type: Token, val value: Expression?)
+public data class Parameter(val name: Token, val type: Type, val value: Expression?)
 
 public data class IfStatement(
     val condition: Expression,
