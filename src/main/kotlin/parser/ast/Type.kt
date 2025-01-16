@@ -11,3 +11,7 @@ public data class TConstructor(val name: String, val generics: List<Type> = list
         )
     }>"
 }
+
+public data class LambdaTypeConstructor(val contextTypes: List<Type>, val parameterTypes: List<Type>, val returnType: Type) : Type {
+    override fun toString(): String = "${if (contextTypes.isNotEmpty()) "context(${contextTypes.joinToString(", ")}) " else ""}(${parameterTypes.joinToString(", ")}) -> $returnType"
+}

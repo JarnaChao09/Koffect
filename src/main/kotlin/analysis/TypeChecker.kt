@@ -19,8 +19,15 @@ public class TypeChecker(public var environment: Environment) {
     private var scope: Scope = Scope.TOP_LEVEL
 
     public fun check(statements: List<Statement>, returnTypes: MutableList<Type> = mutableListOf()): List<TypedStatement> {
+        fun parser.ast.Type.toType(): Type {
+            return when (this) {
+                is TConstructor -> VariableType(this.toString())
+                is LambdaTypeConstructor -> LambdaType(this.contextTypes.map { it.toType() }, this.parameterTypes.map { it.toType() }, this.returnType.toType())
+            }
+        }
+
         fun Parameter.toTypedParameter(): TypedParameter {
-            val parameterType = VariableType(this.type.toString())
+            val parameterType = this.type.toType()
 
             val typedValue = this.value?.let { v ->
                 v.toTypedExpression().also { tv ->
@@ -208,7 +215,7 @@ public class TypeChecker(public var environment: Environment) {
                 is FunctionDeclaration -> {
                     val name = it.name.lexeme
                     val typedParameters = it.parameters.map(Parameter::toTypedParameter)
-                    val returnType = VariableType(it.returnType.lexeme)
+                    val returnType = it.returnType.toType()
 
                     var oldFunctionType = this.environment.getVariable(name)
 
@@ -258,8 +265,7 @@ public class TypeChecker(public var environment: Environment) {
                     TypedFunctionDeclaration(it.name, typedParameters, returnType, typedBody)
                 }
                 is VariableStatement -> {
-                    val typeToken = it.type ?: error("Variables must be annotated with a type (type inference is not implemented)")
-                    val type = VariableType(typeToken.lexeme)
+                    val type = it.type?.toType() ?: error("Variables must be annotated with a type (type inference is not implemented)")
 
                     val typedInitializer = it.initializer?.toTypedExpression()
                     val initializerType = typedInitializer?.type
@@ -335,12 +341,14 @@ public class TypeChecker(public var environment: Environment) {
 
                 val leftTypeName = when (val leftType = leftTypedExpression.type) {
                     is VariableType -> leftType.name
+                    is LambdaType -> error("Lookup of lambda types is currently not supported during type checking")
                     is FunctionType -> error("Lookup of function types is currently not supported during type checking")
                 }
 
                 val rightType = rightTypedExpression.type
                 val rightTypeName = when (rightType) {
                     is VariableType -> rightType.name
+                    is LambdaType -> error("Lookup of lambda types is currently not supported during type checking")
                     is FunctionType -> error("Lookup of function types is currently not supported during type checking")
                 }
 
@@ -372,45 +380,85 @@ public class TypeChecker(public var environment: Environment) {
                 val typedCallee = this.callee.toTypedExpression()
                 val calleeType = typedCallee.type
 
-                require(calleeType is FunctionType) {
-                    "Invoke on custom types is currently unsupported. Callee must be a function."
-                }
+                when (calleeType) {
+                    is VariableType -> error("Invoke on custom non-function/lambda types are currently not supported")
+                    is LambdaType -> {
+                        val typedArguments = this.arguments.map {
+                            it.toTypedExpression()
+                        }
 
-                val typedArguments = this.arguments.map {
-                    it.toTypedExpression()
-                }
+                        /**
+                         * todo: handle invocation of contextual lambdas within correct contexts
+                         * e.g. the following is correct:
+                         *
+                         * val l: context(Int) (Int) -> Int = { ... }
+                         * with(10) {
+                         *   l(20)
+                         * }
+                         *
+                         * currently, only way to invoke contextual lambdas is
+                         *
+                         * val l: context(Int) (Int) -> Int = { ... }
+                         * l(10, 20)
+                         *
+                         * though this should only be how the desugared invocation looks
+                         */
+                        for ((parameterType, argumentType) in (calleeType.contextTypes + calleeType.parameterTypes).zip(typedArguments)) {
+                            if (parameterType != argumentType.type) {
+                                error("Argument of type ${argumentType.type} does not match $parameterType")
+                            }
+                        }
 
-                // todo: return back to figure out a solution to give better error diagnostics
-                var found: Type? = null
-                for (functionOverload in calleeType.overloads) {
-                    if (functionOverload.arity != typedArguments.size) {
-                        continue // error diagnostic?
+                        TypedCall(
+                            TypedGet(
+                                typedCallee,
+                                this.paren.copy(type = TokenType.IDENTIFIER, "invoke"),
+                                calleeType,
+                            ),
+                            this.paren,
+                            typedArguments,
+                            calleeType.returnType,
+                        )
                     }
+                    is FunctionType -> {
+                        val typedArguments = this.arguments.map {
+                            it.toTypedExpression()
+                        }
 
-                    var acc = true
-                    for (i in typedArguments.indices) {
-                        val argumentType = typedArguments[i].type
+                        // todo: return back to figure out a solution to give better error diagnostics
+                        var found: Type? = null
+                        for (functionOverload in calleeType.overloads) {
+                            if (functionOverload.arity != typedArguments.size) {
+                                continue // error diagnostic?
+                            }
 
-                        acc = acc && argumentType == functionOverload.parameterTypes[i]
-                    }
+                            var acc = true
+                            for (i in typedArguments.indices) {
+                                val argumentType = typedArguments[i].type
 
-                    if (acc) {
-                        found = functionOverload.returnType
-                        break // return type based overload resolution?
+                                acc = acc && argumentType == functionOverload.parameterTypes[i]
+                            }
+
+                            if (acc) {
+                                found = functionOverload.returnType
+                                break // return type based overload resolution?
+                            }
+                        }
+
+                        if (found == null) {
+                            error("No valid function matching the call signature for ${calleeType.name} was found. Known candidates are: $calleeType")
+                        }
+
+                        TypedCall(typedCallee, this.paren, typedArguments, found)
                     }
                 }
-
-                if (found == null) {
-                    error("No valid function matching the call signature for ${calleeType.name} was found. Known candidates are: $calleeType")
-                }
-
-                TypedCall(typedCallee, this.paren, typedArguments, found)
             }
             is Get -> {
                 val typedInstance = this.instance.toTypedExpression()
 
                 val receiverName = when (val type = typedInstance.type) {
                     is VariableType -> type.name
+                    is LambdaType -> error("Lookup of lambda types is currently not supported during type checking")
                     is FunctionType -> error("Lookup of function types is currently not supported during type checking")
                 }
 
@@ -457,12 +505,14 @@ public class TypeChecker(public var environment: Environment) {
 
                 val leftTypeName = when (val leftType = leftTypedExpression.type) {
                     is VariableType -> leftType.name
+                    is LambdaType -> error("Lookup of lambda types is currently not supported during type checking")
                     is FunctionType -> error("Lookup of function types is currently not supported during type checking")
                 }
 
                 val rightType = rightTypedExpression.type
                 val rightTypeName = when (rightType) {
                     is VariableType -> rightType.name
+                    is LambdaType -> error("Lookup of lambda types is currently not supported during type checking")
                     is FunctionType -> error("Lookup of function types is currently not supported during type checking")
                 }
 
@@ -511,6 +561,7 @@ public class TypeChecker(public var environment: Environment) {
                 }
                 val receiverTypeName = when (val receiverType = typedExpression.type) {
                     is VariableType -> receiverType.name
+                    is LambdaType -> error("Lookup of lambda types is currently not supported during type checking")
                     is FunctionType -> error("Lookup of function types is currently not supported during type checking")
                 }
 

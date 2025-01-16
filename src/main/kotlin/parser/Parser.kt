@@ -152,7 +152,7 @@ public class Parser(tokenSequence: Sequence<Token>) {
         val name = expect(TokenType.IDENTIFIER, "Expected a variable name")
 
         val typeAnnotation = if (match(TokenType.COLON)) {
-            expect(TokenType.IDENTIFIER, "Expected valid type identifier")
+            this.type()
         } else {
             null
         }
@@ -176,9 +176,9 @@ public class Parser(tokenSequence: Sequence<Token>) {
         val returnType = when {
             match(TokenType.COLON) -> {
                 this.advance()
-                this.previous
+                this.type()
             }
-            else -> this.previous.copy(type = TokenType.IDENTIFIER, lexeme = "Unit")
+            else -> TConstructor("Unit")
         }
 
 
@@ -225,7 +225,24 @@ public class Parser(tokenSequence: Sequence<Token>) {
     }
 
     private fun type(): Type {
+        val context = if (match(TokenType.CONTEXT)) {
+            expect(TokenType.LEFT_PAREN, "Expect '(' after context keyword")
+
+            buildList {
+                do {
+                    add(type())
+                } while (match(TokenType.COMMA))
+            }.also {
+                expect(TokenType.RIGHT_PAREN, "Expect ')' after context declaration")
+            }
+        } else {
+            emptyList()
+        }
+
         if (match(TokenType.IDENTIFIER)) {
+            if (context.isNotEmpty()) {
+                error("Context declaration is only valid on lambda types")
+            }
             return TConstructor(this.previous.lexeme)
         } else if (match(TokenType.LEFT_PAREN)) {
             // parenthesized type (A) or function type (A, B) -> C
@@ -244,6 +261,9 @@ public class Parser(tokenSequence: Sequence<Token>) {
 
             if (types.size == 1 && this.peek().type != TokenType.ARROW) {
                 // parenthesized type (A)
+                if (context.isNotEmpty()) {
+                    error("Context declaration is only valid on lambda types")
+                }
                 return types.first()
             }
 
@@ -251,7 +271,7 @@ public class Parser(tokenSequence: Sequence<Token>) {
 
             val returnType = type()
 
-            return TConstructor("Function${types.size}", types + returnType)
+            return LambdaTypeConstructor(context, types, returnType)
         } else {
             error("Expected a type")
         }

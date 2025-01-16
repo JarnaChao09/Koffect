@@ -11,6 +11,10 @@ public data class VariableType(public val name: String) : Type {
     }
 }
 
+public data class LambdaType(val contextTypes: List<Type>, val parameterTypes: List<Type>, val returnType: Type) : Type {
+    override fun toString(): String = "${if (contextTypes.isNotEmpty()) "context(${contextTypes.joinToString(", ")}) " else ""}(${parameterTypes.joinToString(", ")}) -> $returnType"
+}
+
 public data class FunctionType(
     public val name: String,
     private val mutableOverloads: MutableSet<Overload> = mutableSetOf()

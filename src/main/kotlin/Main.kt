@@ -332,6 +332,7 @@ public fun repl() {
 
     val srcString = """
         fun test0(lambda: () -> Unit) {
+            val l: () -> Unit = lambda;
             lambda();
         }
         
@@ -345,6 +346,11 @@ public fun repl() {
         
         fun test3(lambda: ((Int, Int) -> Int)) {
             lambda(1,2);
+        }
+        
+        fun test4(lambda: context(Int) (Int) -> Int) {
+            val l: context(Int) (Int) -> Int = lambda;
+            lambda(3, 4);
         }
     """.trimIndent()
 
