@@ -25,13 +25,30 @@ public class Parser(tokenSequence: Sequence<Token>) {
             match(TokenType.VAL, TokenType.VAR) -> {
                 this.variableDeclaration()
             }
+            match(TokenType.CONTEXT) -> {
+                val contexts = this.contextDeclaration()
+                expect(TokenType.FUN, "Expected function declaration after context declaration")
+                this.functionDeclaration(contexts)
+            }
             match(TokenType.FUN) -> {
-                this.functionDeclaration()
+                this.functionDeclaration(emptyList())
             }
             else -> {
                 this.statement()
             }
         }
+    }
+
+    private fun contextDeclaration(): List<Type> {
+        expect(TokenType.LEFT_PAREN, "Expected '(' after context keyword")
+        val contexts = buildList {
+            do {
+                add(type())
+            } while (match(TokenType.COMMA))
+        }
+        expect(TokenType.RIGHT_PAREN, "Expected ')' after context declaration")
+
+        return contexts
     }
 
     private fun classDeclaration(): Statement {
@@ -90,8 +107,13 @@ public class Parser(tokenSequence: Sequence<Token>) {
 
         while (!checkCurrent(TokenType.RIGHT_BRACE) && !this.isAtEnd()) {
             when {
+                match(TokenType.CONTEXT) -> {
+                    val contexts = this.contextDeclaration()
+                    expect(TokenType.FUN, "Expected function declaration after context declaration")
+                    methods += this.functionDeclaration(contexts)
+                }
                 match(TokenType.FUN) -> {
-                    methods += this.functionDeclaration()
+                    methods += this.functionDeclaration(emptyList())
                 }
                 match(TokenType.VAL, TokenType.VAR) -> {
                     fields += this.variableDeclaration()
@@ -168,7 +190,7 @@ public class Parser(tokenSequence: Sequence<Token>) {
         return VariableStatement(type, name, typeAnnotation, initializer)
     }
 
-    private fun functionDeclaration(): FunctionDeclaration {
+    private fun functionDeclaration(contexts: List<Type>): FunctionDeclaration {
         val name = expect(TokenType.IDENTIFIER, "Expect function name")
         expect(TokenType.LEFT_PAREN, "Expect '(' after function name")
         val parameters = this.parameterList()
@@ -194,7 +216,7 @@ public class Parser(tokenSequence: Sequence<Token>) {
             else -> error("Expected a function body")
         }
 
-        return FunctionDeclaration(name, parameters, returnType, body)
+        return FunctionDeclaration(name, contexts, parameters, returnType, body)
     }
 
     private fun parameterList(): List<Parameter> {

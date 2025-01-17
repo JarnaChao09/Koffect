@@ -5,9 +5,11 @@ import analysis.ast.*
 public class Environment(
     private val variables: MutableMap<String, Type> = mutableMapOf(),
     private val klasses: MutableMap<String, ClassType> = mutableMapOf(),
+    private val contextVariables: MutableMap<Type, String> = mutableMapOf(),
     public val enclosing: Environment? = null,
+    private val depth: Int = 0,
 ) {
-    public constructor(enclosing: Environment): this(mutableMapOf(), mutableMapOf(), enclosing)
+    public constructor(enclosing: Environment): this(mutableMapOf(), mutableMapOf(), mutableMapOf(), enclosing, enclosing.depth + 1)
 
     public fun addVariable(name: String, type: Type) {
         if (this.variables.containsKey(name)) {
@@ -44,6 +46,20 @@ public class Environment(
     // public operator fun plusAssign(klass: Pair<String, ClassType>) {
     //     this.addClass(klass.first, klass.second)
     // }
+
+    public fun addContextVariable(type: Type) {
+        if (this.contextVariables.containsKey(type)) {
+            error("Context variable with type '$type' already exists")
+        }
+
+        this.contextVariables[type] = "context_variable_${type}_$depth"
+    }
+
+    public fun getContextVariable(type: Type): String? {
+        return this.contextVariables.getOrElse(type) {
+            this.enclosing?.getContextVariable(type)
+        }
+    }
 }
 
 public fun buildEnvironment(block: EnvironmentBuilder.() -> Unit): Environment {
@@ -68,12 +84,12 @@ public class EnvironmentBuilder {
         this.variables[variable] = VariableType(type)
     }
 
-    public fun function(function: String, block: FunctionBuilder.() -> Unit) {
+    public fun function(function: String, contexts: List<String> = emptyList(), block: FunctionBuilder.() -> Unit) {
         require(function !in this.variables) {
             "Function with name '$function' already exists. All overloads for a function must be in the same block"
         }
 
-        val builder = FunctionBuilder(function)
+        val builder = FunctionBuilder(function, contexts = contexts.map { VariableType(it) })
         builder.block()
         this.variables[function] = builder.build()
     }
@@ -97,12 +113,12 @@ public class EnvironmentBuilder {
 }
 
 @EnvironmentDSL
-public class FunctionBuilder(private val function: String) {
+public class FunctionBuilder(private val function: String, private val contexts: List<Type>) {
     private val overloads: MutableSet<FunctionType.Overload> = mutableSetOf()
 
     public infix fun List<String>.returns(returnType: String) {
         // todo: assuming all are variable types for now, double check if this assumption holds true
-        this@FunctionBuilder.overloads += FunctionType.Overload(this.map { VariableType(it) }, VariableType(returnType))
+        this@FunctionBuilder.overloads += FunctionType.Overload(contexts, this.map { VariableType(it) }, VariableType(returnType))
     }
 
     public fun build(): FunctionType {
@@ -129,12 +145,12 @@ public class ClassBuilder(private val klass: String) {
         this.properties[property] = ClassType.Property(property, VariableType(type))
     }
 
-    public fun function(function: String, block: FunctionBuilder.() -> Unit) {
+    public fun function(function: String, contexts: List<String> = emptyList(), block: FunctionBuilder.() -> Unit) {
         require(function !in this.functions) {
             "Function with name '$function' already exists. All overloads for a function must be in the same block"
         }
 
-        val builder = FunctionBuilder(function)
+        val builder = FunctionBuilder(function, contexts = contexts.map { VariableType(it) })
         builder.block()
         this.functions[function] = ClassType.Function(function, builder.build())
     }

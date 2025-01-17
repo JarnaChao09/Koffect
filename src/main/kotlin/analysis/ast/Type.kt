@@ -19,18 +19,18 @@ public data class FunctionType(
     public val name: String,
     private val mutableOverloads: MutableSet<Overload> = mutableSetOf()
 ) : Type {
-    public data class Overload(public val parameterTypes: List<Type>, public val returnType: Type) {
+    public data class Overload(public val contextTypes: List<Type>, public val parameterTypes: List<Type>, public val returnType: Type) {
         public val arity: Int = this.parameterTypes.size
         override fun toString(): String {
-            return "(${this.parameterTypes.joinToString(separator = ", ")}) -> ${this.returnType}"
+            return "${if (this.contextTypes.isNotEmpty()) "context(${this.contextTypes.joinToString(", ")}) " else ""}(${this.parameterTypes.joinToString(separator = ", ")}) -> ${this.returnType}"
         }
     }
 
     public val overloads: Set<Overload>
         get() = this.mutableOverloads
 
-    public fun addOverload(parameterTypes: List<Type>, returnType: Type): Overload {
-        return Overload(parameterTypes, returnType).also {
+    public fun addOverload(contextTypes: List<Type>, parameterTypes: List<Type>, returnType: Type): Overload {
+        return Overload(contextTypes, parameterTypes, returnType).also {
             if (it in this.mutableOverloads) {
                 error("Overload for function ${this.name} with type $it already exists")
             }
@@ -68,13 +68,13 @@ public data class ClassType(
         }
     }
 
-    public fun addFunction(name: String, parameterTypes: List<Type>, returnType: Type): Function {
+    public fun addFunction(name: String, contextTypes: List<Type>, parameterTypes: List<Type>, returnType: Type): Function {
         return if (this.mutableFunctions.containsKey(name)) {
             this.mutableFunctions[name]!!.also {
-                it.functionType.addOverload(parameterTypes, returnType)
+                it.functionType.addOverload(contextTypes, parameterTypes, returnType)
             }
         } else {
-            Function(name, FunctionType(name, mutableSetOf(FunctionType.Overload(parameterTypes, returnType)))).also {
+            Function(name, FunctionType(name, mutableSetOf(FunctionType.Overload(contextTypes, parameterTypes, returnType)))).also {
                 this.mutableFunctions[name] = it
             }
         }

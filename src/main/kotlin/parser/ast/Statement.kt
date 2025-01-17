@@ -31,6 +31,7 @@ public data class ExpressionStatement(public val expression: Expression) : State
 
 public data class FunctionDeclaration(
     val name: Token,
+    val contexts: List<Type>,
     val parameters: List<Parameter>,
     val returnType: Type,
     val body: List<Statement>,

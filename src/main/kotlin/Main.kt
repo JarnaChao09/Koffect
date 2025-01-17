@@ -348,9 +348,17 @@ public fun repl() {
             lambda(1,2);
         }
         
+        context(Int) fun test6() {
+        }
+        
         fun test4(lambda: context(Int) (Int) -> Int) {
-            val l: context(Int) (Int) -> Int = lambda;
             lambda(3, 4);
+            // test6();
+        }
+        
+        context(Int) fun test5(lambda: context(Double, Int) (Int) -> Int) {
+            lambda(3.0, 5);
+            test6();
         }
     """.trimIndent()
 

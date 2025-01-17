@@ -118,7 +118,7 @@ public class TypeChecker(public var environment: Environment) {
                                 generateNoArgs = false
                             }
 
-                            addOverload(pc.parameters.map(TypedParameter::type), classType)
+                            addOverload(emptyList(), pc.parameters.map(TypedParameter::type), classType)
                         }
 
                         secondaryConstructors.forEach { sc ->
@@ -126,11 +126,11 @@ public class TypeChecker(public var environment: Environment) {
                                 generateNoArgs = false
                             }
 
-                            addOverload(sc.parameters.map(TypedParameter::type), classType)
+                            addOverload(emptyList(), sc.parameters.map(TypedParameter::type), classType)
                         }
 
                         if (generateNoArgs) {
-                            addOverload(emptyList(), classType)
+                            addOverload(emptyList(), emptyList(), classType)
                         }
                     }
 
@@ -163,7 +163,7 @@ public class TypeChecker(public var environment: Environment) {
                             "Cyclic constructor call detected"
                         }
 
-                        val currentConstructorType = FunctionType.Overload(argumentTypes, classType)
+                        val currentConstructorType = FunctionType.Overload(emptyList(), argumentTypes, classType)
 
                         val constructorOverloads = classConstructorFunctionType.overloads
 
@@ -229,14 +229,19 @@ public class TypeChecker(public var environment: Environment) {
                         }
                     }
 
+                    val contextTypes = it.contexts.map(parser.ast.Type::toType)
                     val parameterTypes = typedParameters.map(TypedParameter::type)
 
-                    oldFunctionType.addOverload(parameterTypes, returnType)
+                    oldFunctionType.addOverload(contextTypes, parameterTypes, returnType)
                     if (this.scope == Scope.CLASS_LEVEL) {
-                        this.currentClass!!.addFunction(it.name.lexeme, parameterTypes, returnType)
+                        this.currentClass!!.addFunction(it.name.lexeme, contextTypes, parameterTypes, returnType)
                     }
 
                     this.environment = Environment(this.environment)
+
+                    contextTypes.forEach {
+                        this.environment.addContextVariable(it)
+                    }
 
                     typedParameters.forEach { (parameterName, parameterType) ->
                         this.environment.addVariable(parameterName.lexeme, parameterType)
@@ -262,7 +267,7 @@ public class TypeChecker(public var environment: Environment) {
                     this.environment = this.environment.enclosing!!
                     this.scope = previousScope
 
-                    TypedFunctionDeclaration(it.name, typedParameters, returnType, typedBody)
+                    TypedFunctionDeclaration(it.name, contextTypes, typedParameters, returnType, typedBody)
                 }
                 is VariableStatement -> {
                     val type = it.type?.toType() ?: error("Variables must be annotated with a type (type inference is not implemented)")
@@ -403,9 +408,39 @@ public class TypeChecker(public var environment: Environment) {
                          *
                          * though this should only be how the desugared invocation looks
                          */
-                        for ((parameterType, argumentType) in (calleeType.contextTypes + calleeType.parameterTypes).zip(typedArguments)) {
-                            if (parameterType != argumentType.type) {
-                                error("Argument of type ${argumentType.type} does not match $parameterType")
+                        val finalTypedArguments = buildList {
+                            var argIndex = 0
+
+                            for (type in calleeType.contextTypes) {
+                                if (argIndex !in typedArguments.indices) {
+                                    error("Not enough arguments passed to invoke $calleeType")
+                                }
+
+                                this@TypeChecker.environment.getContextVariable(type)?.let {
+                                    add(TypedVariable(this@toTypedExpression.paren.copy(lexeme = it), type))
+                                } ?: run {
+                                    val argumentType = typedArguments[argIndex++]
+
+                                    if (type != argumentType.type) {
+                                        error("Argument of type ${argumentType.type} does not match expected context type of $type")
+                                    } else {
+                                        add(argumentType)
+                                    }
+                                }
+                            }
+
+                            for (type in calleeType.parameterTypes) {
+                                if (argIndex !in typedArguments.indices) {
+                                    error("Not enough arguments passed to invoke $calleeType")
+                                }
+
+                                val argumentType = typedArguments[argIndex++]
+
+                                if (type != argumentType.type) {
+                                    error("Argument of type ${argumentType.type} does not match $type")
+                                } else {
+                                    add(argumentType)
+                                }
                             }
                         }
 
@@ -416,18 +451,59 @@ public class TypeChecker(public var environment: Environment) {
                                 calleeType,
                             ),
                             this.paren,
-                            typedArguments,
+                            finalTypedArguments,
                             calleeType.returnType,
                         )
                     }
                     is FunctionType -> {
+                        /**
+                         * todo: handle invocation of contextual functions within correct contexts
+                         * e.g. the following is correct:
+                         *
+                         * context(Int) fun f(x: Int): Int { ... }
+                         * with(10) {
+                         *   f(20)
+                         * }
+                         *
+                         * however, unlike contextual lambdas, the following will not be supported
+                         *
+                         * context(Int) fun f(x: Int): Int { ... }
+                         * f(10, 20)
+                         *
+                         * since contextual functions should only be callable from within the correct context
+                         * unlike contextual lambdas which should(?) be able to introduce contextual values (design question)
+                         */
                         val typedArguments = this.arguments.map {
                             it.toTypedExpression()
                         }
 
-                        // todo: return back to figure out a solution to give better error diagnostics
+                        /**
+                         * todo: return back to figure out a solution to give better error diagnostics
+                         *
+                         * todo: implement overload resolution to choose overload with most contexts (if all contexts exist)
+                         *
+                         * e.g.
+                         *
+                         * object A
+                         * object B
+                         *
+                         * context(A) fun test() { ... }    // 1
+                         * context(A, B) fun test() { ... } // 2
+                         *
+                         * with(A, B) {
+                         *   test() // should call to 2
+                         * }
+                         *
+                         * this means that resolution can not end early (line 490)
+                         */
                         var found: Type? = null
                         for (functionOverload in calleeType.overloads) {
+                            if (functionOverload.contextTypes.any {
+                                this@TypeChecker.environment.getContextVariable(it) == null
+                            }) {
+                                continue // error diagnostic?
+                            }
+
                             if (functionOverload.arity != typedArguments.size) {
                                 continue // error diagnostic?
                             }
