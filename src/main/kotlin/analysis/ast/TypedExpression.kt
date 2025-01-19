@@ -2,6 +2,7 @@ package analysis.ast
 
 import lexer.Token
 import parser.ast.*
+import kotlin.text.prependIndent
 
 public sealed interface TypedExpression {
     public val type: Type
@@ -117,6 +118,21 @@ public data class TypedIfExpression(
 ) : TypedExpression {
     override fun toString(): String {
         return "if (${this.condition}) {\n${this.trueBranch.joinToString("\n")}\n} else {\n${this.falseBranch.joinToString("\n")}\n}"
+    }
+}
+
+public data class TypedLambda(
+    val contexts: List<Type>,
+    val parameters: List<TypedParameter>,
+    val body: List<TypedStatement>,
+    override val type: Type,
+) : TypedExpression {
+    public data class TypedParameter(val name: Token, val type: Type) {
+        override fun toString(): String = "${this.name.lexeme}: ${this.type}"
+    }
+
+    override fun toString(): String {
+        return "{ ${if (this.contexts.isNotEmpty()) "context(${this.contexts.joinToString(", ")}) " else ""}${if (this.parameters.isNotEmpty()) "(${this.parameters.joinToString(", ")}) " else ""}->\n${this.body.joinToString("\n").prependIndent()}\n}"
     }
 }
 

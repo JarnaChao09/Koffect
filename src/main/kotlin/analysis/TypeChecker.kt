@@ -19,13 +19,6 @@ public class TypeChecker(public var environment: Environment) {
     private var scope: Scope = Scope.TOP_LEVEL
 
     public fun check(statements: List<Statement>, returnTypes: MutableList<Type> = mutableListOf()): List<TypedStatement> {
-        fun parser.ast.Type.toType(): Type {
-            return when (this) {
-                is TConstructor -> VariableType(this.toString())
-                is LambdaTypeConstructor -> LambdaType(this.contextTypes.map { it.toType() }, this.parameterTypes.map { it.toType() }, this.returnType.toType())
-            }
-        }
-
         fun Parameter.toTypedParameter(): TypedParameter {
             val parameterType = this.type.toType()
 
@@ -396,15 +389,19 @@ public class TypeChecker(public var environment: Environment) {
                          * todo: handle invocation of contextual lambdas within correct contexts
                          * e.g. the following is correct:
                          *
+                         * ```kt
                          * val l: context(Int) (Int) -> Int = { ... }
                          * with(10) {
                          *   l(20)
                          * }
+                         * ```
                          *
                          * currently, only way to invoke contextual lambdas is
                          *
+                         * ```kt
                          * val l: context(Int) (Int) -> Int = { ... }
                          * l(10, 20)
+                         * ```
                          *
                          * though this should only be how the desugared invocation looks
                          */
@@ -460,15 +457,19 @@ public class TypeChecker(public var environment: Environment) {
                          * todo: handle invocation of contextual functions within correct contexts
                          * e.g. the following is correct:
                          *
+                         * ```kt
                          * context(Int) fun f(x: Int): Int { ... }
                          * with(10) {
                          *   f(20)
                          * }
+                         * ```
                          *
                          * however, unlike contextual lambdas, the following will not be supported
                          *
+                         * ```kt
                          * context(Int) fun f(x: Int): Int { ... }
                          * f(10, 20)
+                         * ```
                          *
                          * since contextual functions should only be callable from within the correct context
                          * unlike contextual lambdas which should(?) be able to introduce contextual values (design question)
@@ -484,6 +485,7 @@ public class TypeChecker(public var environment: Environment) {
                          *
                          * e.g.
                          *
+                         * ```kt
                          * object A
                          * object B
                          *
@@ -493,6 +495,7 @@ public class TypeChecker(public var environment: Environment) {
                          * with(A, B) {
                          *   test() // should call to 2
                          * }
+                         * ```
                          *
                          * this means that resolution can not end early (line 490)
                          */
@@ -574,6 +577,51 @@ public class TypeChecker(public var environment: Environment) {
                 TypedIfExpression(typedCondition, typedTrueBranch, typedFalseBranch, trueType)
             }
             is BooleanLiteral, is DoubleLiteral, is IntLiteral, NullLiteral, is StringLiteral -> TypedLiteral(this as Literal<*>)
+            is Lambda -> {
+                val contextTypes = this.contexts.map(parser.ast.Type::toType)
+                val typedParameters = this.parameters.map {
+                    TypedLambda.TypedParameter(
+                        it.name,
+                        it.type?.toType() ?: error("Lambda parameters must be annotated with a type (type inference is not implemented)"),
+                    )
+                }
+
+                this@TypeChecker.environment = Environment(this@TypeChecker.environment)
+
+                contextTypes.forEach {
+                    this@TypeChecker.environment.addContextVariable(it)
+                }
+
+                typedParameters.forEach { (parameterName, parameterType) ->
+                    this@TypeChecker.environment.addVariable(parameterName.lexeme, parameterType)
+                }
+
+                // todo: determine if keeping at function level is ok
+                val previousScope = this@TypeChecker.scope
+                this@TypeChecker.scope = Scope.FUNCTION_LEVEL
+
+                // todo: update type check to error on using un-labelled return statements in lambdas
+                val body = check(this.body)
+
+                val (returnType, typedBody) = when (val trueBranchLast = body.lastOrNull()) {
+                    is TypedExpressionStatement -> trueBranchLast.expression.let { it.type to (body.dropLast(1) + TypedReturnExpressionStatement(it)) }
+                    else -> VariableType("Unit") to body // todo: Unit constructor
+                }
+
+                this@TypeChecker.environment = this@TypeChecker.environment.enclosing!!
+                this@TypeChecker.scope = previousScope
+
+                TypedLambda(
+                    contextTypes,
+                    typedParameters,
+                    typedBody,
+                    LambdaType(
+                        contextTypes,
+                        typedParameters.map(TypedLambda.TypedParameter::type),
+                        returnType,
+                    ),
+                )
+            }
             is Logical -> {
                 val leftTypedExpression = this.left.toTypedExpression()
                 val rightTypedExpression = this.right.toTypedExpression()
@@ -667,5 +715,12 @@ public class TypeChecker(public var environment: Environment) {
                 TypedVariable(this.name, variableType)
             }
         }
+    }
+}
+
+private fun parser.ast.Type.toType(): Type {
+    return when (this) {
+        is TConstructor -> VariableType(this.toString())
+        is LambdaTypeConstructor -> LambdaType(this.contextTypes.map { it.toType() }, this.parameterTypes.map { it.toType() }, this.returnType.toType())
     }
 }

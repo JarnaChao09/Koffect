@@ -51,6 +51,10 @@ public data class IfExpression(
     val falseBranch: List<Statement>,
 ) : Expression
 
+public data class Lambda(val contexts: List<Type>, val parameters: List<Parameter>, val body: List<Statement>) : Expression {
+    public data class Parameter(val name: Token, val type: Type?)
+}
+
 public data class Logical(val left: Expression, val operator: Token, val right: Expression) : Expression
 
 public data class This(val keyword: Token) : Expression

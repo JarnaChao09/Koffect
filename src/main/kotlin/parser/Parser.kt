@@ -5,7 +5,7 @@ import lexer.TokenType
 import parser.ast.*
 
 public class Parser(tokenSequence: Sequence<Token>) {
-    private val tokens = tokenSequence.iterator()
+    private val tokens = TokenStream(tokenSequence.iterator())
     private var current: Token = tokens.next()
     private lateinit var previous: Token
 
@@ -69,9 +69,7 @@ public class Parser(tokenSequence: Sequence<Token>) {
                             else -> ClassDeclaration.FieldType.NONE
                         }
 
-                        val parameterName = expect(TokenType.IDENTIFIER, "Expected parameter name")
-                        expect(TokenType.COLON, "Expected type annotation after parameter name")
-                        val parameterType = type()
+                        val (parameterName, parameterType) = this@Parser.parameter()
 
                         val parameterInitialValue = if (match(TokenType.ASSIGN)) {
                             this@Parser.expression()
@@ -227,9 +225,7 @@ public class Parser(tokenSequence: Sequence<Token>) {
                         error("Cannot have more than 255 parameters")
                     }
 
-                    val parameterName = expect(TokenType.IDENTIFIER, "Expected parameter name")
-                    expect(TokenType.COLON, "Expected type annotation after parameter name")
-                    val parameterType = type()
+                    val (parameterName, parameterType) = this@Parser.parameter()
 
                     val parameterInitialValue = if (match(TokenType.ASSIGN)) {
                         this@Parser.expression()
@@ -244,6 +240,14 @@ public class Parser(tokenSequence: Sequence<Token>) {
         expect(TokenType.RIGHT_PAREN, "Expected ')' after parameter list")
 
         return ret
+    }
+
+    private fun parameter(): Pair<Token, Type> {
+        val parameterName = expect(TokenType.IDENTIFIER, "Expected parameter name")
+        expect(TokenType.COLON, "Expected type annotation after parameter name")
+        val parameterType = this.type()
+
+        return parameterName to parameterType
     }
 
     private fun type(): Type {
@@ -529,6 +533,54 @@ public class Parser(tokenSequence: Sequence<Token>) {
             match(TokenType.THIS) -> This(this.previous)
             match(TokenType.IDENTIFIER) -> Variable(this.previous)
             match(TokenType.NUMBER, TokenType.STRING) -> Literal(this.previous.literal)
+            match(TokenType.LEFT_BRACE) -> {
+                val contexts = if (match(TokenType.CONTEXT)) {
+                    this.contextDeclaration()
+                } else {
+                    null
+                }
+
+                val parameterList = if (contexts != null && match(TokenType.ARROW)) {
+                    emptyList()
+                } else {
+                    val point = this.tokens.mark()
+
+                    if (this.checkCurrent(TokenType.IDENTIFIER)) {
+                        val params = buildList {
+                            do {
+                                val name = expect(TokenType.IDENTIFIER, "Expected identifier")
+                                val type = if (match(TokenType.COLON)) {
+                                    this@Parser.type()
+                                } else {
+                                    null
+                                }
+
+                                add(Lambda.Parameter(name, type))
+                            } while (match(TokenType.COMMA))
+                        }
+
+                        if (match(TokenType.ARROW)) {
+                            params
+                        } else {
+                            this.current = this.tokens.restoreTo(point)
+
+                            emptyList()
+                        }
+                    } else {
+                        emptyList()
+                    }
+                }
+
+                val body = buildList {
+                    while (!this@Parser.checkCurrent(TokenType.RIGHT_BRACE) && !this@Parser.isAtEnd()) {
+                        add(this@Parser.declaration())
+                    }
+
+                    this@Parser.expect(TokenType.RIGHT_BRACE, "Expect '}' after a lambda")
+                }
+
+                Lambda(contexts ?: emptyList(), parameterList, body)
+            }
             match(TokenType.LEFT_PAREN) -> {
                 val expr = this.expression()
                 expect(TokenType.RIGHT_PAREN, "Expecting ')' after expression")

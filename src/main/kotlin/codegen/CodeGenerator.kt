@@ -419,6 +419,9 @@ public class CodeGenerator {
                 this.currentChunk.write(Opcode.ObjectConstant.toInt(), this.line)
                 this.currentChunk.write(constant, this.line++)
             }
+            is TypedLambda -> {
+                TODO()
+            }
             is TypedLogical -> {
                 dfs(root.left)
 

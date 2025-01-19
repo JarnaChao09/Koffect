@@ -332,7 +332,14 @@ public fun repl() {
 
     val srcString = """
         fun test0(lambda: () -> Unit) {
-            val l: () -> Unit = lambda;
+            val l0: () -> Unit = {
+                println("Hello");
+            };
+            val l1: context(Int) () -> Unit = { context(Int) ->
+                println("Hello");
+            };
+            val l2: (Int, Int) -> Int = { x: Int, y: Int -> x + y; };
+            val l3: context(Int) (Int) -> Int = { context(Int) x: Int -> x; };
             lambda();
         }
         
