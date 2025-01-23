@@ -490,7 +490,10 @@ public class Parser(tokenSequence: Sequence<Token>) {
         var expr = this.atom()
 
         while (true) {
-            if (match(TokenType.LEFT_PAREN)) {
+            if (match(TokenType.LEFT_BRACE)) {
+                val lambda = this.parseLambda()
+                expr = Call(expr, this.previous, listOf(lambda))
+            } else if (match(TokenType.LEFT_PAREN)) {
                 expr = this.finishCall(expr)
             } else if (match(TokenType.DOT)) {
                 val name = expect(TokenType.IDENTIFIER, "Expected property name after '.'.")
@@ -516,7 +519,68 @@ public class Parser(tokenSequence: Sequence<Token>) {
             }
         }
 
-        return Call(callee, expect(TokenType.RIGHT_PAREN, "Expect ')' after arguments"), arguments)
+        val paren = expect(TokenType.RIGHT_PAREN, "Expect ')' after arguments")
+
+        return if (match(TokenType.LEFT_BRACE)) {
+            if (arguments.isEmpty()) {
+                // todo: implement compiler warnings
+                println("WARN: empty () can be removed")
+            }
+            val lambda = this.parseLambda()
+
+            Call(callee, paren, arguments + lambda)
+        } else {
+            Call(callee, paren, arguments)
+        }
+    }
+
+    private fun parseLambda(): Expression {
+        val contexts = if (match(TokenType.CONTEXT)) {
+            this.contextDeclaration()
+        } else {
+            null
+        }
+
+        val parameterList = if (contexts != null && match(TokenType.ARROW)) {
+            emptyList()
+        } else {
+            val point = this.tokens.mark()
+
+            if (this.checkCurrent(TokenType.IDENTIFIER)) {
+                val params = buildList {
+                    do {
+                        val name = expect(TokenType.IDENTIFIER, "Expected identifier")
+                        val type = if (match(TokenType.COLON)) {
+                            this@Parser.type()
+                        } else {
+                            null
+                        }
+
+                        add(Lambda.Parameter(name, type))
+                    } while (match(TokenType.COMMA))
+                }
+
+                if (match(TokenType.ARROW)) {
+                    params
+                } else {
+                    this.current = this.tokens.restoreTo(point)
+
+                    emptyList()
+                }
+            } else {
+                emptyList()
+            }
+        }
+
+        val body = buildList {
+            while (!this@Parser.checkCurrent(TokenType.RIGHT_BRACE) && !this@Parser.isAtEnd()) {
+                add(this@Parser.declaration())
+            }
+
+            this@Parser.expect(TokenType.RIGHT_BRACE, "Expect '}' after a lambda")
+        }
+
+        return Lambda(contexts ?: emptyList(), parameterList, body)
     }
 
     private fun atom(): Expression {
@@ -534,52 +598,7 @@ public class Parser(tokenSequence: Sequence<Token>) {
             match(TokenType.IDENTIFIER) -> Variable(this.previous)
             match(TokenType.NUMBER, TokenType.STRING) -> Literal(this.previous.literal)
             match(TokenType.LEFT_BRACE) -> {
-                val contexts = if (match(TokenType.CONTEXT)) {
-                    this.contextDeclaration()
-                } else {
-                    null
-                }
-
-                val parameterList = if (contexts != null && match(TokenType.ARROW)) {
-                    emptyList()
-                } else {
-                    val point = this.tokens.mark()
-
-                    if (this.checkCurrent(TokenType.IDENTIFIER)) {
-                        val params = buildList {
-                            do {
-                                val name = expect(TokenType.IDENTIFIER, "Expected identifier")
-                                val type = if (match(TokenType.COLON)) {
-                                    this@Parser.type()
-                                } else {
-                                    null
-                                }
-
-                                add(Lambda.Parameter(name, type))
-                            } while (match(TokenType.COMMA))
-                        }
-
-                        if (match(TokenType.ARROW)) {
-                            params
-                        } else {
-                            this.current = this.tokens.restoreTo(point)
-
-                            emptyList()
-                        }
-                    } else {
-                        emptyList()
-                    }
-                }
-
-                val body = buildList {
-                    while (!this@Parser.checkCurrent(TokenType.RIGHT_BRACE) && !this@Parser.isAtEnd()) {
-                        add(this@Parser.declaration())
-                    }
-
-                    this@Parser.expect(TokenType.RIGHT_BRACE, "Expect '}' after a lambda")
-                }
-
-                Lambda(contexts ?: emptyList(), parameterList, body)
+                parseLambda()
             }
             match(TokenType.LEFT_PAREN) -> {
                 val expr = this.expression()

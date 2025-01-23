@@ -367,6 +367,21 @@ public fun repl() {
             lambda(3.0, 5);
             test6();
         }
+        
+        test0() {
+            println("Hello");
+        };
+        
+        test0 {
+            println("Hello");
+        };
+        
+        test4 { context(Int) z: Int ->
+            test5 { context(Double, Int) x: Int ->
+                x;
+            };
+            z;
+        };
     """.trimIndent()
 
     val lexer = Lexer(srcString)
