@@ -500,35 +500,42 @@ public class TypeChecker(public var environment: Environment) {
                          * this means that resolution can not end early (line 490)
                          */
                         var found: Type? = null
-                        for (functionOverload in calleeType.overloads) {
-                            if (functionOverload.contextTypes.any {
-                                this@TypeChecker.environment.getContextVariable(it) == null
-                            }) {
-                                continue // error diagnostic?
+                        var foundArgs: List<TypedExpression> = emptyList()
+                        loop@ for (functionOverload in calleeType.overloads) {
+                            // todo: update to language version 2.2
+                            // as the following cannot be a buildList as non-local break and continue is still experimental
+                            val args = mutableListOf<TypedExpression>()
+
+                            for (type in functionOverload.contextTypes) {
+                                this@TypeChecker.environment.getContextVariable(type)?.let {
+                                    args.add(TypedVariable(this@toTypedExpression.paren.copy(lexeme = it), type))
+                                } ?: continue@loop
                             }
 
                             if (functionOverload.arity != typedArguments.size) {
                                 continue // error diagnostic?
                             }
-
-                            var acc = true
                             for (i in typedArguments.indices) {
-                                val argumentType = typedArguments[i].type
+                                val argument = typedArguments[i]
+                                val type = functionOverload.parameterTypes[i]
 
-                                acc = acc && argumentType == functionOverload.parameterTypes[i]
+                                if (type != argument.type) {
+                                    // error("Argument of type ${argumentType.type} does not match $type")
+                                    continue@loop
+                                } else {
+                                    args.add(argument)
+                                }
                             }
 
-                            if (acc) {
-                                found = functionOverload.returnType
-                                break // return type based overload resolution?
-                            }
+                            found = functionOverload.returnType
+                            foundArgs = args
                         }
 
                         if (found == null) {
                             error("No valid function matching the call signature for ${calleeType.name} was found. Known candidates are: $calleeType")
                         }
 
-                        TypedCall(typedCallee, this.paren, typedArguments, found)
+                        TypedCall(typedCallee, this.paren, foundArgs, found)
                     }
                 }
             }
