@@ -520,6 +520,9 @@ public class CodeGenerator {
                     )
                 }
             }
+            is TypedContextVariable -> {
+                TODO()
+            }
         }
     }
 

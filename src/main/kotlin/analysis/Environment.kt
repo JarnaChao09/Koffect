@@ -5,7 +5,7 @@ import analysis.ast.*
 public class Environment(
     private val variables: MutableMap<String, Type> = mutableMapOf(),
     private val klasses: MutableMap<String, ClassType> = mutableMapOf(),
-    private val contextVariables: MutableMap<Type, String> = mutableMapOf(),
+    private val contextVariables: MutableMap<Type, TypedContextVariable> = mutableMapOf(),
     public val enclosing: Environment? = null,
     private val depth: Int = 0,
 ) {
@@ -52,10 +52,10 @@ public class Environment(
             error("Context variable with type '$type' already exists")
         }
 
-        this.contextVariables[type] = "context_variable_${type}_$depth"
+        this.contextVariables[type] = TypedContextVariable(depth, type)
     }
 
-    public fun getContextVariable(type: Type): String? {
+    public fun getContextVariable(type: Type): TypedContextVariable? {
         return this.contextVariables.getOrElse(type) {
             this.enclosing?.getContextVariable(type)
         }

@@ -162,3 +162,9 @@ public data class TypedVariable(val name: Token, override val type: Type) : Type
         return "${this.name.lexeme}<${this.type}>"
     }
 }
+
+public data class TypedContextVariable(val depth: Int, override val type: Type) : TypedExpression {
+    override fun toString(): String {
+        return "context_variable_${type}_$depth"
+    }
+}

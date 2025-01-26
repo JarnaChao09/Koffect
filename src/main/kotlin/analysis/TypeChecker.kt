@@ -414,7 +414,7 @@ public class TypeChecker(public var environment: Environment) {
                                 }
 
                                 this@TypeChecker.environment.getContextVariable(type)?.let {
-                                    add(TypedVariable(this@toTypedExpression.paren.copy(lexeme = it), type))
+                                    add(it)
                                 } ?: run {
                                     val argumentType = typedArguments[argIndex++]
 
@@ -508,7 +508,7 @@ public class TypeChecker(public var environment: Environment) {
 
                             for (type in functionOverload.contextTypes) {
                                 this@TypeChecker.environment.getContextVariable(type)?.let {
-                                    args.add(TypedVariable(this@toTypedExpression.paren.copy(lexeme = it), type))
+                                    args.add(it)
                                 } ?: continue@loop
                             }
 
