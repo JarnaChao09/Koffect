@@ -2,16 +2,24 @@ package analysis.ast
 
 public sealed interface Type {
     // public val isNullable: Boolean // todo add nullable types later
+
+    public val mangledName: String
 }
 
 // todo: handle generics
 public data class VariableType(public val name: String) : Type {
+    override val mangledName: String
+        get() = this.name
+
     override fun toString(): String {
         return this.name
     }
 }
 
 public data class LambdaType(val contextTypes: List<Type>, val parameterTypes: List<Type>, val returnType: Type) : Type {
+    override val mangledName: String
+        get() = "Lambda<${(this.contextTypes + this.parameterTypes).let { if (it.isNotEmpty()) it.joinToString(", ", postfix = ", ") { it.mangledName } else ""}}${returnType.mangledName}>"
+
     override fun toString(): String = "${if (contextTypes.isNotEmpty()) "context(${contextTypes.joinToString(", ")}) " else ""}(${parameterTypes.joinToString(", ")}) -> $returnType"
 }
 
@@ -21,6 +29,9 @@ public data class FunctionType(
 ) : Type {
     public data class Overload(public val contextTypes: List<Type>, public val parameterTypes: List<Type>, public val returnType: Type) {
         public val arity: Int = this.parameterTypes.size
+
+        public fun overloadSuffix(): String = "${this.contextTypes.joinToString("|") { it.mangledName }}/${this.parameterTypes.joinToString("|") { it.mangledName }}/${returnType.mangledName}"
+
         override fun toString(): String {
             return "${if (this.contextTypes.isNotEmpty()) "context(${this.contextTypes.joinToString(", ")}) " else ""}(${this.parameterTypes.joinToString(separator = ", ")}) -> ${this.returnType}"
         }
@@ -41,6 +52,9 @@ public data class FunctionType(
     override fun toString(): String {
         return "{ ${this.overloads.joinToString(", ")} }"
     }
+
+    override val mangledName: String
+        get() = error("function types should not have a mangled name as it depends on the particular overload (should be unreachable)")
 }
 
 public data class ClassType(

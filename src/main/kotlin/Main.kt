@@ -93,20 +93,22 @@ public fun repl() {
     val typechecker = TypeChecker(env)
     val vm = VM()
 
-    vm.addNativeFunction("println") {
-        if (it.isNotEmpty()) {
+    for (inputType in listOf("Int", "Double", "Boolean", "String", "Unit", "Nothing?")) {
+        vm.addNativeFunction("println//$inputType/Unit") {
             assert(it.size == 1)
             println(it[0])
             UnitValue
-        } else {
-            println()
+        }
+
+        vm.addNativeFunction("print//$inputType/Unit") {
+            assert(it.size == 1)
+            print(it[0])
             UnitValue
         }
     }
 
-    vm.addNativeFunction("print") {
-        assert(it.size == 1)
-        print(it[0])
+    vm.addNativeFunction("println///Unit") {
+        println()
         UnitValue
     }
 
@@ -330,58 +332,90 @@ public fun repl() {
     //     // println(grault());
     // """.trimIndent()
 
+    // val srcString = """
+    //     fun test0(lambda: () -> Unit) {
+    //         // val l0: () -> Unit = {
+    //         //     println("Hello");
+    //         // };
+    //         // val l1: context(Int) () -> Unit = { context(Int) ->
+    //         //     println("Hello");
+    //         // };
+    //         // val l2: (Int, Int) -> Int = { x: Int, y: Int -> x + y; };
+    //         // val l3: context(Int) (Int) -> Int = { context(Int) x: Int -> x; };
+    //         lambda();
+    //     }
+    //
+    //     // fun test1(lambda: (Int) -> Int) {
+    //     //     lambda(1);
+    //     // }
+    //
+    //     // fun test2(lambda: (Int, Int) -> Int) {
+    //     //     lambda(1, 2);
+    //     // }
+    //
+    //     // fun test3(lambda: ((Int, Int) -> Int)) {
+    //     //     lambda(1,2);
+    //     // }
+    //
+    //     context(Int) fun test6() {
+    //     }
+    //
+    //     fun test4(lambda: context(Int) (Int) -> Int) {
+    //         lambda(3, 4);
+    //         // test6();
+    //     }
+    //
+    //     context(Int) fun test5(lambda: context(Double, Int) (Int) -> Int) {
+    //         lambda(3.0, 5);
+    //         test6();
+    //     }
+    //
+    //     fun main() {
+    //         test0() {
+    //             println("Hello");
+    //         };
+    //
+    //         test0 {
+    //             println("Hello");
+    //         };
+    //
+    //         test4 { context(Int) z: Int ->
+    //             test5 { context(Double, Int) x: Int ->
+    //                 println(x);
+    //                 x;
+    //             };
+    //             println(z);
+    //             z;
+    //         };
+    //     }
+    //
+    //     main();
+    // """.trimIndent()
+
     val srcString = """
-        fun test0(lambda: () -> Unit) {
-            val l0: () -> Unit = {
-                println("Hello");
+        fun foo() {
+            println("foo");
+        }
+        
+        context(Int) fun foo() {
+            println("contextual foo");
+        }
+        
+        fun withInt(value: Int, block: context(Int) () -> Unit) {
+            block(value);
+        }
+        
+        fun main() {
+            foo();
+            
+            withInt(10) { context(Int) ->
+                foo();
             };
-            val l1: context(Int) () -> Unit = { context(Int) ->
-                println("Hello");
-            };
-            val l2: (Int, Int) -> Int = { x: Int, y: Int -> x + y; };
-            val l3: context(Int) (Int) -> Int = { context(Int) x: Int -> x; };
-            lambda();
+            
+            foo();
         }
         
-        fun test1(lambda: (Int) -> Int) {
-            lambda(1);
-        }
-        
-        fun test2(lambda: (Int, Int) -> Int) {
-            lambda(1, 2);
-        }
-        
-        fun test3(lambda: ((Int, Int) -> Int)) {
-            lambda(1,2);
-        }
-        
-        context(Int) fun test6() {
-        }
-        
-        fun test4(lambda: context(Int) (Int) -> Int) {
-            lambda(3, 4);
-            // test6();
-        }
-        
-        context(Int) fun test5(lambda: context(Double, Int) (Int) -> Int) {
-            lambda(3.0, 5);
-            test6();
-        }
-        
-        test0() {
-            println("Hello");
-        };
-        
-        test0 {
-            println("Hello");
-        };
-        
-        test4 { context(Int) z: Int ->
-            test5 { context(Double, Int) x: Int ->
-                x;
-            };
-            z;
-        };
+        main();
     """.trimIndent()
 
     val lexer = Lexer(srcString)
@@ -396,12 +430,12 @@ public fun repl() {
 
     typedTree.forEach(::println)
 
-    // val chunk = codegen.generate(typedTree)
+    val chunk = codegen.generate(typedTree)
 
-    // vm.interpret(chunk.also { c ->
-    //     println(c.disassemble("source string"))
-    //     println("=== source string ===")
-    // })
+    vm.interpret(chunk.also { c ->
+        println(c.disassemble("source string"))
+        println("=== source string ===")
+    })
 
 //    var i = 0
 //    while (true) {

@@ -225,7 +225,7 @@ public class TypeChecker(public var environment: Environment) {
                     val contextTypes = it.contexts.map(parser.ast.Type::toType)
                     val parameterTypes = typedParameters.map(TypedParameter::type)
 
-                    oldFunctionType.addOverload(contextTypes, parameterTypes, returnType)
+                    val overload = oldFunctionType.addOverload(contextTypes, parameterTypes, returnType)
                     if (this.scope == Scope.CLASS_LEVEL) {
                         this.currentClass!!.addFunction(it.name.lexeme, contextTypes, parameterTypes, returnType)
                     }
@@ -260,7 +260,8 @@ public class TypeChecker(public var environment: Environment) {
                     this.environment = this.environment.enclosing!!
                     this.scope = previousScope
 
-                    TypedFunctionDeclaration(it.name, contextTypes, typedParameters, returnType, typedBody)
+                    // todo: update a better way to handle function overloads
+                    TypedFunctionDeclaration(it.name, "$name/${overload.overloadSuffix()}", contextTypes, typedParameters, returnType, typedBody)
                 }
                 is VariableStatement -> {
                     val type = it.type?.toType() ?: error("Variables must be annotated with a type (type inference is not implemented)")
@@ -499,7 +500,7 @@ public class TypeChecker(public var environment: Environment) {
                          *
                          * this means that resolution can not end early (line 490)
                          */
-                        var found: Type? = null
+                        var found: FunctionType.Overload? = null
                         var foundArgs: List<TypedExpression> = emptyList()
                         loop@ for (functionOverload in calleeType.overloads) {
                             // todo: update to language version 2.2
@@ -527,7 +528,7 @@ public class TypeChecker(public var environment: Environment) {
                                 }
                             }
 
-                            found = functionOverload.returnType
+                            found = functionOverload
                             foundArgs = args
                         }
 
@@ -535,7 +536,17 @@ public class TypeChecker(public var environment: Environment) {
                             error("No valid function matching the call signature for ${calleeType.name} was found. Known candidates are: $calleeType")
                         }
 
-                        TypedCall(typedCallee, this.paren, foundArgs, found)
+                        // todo: find a better way to handle overloads
+                        val callee = when (typedCallee) {
+                            is TypedVariable -> {
+                                typedCallee.copy(
+                                    mangledName = "${typedCallee.name.lexeme}/${found.overloadSuffix()}"
+                                )
+                            }
+                            else -> error("Currently only support calling function types from TypedVariable AST")
+                        }
+
+                        TypedCall(callee, this.paren, foundArgs, found.returnType)
                     }
                 }
             }

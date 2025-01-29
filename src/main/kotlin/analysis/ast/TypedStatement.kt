@@ -91,6 +91,7 @@ public data class TypedReturnExpressionStatement(public val returnExpression: Ty
 
 public data class TypedFunctionDeclaration(
     val name: Token,
+    val mangledName: String,
     val contexts: List<Type>,
     val parameters: List<TypedParameter>,
     val returnType: Type,

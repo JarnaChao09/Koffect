@@ -41,7 +41,7 @@ public class CodeGenerator {
                     this.generateIf(it.condition, it.trueBranch, it.falseBranch)
                 }
                 is TypedFunctionDeclaration -> {
-                    val binding = this.currentChunk.addConstant(it.name.lexeme.toValue())
+                    val binding = this.currentChunk.addConstant(it.mangledName.toValue())
 
                     val oldChunk = this.currentChunk
 
@@ -51,6 +51,9 @@ public class CodeGenerator {
                     val function: ObjectFunction
 
                     this.stack.withNewScope {
+                        it.contexts.forEach { ctx ->
+                            this.stack.addContextVariable(ctx)
+                        }
                         it.parameters.forEach { parameter ->
                             this.stack.addVariable(parameter.name.lexeme)
                         }
@@ -66,7 +69,7 @@ public class CodeGenerator {
                             this.currentChunk.write(Opcode.Return.toInt(), this.line++)
                         }
 
-                        function = ObjectFunction(Function(it.name.lexeme, it.arity, this.currentChunk))
+                        function = ObjectFunction(Function(it.mangledName, it.arity, this.currentChunk))
 
                         this.currentChunk = oldChunk
                     }
@@ -387,7 +390,20 @@ public class CodeGenerator {
                 this.currentChunk.write(argCount, this.line++)
             }
             is TypedGet -> {
-                TODO()
+                val instance = root.instance
+                val name = root.name.lexeme
+
+                when (instance.type) {
+                    is FunctionType -> TODO()
+                    is LambdaType -> {
+                        if (name == "invoke") {
+                            dfs(instance)
+                        } else {
+                            TODO()
+                        }
+                    }
+                    is VariableType -> TODO()
+                }
             }
             is TypedGrouping -> {
                 dfs(root.expression)
@@ -420,7 +436,44 @@ public class CodeGenerator {
                 this.currentChunk.write(constant, this.line++)
             }
             is TypedLambda -> {
-                TODO()
+                val oldChunk = this.currentChunk
+
+                this.currentChunk = Chunk()
+                this.returnEmitted = false
+
+                val function: ObjectFunction
+
+                this.stack.withNewScope {
+                    root.contexts.forEach { ctx ->
+                        this.stack.addContextVariable(ctx)
+                    }
+                    root.parameters.forEach { parameter ->
+                        this.stack.addVariable(parameter.name.lexeme)
+                    }
+
+                    this.generateStatements(root.body)
+
+                    if (!returnEmitted) {
+                        val constant = this.currentChunk.addConstant(UnitValue)
+
+                        this.currentChunk.write(Opcode.ObjectConstant.toInt(), this.line)
+                        this.currentChunk.write(constant, this.line++)
+
+                        this.currentChunk.write(Opcode.Return.toInt(), this.line++)
+                    }
+
+                    // todo: update ObjectFunction to be able to store lambdas
+
+                    val arity = root.contexts.size + root.parameters.size
+
+                    function = ObjectFunction(Function("Function${arity}", arity, this.currentChunk))
+
+                    this.currentChunk = oldChunk
+                }
+
+                val constant = this.currentChunk.addConstant(function)
+                this.currentChunk.write(Opcode.ObjectConstant.toInt(), this.line)
+                this.currentChunk.write(constant, this.line++)
             }
             is TypedLogical -> {
                 dfs(root.left)
@@ -507,21 +560,30 @@ public class CodeGenerator {
                 }.toInt(), this.line++)
             }
             is TypedVariable -> {
-                if (this.stack.inGlobalScope() || !this.stack.isLocal(root.name.lexeme)) {
-                    val binding = this.currentChunk.addConstant(root.name.lexeme.toValue())
+                if (this.stack.inGlobalScope() || !this.stack.isLocal(root.mangledName)) {
+                    val binding = this.currentChunk.addConstant(root.mangledName.toValue())
 
                     this.currentChunk.write(Opcode.GetGlobal.toInt(), this.line)
                     this.currentChunk.write(binding, this.line++)
                 } else {
                     this.currentChunk.write(Opcode.GetLocal.toInt(), this.line)
                     this.currentChunk.write(
-                        this.stack.getVariable(root.name.lexeme),
+                        this.stack.getVariable(root.mangledName),
                         this.line++
                     )
                 }
             }
             is TypedContextVariable -> {
-                TODO()
+                // context variables should only be in local scope
+                require(!this.stack.inGlobalScope()) {
+                    "context variable should not be accessible from global scope (should be unreachable)"
+                }
+
+                this.currentChunk.write(Opcode.GetLocal.toInt(), this.line)
+                this.currentChunk.write(
+                    this.stack.getContextVariable(root.type),
+                    this.line++
+                )
             }
         }
     }
@@ -571,9 +633,14 @@ public class CodeGenerator {
 public class LocalsStack {
     public val stack: ArrayDeque<MutableMap<String, Int>> = ArrayDeque()
     public val locals: ArrayDeque<MutableMap<String, Int>> = ArrayDeque()
+    public val contexts: ArrayDeque<MutableMap<Type, String>> = ArrayDeque()
 
     public fun isLocal(variable: String): Boolean {
         return variable in this.locals.last()
+    }
+
+    public fun contextExists(type: Type): Boolean {
+        return this.contexts.findLast { type in it } != null
     }
 
     public fun inGlobalScope(): Boolean {
@@ -588,11 +655,13 @@ public class LocalsStack {
 
         this.stack.addLast(mutableMapOf())
         this.locals.addLast(mutableMapOf())
+        this.contexts.addLast(mutableMapOf())
 
         block()
 
         this.stack.removeLast()
         this.locals.removeLast()
+        this.contexts.removeLast()
     }
 
     @OptIn(ExperimentalContracts::class)
@@ -603,11 +672,13 @@ public class LocalsStack {
 
         this.stack.addLast(mutableMapOf())
         this.locals.addLast(this.locals.lastOrNull()?.toMutableMap() ?: mutableMapOf())
+        this.contexts.addLast(this.contexts.lastOrNull()?.toMutableMap() ?: mutableMapOf())
 
         block()
 
         this.stack.removeLast()
         this.locals.removeLast()
+        this.contexts.removeLast()
     }
 
     public fun addVariable(variable: String): Int {
@@ -627,5 +698,30 @@ public class LocalsStack {
         val index = currLocals[variable] ?: error("unknown variable (should be unreachable)")
 
         return this.stack[index][variable] ?: error("unknown variable (should be unreachable)")
+    }
+
+    public fun addContextVariable(type: Type): Int {
+        val currStack = this.stack.last()
+        val currContexts = this.contexts.last()
+        val currLocals = this.locals.last()
+
+        val localIndex = currLocals.size
+
+        val name = "context_receiver_${type}_${this.stack.size}"
+
+        currStack[name] = localIndex
+        currLocals[name] = this.stack.size - 1
+        currContexts[type] = name
+
+        return localIndex
+    }
+
+    public fun getContextVariable(type: Type): Int {
+        val currContexts = this.contexts.last()
+        val currLocals = this.locals.last()
+        val name = currContexts[type] ?: error("unknown context variable (should be unreachable)")
+        val index = currLocals[name] ?: error("unknown context variable with serialized name of $name (should be unreachable")
+
+        return this.stack[index][name] ?: error("unknown context variable with serialized name of $name (should be unreachable")
     }
 }

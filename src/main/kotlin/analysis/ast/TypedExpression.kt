@@ -157,7 +157,7 @@ public data class TypedUnary(val operator: Token, val expression: TypedExpressio
     }
 }
 
-public data class TypedVariable(val name: Token, override val type: Type) : TypedExpression {
+public data class TypedVariable(val name: Token, override val type: Type, val mangledName: String = name.lexeme) : TypedExpression {
     override fun toString(): String {
         return "${this.name.lexeme}<${this.type}>"
     }
