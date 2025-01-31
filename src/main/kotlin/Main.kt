@@ -398,7 +398,8 @@ public fun repl() {
         }
         
         context(Int) fun foo() {
-            println("contextual foo");
+            print("contextual foo with ");
+            println(this@Int);
         }
         
         fun withInt(value: Int, block: context(Int) () -> Unit) {
@@ -408,7 +409,9 @@ public fun repl() {
         fun main() {
             foo();
             
-            withInt(10) { context(Int) ->
+            withInt(10) {
+                print("current context value is ");
+                println(this@Int);
                 foo();
             };
             

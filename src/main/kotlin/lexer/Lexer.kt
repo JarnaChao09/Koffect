@@ -58,6 +58,7 @@ public class Lexer(private val source: String, private val keywords: Map<String,
             '.' -> this.createToken(TokenType.DOT)
             ';' -> this.createToken(TokenType.EOS)
             ':' -> this.createToken(TokenType.COLON)
+            '@' -> this.createToken(TokenType.AT)
 //            '\n' -> Token(TokenType.EOS, "\\n", this.line++, this.column.also {
 //                this.column = 0
 //            })

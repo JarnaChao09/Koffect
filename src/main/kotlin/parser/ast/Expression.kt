@@ -57,7 +57,8 @@ public data class Lambda(val contexts: List<Type>, val parameters: List<Paramete
 
 public data class Logical(val left: Expression, val operator: Token, val right: Expression) : Expression
 
-public data class This(val keyword: Token) : Expression
+// todo: update label to be valid labels, not just types
+public data class This(val keyword: Token, val at: Token? = null, val label: Type? = null) : Expression
 
 public data class Unary(val operator: Token, val expression: Expression) : Expression
 

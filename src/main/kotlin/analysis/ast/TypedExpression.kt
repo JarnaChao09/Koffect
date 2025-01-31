@@ -145,7 +145,7 @@ public data class TypedLogical(val left: TypedExpression, val operator: Token, v
     }
 }
 
-public data class TypedThis(val keyword: Token, override val type: Type) : TypedExpression {
+public data class TypedThis(val keyword: Token, val at: Token?, val label: Type?, override val type: Type) : TypedExpression {
     override fun toString(): String {
         return "this<${this.type}>"
     }

@@ -29,6 +29,7 @@ public enum class TokenType {
 
     COLON,
     ARROW,
+    AT,
 
     VAR,
     VAL,

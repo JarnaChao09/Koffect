@@ -541,7 +541,7 @@ public class Parser(tokenSequence: Sequence<Token>) {
             null
         }
 
-        val parameterList = if (contexts != null && match(TokenType.ARROW)) {
+        val parameterList = if (match(TokenType.ARROW)) {
             emptyList()
         } else {
             val point = this.tokens.mark()
@@ -594,7 +594,19 @@ public class Parser(tokenSequence: Sequence<Token>) {
             //     val method = expect(TokenType.IDENTIFIER, "Expect superclass method name")
             //     Super(keyword, method)
             // }
-            match(TokenType.THIS) -> This(this.previous)
+            match(TokenType.THIS) -> {
+                val keyword = this.previous
+                if (match(TokenType.AT)) {
+                    val at = this.previous
+                    // todo: update to be actual valid labels
+                    // todo: update to force lambda types to be parenthesized
+                    val label = this.type()
+
+                    This(keyword, at, label)
+                } else {
+                    This(keyword)
+                }
+            }
             match(TokenType.IDENTIFIER) -> Variable(this.previous)
             match(TokenType.NUMBER, TokenType.STRING) -> Literal(this.previous.literal)
             match(TokenType.LEFT_BRACE) -> {

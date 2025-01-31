@@ -307,7 +307,7 @@ public class TypeChecker(public var environment: Environment) {
         }
     }
 
-    private fun Expression.toTypedExpression(): TypedExpression {
+    private fun Expression.toTypedExpression(expectedType: Type? = null): TypedExpression {
         return when (this) {
             is Assign -> {
                 val typedAssignment = this.expression.toTypedExpression()
@@ -382,10 +382,6 @@ public class TypeChecker(public var environment: Environment) {
                 when (calleeType) {
                     is VariableType -> error("Invoke on custom non-function/lambda types are currently not supported")
                     is LambdaType -> {
-                        val typedArguments = this.arguments.map {
-                            it.toTypedExpression()
-                        }
-
                         /**
                          * todo: handle invocation of contextual lambdas within correct contexts
                          * e.g. the following is correct:
@@ -410,34 +406,38 @@ public class TypeChecker(public var environment: Environment) {
                             var argIndex = 0
 
                             for (type in calleeType.contextTypes) {
-                                if (argIndex !in typedArguments.indices) {
+                                if (argIndex !in this@toTypedExpression.arguments.indices) {
                                     error("Not enough arguments passed to invoke $calleeType")
                                 }
 
                                 this@TypeChecker.environment.getContextVariable(type)?.let {
                                     add(it)
                                 } ?: run {
-                                    val argumentType = typedArguments[argIndex++]
+                                    val typedArgument = this@toTypedExpression.arguments[argIndex++].toTypedExpression(type)
 
-                                    if (type != argumentType.type) {
-                                        error("Argument of type ${argumentType.type} does not match expected context type of $type")
+                                    // check still required as expectedType is ignored (currently) by all other branches
+                                    // except Lambda
+                                    if (type != typedArgument.type) {
+                                        error("Argument of type ${typedArgument.type} does not match expected context type of $type")
                                     } else {
-                                        add(argumentType)
+                                        add(typedArgument)
                                     }
                                 }
                             }
 
                             for (type in calleeType.parameterTypes) {
-                                if (argIndex !in typedArguments.indices) {
+                                if (argIndex !in this@toTypedExpression.arguments.indices) {
                                     error("Not enough arguments passed to invoke $calleeType")
                                 }
 
-                                val argumentType = typedArguments[argIndex++]
+                                val typedArgument = this@toTypedExpression.arguments[argIndex++].toTypedExpression(type)
 
-                                if (type != argumentType.type) {
-                                    error("Argument of type ${argumentType.type} does not match $type")
+                                // check still required as expectedType is ignored (currently) by all other branches
+                                // except Lambda
+                                if (type != typedArgument.type) {
+                                    error("Argument of type ${typedArgument.type} does not match $type")
                                 } else {
-                                    add(argumentType)
+                                    add(typedArgument)
                                 }
                             }
                         }
@@ -474,12 +474,7 @@ public class TypeChecker(public var environment: Environment) {
                          *
                          * since contextual functions should only be callable from within the correct context
                          * unlike contextual lambdas which should(?) be able to introduce contextual values (design question)
-                         */
-                        val typedArguments = this.arguments.map {
-                            it.toTypedExpression()
-                        }
-
-                        /**
+                         *
                          * todo: return back to figure out a solution to give better error diagnostics
                          *
                          * todo: implement overload resolution to choose overload with most contexts (if all contexts exist)
@@ -502,6 +497,7 @@ public class TypeChecker(public var environment: Environment) {
                          */
                         var found: FunctionType.Overload? = null
                         var foundArgs: List<TypedExpression> = emptyList()
+                        val typedArgumentsCache = mutableMapOf<Int, TypedExpression>()
                         loop@ for (functionOverload in calleeType.overloads) {
                             // todo: update to language version 2.2
                             // as the following cannot be a buildList as non-local break and continue is still experimental
@@ -513,13 +509,21 @@ public class TypeChecker(public var environment: Environment) {
                                 } ?: continue@loop
                             }
 
-                            if (functionOverload.arity != typedArguments.size) {
+                            if (functionOverload.arity != this.arguments.size) {
                                 continue // error diagnostic?
                             }
-                            for (i in typedArguments.indices) {
-                                val argument = typedArguments[i]
+                            for (i in this.arguments.indices) {
                                 val type = functionOverload.parameterTypes[i]
+                                val argument = if (type is LambdaType) {
+                                    this.arguments[i].toTypedExpression(type)
+                                } else {
+                                    typedArgumentsCache.getOrPut(i) {
+                                        this.arguments[i].toTypedExpression()
+                                    }
+                                }
 
+                                // check still required as expectedType is ignored (currently) by all other branches
+                                // except Lambda
                                 if (type != argument.type) {
                                     // error("Argument of type ${argumentType.type} does not match $type")
                                     continue@loop
@@ -596,7 +600,19 @@ public class TypeChecker(public var environment: Environment) {
             }
             is BooleanLiteral, is DoubleLiteral, is IntLiteral, NullLiteral, is StringLiteral -> TypedLiteral(this as Literal<*>)
             is Lambda -> {
-                val contextTypes = this.contexts.map(parser.ast.Type::toType)
+                val contextTypes = if (expectedType == null || this.contexts.isNotEmpty()) {
+                    this.contexts.map(parser.ast.Type::toType)
+                } else {
+                    require(expectedType is LambdaType) {
+                        "context value propagation is only supported on types with context declarations in term positions, which is currently only lambdas"
+                    }
+
+                    require(this.contexts.isEmpty()) {
+                        "context value propagation is only allowed when the context declaration is empty (should always be true)"
+                    }
+
+                    expectedType.contextTypes
+                }
                 val typedParameters = this.parameters.map {
                     TypedLambda.TypedParameter(
                         it.name,
@@ -686,12 +702,24 @@ public class TypeChecker(public var environment: Environment) {
                 TypedLogical(leftTypedExpression, this.operator, rightTypedExpression)
             }
             is This -> {
-                TypedThis(
-                    this.keyword,
-                    VariableType(
-                        this@TypeChecker.currentClass?.name ?: error("Invalid use of 'this' when not inside a class scope")
+                if (this.at != null && this.label != null) {
+                    val labelType = this.label.toType()
+
+                    // todo: update to support all possible labels
+                    // todo: should qualified this be able to qualify receiver based on type instead of function name?
+                    this@TypeChecker.environment.getContextVariable(labelType) ?: error("Labeled this could not find $labelType in scope")
+                } else {
+                    // unqualified this will go to current class
+                    // todo: update unqualified this usage to include functions/lambdas with a receiver (extensions)
+                    TypedThis(
+                        this.keyword,
+                        null, // @
+                        null, // label
+                        VariableType(
+                            this@TypeChecker.currentClass?.name ?: error("Invalid use of 'this' when not inside a class scope")
+                        )
                     )
-                )
+                }
             }
             is Unary -> {
                 val typedExpression = this.expression.toTypedExpression()
