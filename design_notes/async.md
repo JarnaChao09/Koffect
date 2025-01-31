@@ -7,6 +7,7 @@
     * [Initial thoughts](#initial-thoughts)
     * [1/8/2024](#182024)
     * [6/29/2024](#6292024)
+    * [1/31/2025](#1312025)
 <!-- TOC -->
 
 > The async story/solution in Koffect is not finalized. Thoughts and notes are listed below.
