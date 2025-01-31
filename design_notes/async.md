@@ -311,3 +311,11 @@ for bringing the actor model to the Koffect async ecosystem.
 
 > As of writing, Kotlin's implementation and design of coroutines has greatly more confidence and will be the most likely
 > candidate for the async solution in Koffect.
+
+### 1/31/2025
+
+Thoughts on "colorblind" async/await in Zig:
+
+> Initial notes here: [link](https://iridescent-measure-268.notion.site/What-is-Zig-s-Colorblind-Async-Await-58a2e2782c3d4fe48dd9f24b21969ce2)
+> 
+> TODO: revisit post and notes and paraphrase with focus on Koffect's design
