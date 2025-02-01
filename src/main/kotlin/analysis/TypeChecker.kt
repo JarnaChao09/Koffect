@@ -383,7 +383,7 @@ public class TypeChecker(public var environment: Environment) {
                     is VariableType -> error("Invoke on custom non-function/lambda types are currently not supported")
                     is LambdaType -> {
                         /**
-                         * todo: handle invocation of contextual lambdas within correct contexts
+                         * handles invocation of contextual lambdas within correct contexts
                          * e.g. the following is correct:
                          *
                          * ```kt
@@ -455,7 +455,7 @@ public class TypeChecker(public var environment: Environment) {
                     }
                     is FunctionType -> {
                         /**
-                         * todo: handle invocation of contextual functions within correct contexts
+                         * handles invocation of contextual functions within correct contexts
                          * e.g. the following is correct:
                          *
                          * ```kt
@@ -495,8 +495,7 @@ public class TypeChecker(public var environment: Environment) {
                          *
                          * this means that resolution can not end early (line 490)
                          */
-                        var found: FunctionType.Overload? = null
-                        var foundArgs: List<TypedExpression> = emptyList()
+                        var found = mutableMapOf<Int, MutableList<Pair<FunctionType.Overload, List<TypedExpression>>>>()
                         val typedArgumentsCache = mutableMapOf<Int, TypedExpression>()
                         loop@ for (functionOverload in calleeType.overloads) {
                             // todo: update to language version 2.2
@@ -509,9 +508,12 @@ public class TypeChecker(public var environment: Environment) {
                                 } ?: continue@loop
                             }
 
+                            val numOfContexts = args.size
+
                             if (functionOverload.arity != this.arguments.size) {
                                 continue // error diagnostic?
                             }
+
                             for (i in this.arguments.indices) {
                                 val type = functionOverload.parameterTypes[i]
                                 val argument = if (type is LambdaType) {
@@ -532,25 +534,34 @@ public class TypeChecker(public var environment: Environment) {
                                 }
                             }
 
-                            found = functionOverload
-                            foundArgs = args
+                            found.getOrPut(numOfContexts) {
+                                mutableListOf()
+                            }.add(functionOverload to args.toList())
                         }
 
-                        if (found == null) {
+                        if (found.isEmpty()) {
                             error("No valid function matching the call signature for ${calleeType.name} was found. Known candidates are: $calleeType")
                         }
+
+                        val max= found.maxBy { it.key }.value
+
+                        if (max.size != 1) {
+                            error("Ambiguous function call for ${calleeType.name} was found. Multiple candidates found: ${max.joinToString(", ") { it.first.toString() }}")
+                        }
+
+                        val (foundOverload, foundArgs) = max.first()
 
                         // todo: find a better way to handle overloads
                         val callee = when (typedCallee) {
                             is TypedVariable -> {
                                 typedCallee.copy(
-                                    mangledName = "${typedCallee.name.lexeme}/${found.overloadSuffix()}"
+                                    mangledName = "${typedCallee.name.lexeme}/${foundOverload.overloadSuffix()}"
                                 )
                             }
                             else -> error("Currently only support calling function types from TypedVariable AST")
                         }
 
-                        TypedCall(callee, this.paren, foundArgs, found.returnType)
+                        TypedCall(callee, this.paren, foundArgs, foundOverload.returnType)
                     }
                 }
             }

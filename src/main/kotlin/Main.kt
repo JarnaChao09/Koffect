@@ -393,16 +393,25 @@ public fun repl() {
     // """.trimIndent()
 
     val srcString = """
+        context(Int) fun foo() {
+            print("contextual int foo with ");
+            println(this@Int);
+        }
+        
         fun foo() {
             println("foo");
         }
         
-        context(Int) fun foo() {
-            print("contextual foo with ");
-            println(this@Int);
+        context(Double) fun foo() {
+            print("contextual double foo with ");
+            println(this@Double);
         }
         
         fun withInt(value: Int, block: context(Int) () -> Unit) {
+            block(value);
+        }
+        
+        fun withDouble(value: Double, block: context(Double) () -> Unit) {
             block(value);
         }
         
@@ -413,6 +422,18 @@ public fun repl() {
                 print("current context value is ");
                 println(this@Int);
                 foo();
+            };
+            
+            withDouble(10.0) {
+                print("current context value is ");
+                println(this@Double);
+                foo();
+            };
+            
+            withInt(1) {
+                withDouble(1.0) {
+                    // foo(); // ambiguous call here
+                };
             };
             
             foo();
