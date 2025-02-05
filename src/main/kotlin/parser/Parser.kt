@@ -496,8 +496,14 @@ public class Parser(tokenSequence: Sequence<Token>) {
                         add(type())
                     } while (match(TokenType.COMMA))
                 }
-                expect(TokenType.LEFT_PAREN, "Expected function call after context pinning (pinned function references not yet supported")
-                expr = this.finishCall(expr, pinnedContexts)
+                expr = if (match(TokenType.LEFT_BRACE)) {
+                    val lambda = this.parseLambda()
+                    Call(expr, this.previous, pinnedContexts, listOf(lambda))
+                } else if (match(TokenType.LEFT_PAREN)) {
+                    this.finishCall(expr, pinnedContexts)
+                } else {
+                    error("Expected function call after context pinning (pinned function references not yet supported")
+                }
             } else if (match(TokenType.LEFT_BRACE)) {
                 val lambda = this.parseLambda()
                 expr = Call(expr, this.previous, emptyList(), listOf(lambda))
