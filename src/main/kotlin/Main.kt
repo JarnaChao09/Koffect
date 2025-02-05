@@ -432,7 +432,7 @@ public fun repl() {
             
             withInt(1) {
                 withDouble(1.0) {
-                    // foo(); // ambiguous call here
+                    foo@Double(); // ambiguous call here
                 };
             };
             

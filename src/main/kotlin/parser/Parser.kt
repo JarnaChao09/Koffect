@@ -490,9 +490,17 @@ public class Parser(tokenSequence: Sequence<Token>) {
         var expr = this.atom()
 
         while (true) {
-            if (match(TokenType.LEFT_BRACE)) {
+            if (match(TokenType.AT)) {
+                val pinnedContexts = buildList {
+                    do {
+                        add(type())
+                    } while (match(TokenType.COMMA))
+                }
+                expect(TokenType.LEFT_PAREN, "Expected function call after context pinning (pinned function references not yet supported")
+                expr = this.finishCall(expr, pinnedContexts)
+            } else if (match(TokenType.LEFT_BRACE)) {
                 val lambda = this.parseLambda()
-                expr = Call(expr, this.previous, listOf(lambda))
+                expr = Call(expr, this.previous, emptyList(), listOf(lambda))
             } else if (match(TokenType.LEFT_PAREN)) {
                 expr = this.finishCall(expr)
             } else if (match(TokenType.DOT)) {
@@ -506,7 +514,7 @@ public class Parser(tokenSequence: Sequence<Token>) {
         return expr
     }
 
-    private fun finishCall(callee: Expression): Expression {
+    private fun finishCall(callee: Expression, pinnedContexts: List<Type> = emptyList()): Expression {
         // todo: named arguments
         val arguments = buildList {
             if (!this@Parser.checkCurrent(TokenType.RIGHT_PAREN)) {
@@ -528,9 +536,9 @@ public class Parser(tokenSequence: Sequence<Token>) {
             }
             val lambda = this.parseLambda()
 
-            Call(callee, paren, arguments + lambda)
+            Call(callee, paren, pinnedContexts, arguments + lambda)
         } else {
-            Call(callee, paren, arguments)
+            Call(callee, paren, pinnedContexts, arguments)
         }
     }
 

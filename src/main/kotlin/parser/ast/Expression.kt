@@ -38,6 +38,7 @@ public data class Binary(val left: Expression, val operator: Token, val right: E
 public data class Call(
     val callee: Expression,
     val paren: Token,
+    val pinnedContexts: List<Type>,
     val arguments: List<Expression>,
 ) : Expression
 
