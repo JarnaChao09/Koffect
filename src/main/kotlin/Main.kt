@@ -407,6 +407,13 @@ public fun repl() {
             println(this@Double);
         }
         
+        context(Int, Double) fun foo() {
+            print("contextual int and double foo with ");
+            print(this@Int);
+            print(" ");
+            println(this@Double);
+        }
+        
         fun withInt(value: Int, block: context(Int) () -> Unit) {
             block(value);
         }
@@ -415,25 +422,39 @@ public fun repl() {
             block(value);
         }
         
+        fun withIntAndDouble(intValue: Int, doubleValue: Double, block: context(Int, Double) () -> Unit) {
+            block(intValue, doubleValue, block);
+        }
+        
         fun main() {
             foo();
             
-            withInt(10) {
-                print("current context value is ");
-                println(this@Int);
-                foo();
-            };
+            // withInt(10) {
+            //     print("current context value is ");
+            //     println(this@Int);
+            //     foo();
+            // };
             
-            withDouble(10.0) {
-                print("current context value is ");
-                println(this@Double);
-                foo();
-            };
+            // withDouble(10.0) {
+            //     print("current context value is ");
+            //     println(this@Double);
+            //     foo();
+            // };
             
-            withInt(1) {
-                withDouble(1.0) {
-                    foo@Double(); // ambiguous call here
-                };
+            // currently does not work as capture semantics are not implemented in the code generator
+            // withInt(1) {
+            //     withDouble(1.0) {
+            //         foo@Int();    // specifically calling to context(Int)         foo
+            //         foo@Double(); // specifically calling to context(Double)      foo
+            //         foo();        // specifically calling to context(Int, Double) foo
+            //     };
+            // };
+            
+            // to work around this, linearize the context introduction function
+            withIntAndDouble(1, 1.0) {
+                foo@Int();    // specifically calling to context(Int)         foo
+                foo@Double(); // specifically calling to context(Double)      foo
+                foo();        // specifically calling to context(Int, Double) foo
             };
             
             foo();

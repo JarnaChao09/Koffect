@@ -378,6 +378,7 @@ public class TypeChecker(public var environment: Environment) {
             is Call -> {
                 val typedCallee = this.callee.toTypedExpression()
                 val calleeType = typedCallee.type
+                val typedPinnedContexts = this.pinnedContexts.map(parser.ast.Type::toType)
 
                 when (calleeType) {
                     is VariableType -> error("Invoke on custom non-function/lambda types are currently not supported")
@@ -405,24 +406,30 @@ public class TypeChecker(public var environment: Environment) {
                         val finalTypedArguments = buildList {
                             var argIndex = 0
 
-                            for (type in calleeType.contextTypes) {
-                                if (argIndex !in this@toTypedExpression.arguments.indices) {
-                                    error("Not enough arguments passed to invoke $calleeType")
-                                }
+                            if (typedPinnedContexts.isEmpty()) {
+                                for (type in calleeType.contextTypes) {
+                                    if (argIndex !in this@toTypedExpression.arguments.indices) {
+                                        error("Not enough arguments passed to invoke $calleeType")
+                                    }
 
-                                this@TypeChecker.environment.getContextVariable(type)?.let {
-                                    add(it)
-                                } ?: run {
-                                    val typedArgument = this@toTypedExpression.arguments[argIndex++].toTypedExpression(type)
+                                    this@TypeChecker.environment.getContextVariable(type)?.let {
+                                        add(it)
+                                    } ?: run {
+                                        val typedArgument =
+                                            this@toTypedExpression.arguments[argIndex++].toTypedExpression(type)
 
-                                    // check still required as expectedType is ignored (currently) by all other branches
-                                    // except Lambda
-                                    if (type != typedArgument.type) {
-                                        error("Argument of type ${typedArgument.type} does not match expected context type of $type")
-                                    } else {
-                                        add(typedArgument)
+                                        // check still required as expectedType is ignored (currently) by all other branches
+                                        // except Lambda
+                                        if (type != typedArgument.type) {
+                                            error("Argument of type ${typedArgument.type} does not match expected context type of $type")
+                                        } else {
+                                            add(typedArgument)
+                                        }
                                     }
                                 }
+                            } else {
+                                // todo: determine if lambda types should be allowed to be called with qualified context call syntax (this can only occur with shadowing of lambda variables)
+                                error("Lambda types currently can not be called with qualified context call syntax")
                             }
 
                             for (type in calleeType.parameterTypes) {
@@ -502,10 +509,28 @@ public class TypeChecker(public var environment: Environment) {
                             // as the following cannot be a buildList as non-local break and continue is still experimental
                             val args = mutableListOf<TypedExpression>()
 
-                            for (type in functionOverload.contextTypes) {
-                                this@TypeChecker.environment.getContextVariable(type)?.let {
-                                    args.add(it)
-                                } ?: continue@loop
+                            if (typedPinnedContexts.isEmpty()) {
+                                for (type in functionOverload.contextTypes) {
+                                    this@TypeChecker.environment.getContextVariable(type)?.let {
+                                        args.add(it)
+                                    } ?: continue@loop
+                                }
+                            } else {
+                                // assuming context declarations are de-duplicated (maybe should be enforced by compiler?)
+                                // assuming pinned context declaration are de-duplicated (maybe should be enforced by compiler?)
+                                if (typedPinnedContexts.size != functionOverload.contextTypes.size) {
+                                    continue@loop
+                                }
+
+                                for (pinnedContext in typedPinnedContexts) {
+                                    if (pinnedContext !in functionOverload.contextTypes) {
+                                        continue@loop
+                                    } else {
+                                        this@TypeChecker.environment.getContextVariable(pinnedContext)?.let {
+                                            args.add(it)
+                                        } ?: continue@loop
+                                    }
+                                }
                             }
 
                             val numOfContexts = args.size
@@ -540,13 +565,20 @@ public class TypeChecker(public var environment: Environment) {
                         }
 
                         if (found.isEmpty()) {
-                            error("No valid function matching the call signature for ${calleeType.name} was found. Known candidates are: $calleeType")
+                            error("No valid function matching the call signature for ${calleeType.name}${if (typedPinnedContexts.isEmpty()) " " else " with pinned contexts of (${typedPinnedContexts.joinToString(", ")}) "}was found. Known candidates are: $calleeType")
                         }
 
-                        val max= found.maxBy { it.key }.value
+                        val max = if (typedPinnedContexts.isEmpty()) {
+                            found.maxBy { it.key }.value
+                        } else {
+                            require(found.size == 1) {
+                                "When pinning contexts, only one overload candidate should be found"
+                            }
+                            found[typedPinnedContexts.size] ?: error("When pinning contexts, the overload found should have the pinned amount of contexts")
+                        }
 
                         if (max.size != 1) {
-                            error("Ambiguous function call for ${calleeType.name} was found. Multiple candidates found: ${max.joinToString(", ") { it.first.toString() }}")
+                            error("Ambiguous function call for ${calleeType.name}${if (typedPinnedContexts.isEmpty()) " " else " with pinned contexts of (${typedPinnedContexts.joinToString(", ")}) "}was found. Multiple candidates found: ${max.joinToString(", ") { it.first.toString() }}")
                         }
 
                         val (foundOverload, foundArgs) = max.first()
