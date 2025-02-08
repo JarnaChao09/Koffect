@@ -491,10 +491,14 @@ public class Parser(tokenSequence: Sequence<Token>) {
 
         while (true) {
             if (match(TokenType.AT)) {
-                val pinnedContexts = buildList {
-                    do {
-                        add(type())
-                    } while (match(TokenType.COMMA))
+                val pinnedContexts = if (checkCurrent(TokenType.LEFT_PAREN)) {
+                    emptyList()
+                } else {
+                    buildList {
+                        do {
+                            add(type())
+                        } while (match(TokenType.COMMA))
+                    }
                 }
                 expr = if (match(TokenType.LEFT_BRACE)) {
                     val lambda = this.parseLambda()
@@ -506,7 +510,7 @@ public class Parser(tokenSequence: Sequence<Token>) {
                 }
             } else if (match(TokenType.LEFT_BRACE)) {
                 val lambda = this.parseLambda()
-                expr = Call(expr, this.previous, emptyList(), listOf(lambda))
+                expr = Call(expr, this.previous, null, listOf(lambda))
             } else if (match(TokenType.LEFT_PAREN)) {
                 expr = this.finishCall(expr)
             } else if (match(TokenType.DOT)) {
@@ -520,7 +524,7 @@ public class Parser(tokenSequence: Sequence<Token>) {
         return expr
     }
 
-    private fun finishCall(callee: Expression, pinnedContexts: List<Type> = emptyList()): Expression {
+    private fun finishCall(callee: Expression, pinnedContexts: List<Type>? = null): Expression {
         // todo: named arguments
         val arguments = buildList {
             if (!this@Parser.checkCurrent(TokenType.RIGHT_PAREN)) {
