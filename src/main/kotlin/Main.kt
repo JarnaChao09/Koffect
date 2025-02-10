@@ -452,10 +452,11 @@ public fun repl() {
             
             // to work around this, linearize the context introduction function
             withIntAndDouble(1, 1.0) {
-                foo@Int();    // specifically calling to context(Int)         foo
-                foo@Double(); // specifically calling to context(Double)      foo
-                foo@();       // specifically calling to context()            foo // should be this allowed?
-                foo();        // specifically calling to context(Int, Double) foo
+                foo@Int();        // specifically calling to context(Int)         foo
+                foo@Double();     // specifically calling to context(Double)      foo
+                foo@();           // specifically calling to context()            foo // should be this allowed?
+                foo();            // specifically calling to context(Int, Double) foo
+                foo@Double,Int(); // specifically calling to context(Int, Double) foo
             };
             
             foo();

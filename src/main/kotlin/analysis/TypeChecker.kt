@@ -522,11 +522,11 @@ public class TypeChecker(public var environment: Environment) {
                                     continue@loop
                                 }
 
-                                for (pinnedContext in typedPinnedContexts) {
-                                    if (pinnedContext !in functionOverload.contextTypes) {
+                                for (context in functionOverload.contextTypes) {
+                                    if (context !in typedPinnedContexts) {
                                         continue@loop
                                     } else {
-                                        this@TypeChecker.environment.getContextVariable(pinnedContext)?.let {
+                                        this@TypeChecker.environment.getContextVariable(context)?.let {
                                             args.add(it)
                                         } ?: continue@loop
                                     }
