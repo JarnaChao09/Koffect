@@ -328,34 +328,30 @@ public fun freeInType(t: Type): Set<Int> = when (t) {
     }
 
     is TConstructor -> {
-        t.generics.map(::freeInType).fold(emptySet()) { acc, i ->
-            acc + i
-        }
+        t.generics.flatMap(::freeInType).toSet()
     }
 }
 
 public fun freeInGenericType(t: GenericType): Set<Int> = freeInType(t.uninstantiatedType)
 
 public fun freeInEnvironment(environment: Map<String, GenericType>): Set<Int> =
-    environment.values.map(::freeInGenericType).fold(emptySet()) { acc, i ->
-        acc + i
-    }
+    environment.values.flatMap(::freeInGenericType).toSet()
 
-public fun substituteExpression(lcoalSubstitution: MutableList<Type>, expression: Expr): Expr = when (expression) {
+public fun substituteExpression(localSubstitution: MutableList<Type>, expression: Expr): Expr = when (expression) {
     is EApply -> {
-        val newFunction = substituteExpression(lcoalSubstitution, expression.function)
+        val newFunction = substituteExpression(localSubstitution, expression.function)
         val newArguments = expression.arguments.map {
-            substituteExpression(lcoalSubstitution, it)
+            substituteExpression(localSubstitution, it)
         }
         EApply(newFunction, newArguments)
     }
 
     is EArray -> {
         val newItemType = expression.itemType?.let {
-            substitute(lcoalSubstitution, it)
+            substitute(localSubstitution, it)
         }
         val newItems = expression.items.map {
-            substituteExpression(lcoalSubstitution, it)
+            substituteExpression(localSubstitution, it)
         }
         EArray(newItemType, newItems)
     }
@@ -366,23 +362,23 @@ public fun substituteExpression(lcoalSubstitution: MutableList<Type>, expression
 
     is ELambda -> {
         val newReturnType = expression.returnType?.let {
-            substitute(lcoalSubstitution, it)
+            substitute(localSubstitution, it)
         }
         val newParameters = expression.parameters.map {
             it.copy(typeAnnotation = it.typeAnnotation?.let {
-                substitute(lcoalSubstitution, it)
+                substitute(localSubstitution, it)
             })
         }
-        val newBody = substituteExpression(lcoalSubstitution, expression.body)
+        val newBody = substituteExpression(localSubstitution, expression.body)
         ELambda(newParameters, newReturnType, newBody)
     }
 
     is ELet -> {
         val newTypeAnnotation = expression.typeAnnotation?.let {
-            substitute(lcoalSubstitution, it)
+            substitute(localSubstitution, it)
         }
-        val newValue = substituteExpression(lcoalSubstitution, expression.value)
-        val newBody = substituteExpression(lcoalSubstitution, expression.body)
+        val newValue = substituteExpression(localSubstitution, expression.value)
+        val newBody = substituteExpression(localSubstitution, expression.body)
         ELet(expression.name, newTypeAnnotation, newValue, newBody)
     }
 
@@ -392,7 +388,7 @@ public fun substituteExpression(lcoalSubstitution: MutableList<Type>, expression
 
     is EVariable -> {
         val newGenerics = expression.generics.map {
-            substitute(lcoalSubstitution, it)
+            substitute(localSubstitution, it)
         }
         EVariable(expression.name, newGenerics)
     }
@@ -401,19 +397,19 @@ public fun substituteExpression(lcoalSubstitution: MutableList<Type>, expression
         val newFunctions = expression.functions.map {
             val newTypeAnnotation = it.typeAnnotation?.let { genericType ->
                 genericType.copy(
-                    uninstantiatedType = substitute(lcoalSubstitution, genericType.uninstantiatedType)
+                    uninstantiatedType = substitute(localSubstitution, genericType.uninstantiatedType)
                 )
             }
-            GenericFunction(it.name, newTypeAnnotation, substituteExpression(lcoalSubstitution, it.body))
+            GenericFunction(it.name, newTypeAnnotation, substituteExpression(localSubstitution, it.body))
         }
-        val newBody = substituteExpression(lcoalSubstitution, expression.body)
+        val newBody = substituteExpression(localSubstitution, expression.body)
 
         EFunctions(newFunctions, newBody)
     }
 
     is ESemicolon -> {
-        val newBefore = substituteExpression(lcoalSubstitution, expression.before)
-        val newAfter = substituteExpression(lcoalSubstitution, expression.after)
+        val newBefore = substituteExpression(localSubstitution, expression.before)
+        val newAfter = substituteExpression(localSubstitution, expression.after)
         ESemicolon(newBefore, newAfter)
     }
 }
