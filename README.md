@@ -66,6 +66,9 @@ Some areas of focus that this project hopes to tackle are:
     - Language implementing algebraic effect handlers with effect safety and effect polymorphism following Scala syntax
 - [Coeffect](https://tomasp.net/coeffects/)
     - Language implementing algebraic coeffects through implicit parameters
+- [Flix](https://flix.dev/)
+    - Language implementing algebraic effect handlers with effect polymorphism, effect exclusion, and associated effects
+      targeting the JVM
 - [OCaml Multicore](https://github.com/ocaml/ocaml)
     - Ocaml 5.0 Multicore added unchecked effect handlers for concurrent programming
 - [Kotlin Context Receivers](https://github.com/Kotlin/KEEP/blob/master/proposals/context-receivers.md)
