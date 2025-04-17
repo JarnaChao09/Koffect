@@ -255,6 +255,16 @@ context(A)
 fun foo() = delete("deleted")
 ```
 
+> Update (4/16/2025): Research Flix's [Effect Exclusion](https://dl.acm.org/doi/abs/10.1145/3607846). To exclude an effect,
+> it is treated as a set difference (i.e. `ef - SomeEffect` where `ef` is an effect variable). The set difference (`ef - 
+> SomeEffect`) is equivalent to the union of the complement (`ef | SomeEffect^C`). This complement operation can be mapped
+> to inverse (`!`) and follows that the not given operation (inverse/`!`) can be stated as the complement of the global
+> (universal) context (set) union with the not given (complement) context (i.e. `G & !SomeContext`). However, the issues
+> discussed above (should) still exist even if contexts were to follow in the footsteps of effect exclusion and therefore
+> option 2 will be, as of writing, the semantics of contexts going forward.
+> 
+> This may be subject to change as more research into effect exclusion takes place.
+
 #### The removal of context variables
 
 With the realization that the "context algebra" is both unsound and redundant (as seen [above](#context-algebra-soundness-and-redundancy)), 
