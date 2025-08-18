@@ -41,45 +41,47 @@ public class CodeGenerator {
                     this.generateIf(it.condition, it.trueBranch, it.falseBranch)
                 }
                 is TypedFunctionDeclaration -> {
-                    val binding = this.currentChunk.addConstant(it.mangledName.toValue())
+                    if (!it.deleted) {
+                        val binding = this.currentChunk.addConstant(it.mangledName.toValue())
 
-                    val oldChunk = this.currentChunk
+                        val oldChunk = this.currentChunk
 
-                    this.currentChunk = Chunk()
-                    this.returnEmitted = false
+                        this.currentChunk = Chunk()
+                        this.returnEmitted = false
 
-                    val function: ObjectFunction
+                        val function: ObjectFunction
 
-                    this.stack.withNewScope {
-                        it.contexts.forEach { ctx ->
-                            this.stack.addContextVariable(ctx)
+                        this.stack.withNewScope {
+                            it.contexts.forEach { ctx ->
+                                this.stack.addContextVariable(ctx)
+                            }
+                            it.parameters.forEach { parameter ->
+                                this.stack.addVariable(parameter.name.lexeme)
+                            }
+
+                            this.generateStatements(it.body)
+
+                            if (!returnEmitted) {
+                                val constant = this.currentChunk.addConstant(UnitValue)
+
+                                this.currentChunk.write(Opcode.ObjectConstant.toInt(), this.line)
+                                this.currentChunk.write(constant, this.line++)
+
+                                this.currentChunk.write(Opcode.Return.toInt(), this.line++)
+                            }
+
+                            function = ObjectFunction(Function(it.mangledName, it.arity, this.currentChunk))
+
+                            this.currentChunk = oldChunk
                         }
-                        it.parameters.forEach { parameter ->
-                            this.stack.addVariable(parameter.name.lexeme)
-                        }
 
-                        this.generateStatements(it.body)
+                        val constant = this.currentChunk.addConstant(function)
+                        this.currentChunk.write(Opcode.ObjectConstant.toInt(), this.line)
+                        this.currentChunk.write(constant, this.line++)
 
-                        if (!returnEmitted) {
-                            val constant = this.currentChunk.addConstant(UnitValue)
-
-                            this.currentChunk.write(Opcode.ObjectConstant.toInt(), this.line)
-                            this.currentChunk.write(constant, this.line++)
-
-                            this.currentChunk.write(Opcode.Return.toInt(), this.line++)
-                        }
-
-                        function = ObjectFunction(Function(it.mangledName, it.arity, this.currentChunk))
-
-                        this.currentChunk = oldChunk
+                        this.currentChunk.write(Opcode.DefineGlobal.toInt(), this.line)
+                        this.currentChunk.write(binding, this.line++)
                     }
-
-                    val constant = this.currentChunk.addConstant(function)
-                    this.currentChunk.write(Opcode.ObjectConstant.toInt(), this.line)
-                    this.currentChunk.write(constant, this.line++)
-
-                    this.currentChunk.write(Opcode.DefineGlobal.toInt(), this.line)
-                    this.currentChunk.write(binding, this.line++)
                 }
                 is TypedVariableStatement -> {
                     it.initializer?.let { expr ->
@@ -129,6 +131,12 @@ public class CodeGenerator {
                     }
 
                     this.currentChunk.write(Opcode.Return.toInt(), this.line++)
+                }
+                is TypedDeleteStatement -> {
+                    // do nothing
+                    // note: delete statements (currently only allowed for functions) should not be in the generated
+                    // bytecode to maintain the zero runtime size cost of deleting functions
+                    // todo: this will be different once the IR is rewritten to allow for dynamic-ish linking (pending spec)
                 }
             }
         }

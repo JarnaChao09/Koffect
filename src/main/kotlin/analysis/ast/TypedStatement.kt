@@ -96,6 +96,7 @@ public data class TypedFunctionDeclaration(
     val parameters: List<TypedParameter>,
     val returnType: Type,
     val body: List<TypedStatement>,
+    val deleted: Boolean,
 ) : TypedDeclaration {
     public val arity: Int
         get() = this.parameters.size
@@ -171,6 +172,12 @@ public data class TypedVal(
 ) : TypedVariableStatement {
     override fun toString(): String {
         return "val ${this.name.lexeme}: ${this.type} = ${this.initializer ?: "uninitialized"}"
+    }
+}
+
+public data class TypedDeleteStatement(val keyword: Token, val reason: TypedExpression?) : TypedStatement {
+    override fun toString(): String {
+        return "delete${reason?.let { "($it)" } ?: ""}"
     }
 }
 

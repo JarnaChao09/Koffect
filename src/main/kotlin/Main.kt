@@ -392,34 +392,93 @@ public fun repl() {
     //     main();
     // """.trimIndent()
 
+    // val srcString = """
+    //     context(Int) fun foo() {
+    //         print("contextual int foo with ");
+    //         println(this@Int);
+    //     }
+    //
+    //     fun foo() {
+    //         println("foo");
+    //     }
+    //
+    //     context(Double) fun foo() {
+    //         print("contextual double foo with ");
+    //         println(this@Double);
+    //     }
+    //
+    //     context(Int, Double) fun foo() {
+    //         print("contextual int and double foo with ");
+    //         print(this@Int);
+    //         print(" ");
+    //         println(this@Double);
+    //     }
+    //
+    //     fun withInt(value: Int, block: context(Int) () -> Unit) {
+    //         block(value);
+    //     }
+    //
+    //     fun withDouble(value: Double, block: context(Double) () -> Unit) {
+    //         block(value);
+    //     }
+    //
+    //     fun withIntAndDouble(intValue: Int, doubleValue: Double, block: context(Int, Double) () -> Unit) {
+    //         block(intValue, doubleValue, block);
+    //     }
+    //
+    //     fun main() {
+    //         foo();
+    //
+    //         // withInt(10) {
+    //         //     print("current context value is ");
+    //         //     println(this@Int);
+    //         //     foo();
+    //         // };
+    //
+    //         // withDouble(10.0) {
+    //         //     print("current context value is ");
+    //         //     println(this@Double);
+    //         //     foo();
+    //         // };
+    //
+    //         // currently does not work as capture semantics are not implemented in the code generator
+    //         // withInt(1) {
+    //         //     withDouble(1.0) {
+    //         //         foo@Int();    // specifically calling to context(Int)         foo
+    //         //         foo@Double(); // specifically calling to context(Double)      foo
+    //         //         foo();        // specifically calling to context(Int, Double) foo
+    //         //     };
+    //         // };
+    //
+    //         // to work around this, linearize the context introduction function
+    //         withIntAndDouble(1, 1.0) {
+    //             foo@Int();        // specifically calling to context(Int)         foo
+    //             foo@Double();     // specifically calling to context(Double)      foo
+    //             foo@();           // specifically calling to context()            foo // should be this allowed?
+    //             foo();            // specifically calling to context(Int, Double) foo
+    //             foo@Double,Int(); // specifically calling to context(Int, Double) foo
+    //         };
+    //
+    //         foo();
+    //     }
+    //
+    //     main();
+    // """.trimIndent()
+
     val srcString = """
-        context(Int) fun foo() {
-            print("contextual int foo with ");
-            println(this@Int);
-        }
+        context(Int) fun foo() = delete("sorry, deleted");
         
         fun foo() {
             println("foo");
         }
         
-        context(Double) fun foo() {
-            print("contextual double foo with ");
-            println(this@Double);
-        }
+        context(Double) fun foo() = delete;
         
         context(Int, Double) fun foo() {
             print("contextual int and double foo with ");
             print(this@Int);
             print(" ");
             println(this@Double);
-        }
-        
-        fun withInt(value: Int, block: context(Int) () -> Unit) {
-            block(value);
-        }
-        
-        fun withDouble(value: Double, block: context(Double) () -> Unit) {
-            block(value);
         }
         
         fun withIntAndDouble(intValue: Int, doubleValue: Double, block: context(Int, Double) () -> Unit) {
@@ -429,31 +488,9 @@ public fun repl() {
         fun main() {
             foo();
             
-            // withInt(10) {
-            //     print("current context value is ");
-            //     println(this@Int);
-            //     foo();
-            // };
-            
-            // withDouble(10.0) {
-            //     print("current context value is ");
-            //     println(this@Double);
-            //     foo();
-            // };
-            
-            // currently does not work as capture semantics are not implemented in the code generator
-            // withInt(1) {
-            //     withDouble(1.0) {
-            //         foo@Int();    // specifically calling to context(Int)         foo
-            //         foo@Double(); // specifically calling to context(Double)      foo
-            //         foo();        // specifically calling to context(Int, Double) foo
-            //     };
-            // };
-            
-            // to work around this, linearize the context introduction function
             withIntAndDouble(1, 1.0) {
-                foo@Int();        // specifically calling to context(Int)         foo
-                foo@Double();     // specifically calling to context(Double)      foo
+                // foo@Int();        // specifically calling to context(Int)         foo // which is deleted
+                // foo@Double();     // specifically calling to context(Double)      foo // which is deleted
                 foo@();           // specifically calling to context()            foo // should be this allowed?
                 foo();            // specifically calling to context(Int, Double) foo
                 foo@Double,Int(); // specifically calling to context(Int, Double) foo

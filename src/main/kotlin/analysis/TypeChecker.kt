@@ -1,7 +1,9 @@
 package analysis
 
 import analysis.ast.*
+import analysis.ast.FunctionType.*
 import analysis.ast.Type
+import analysis.ast.TypedClassDeclaration.*
 import lexer.TokenType
 import parser.ast.*
 
@@ -41,7 +43,7 @@ public class TypeChecker(public var environment: Environment) {
             when (it) {
                 is ClassDeclaration -> {
                     fun ClassDeclaration.PrimaryConstructor.toTypedConstructor(): TypedClassDeclaration.TypedPrimaryConstructor {
-                        return TypedClassDeclaration.TypedPrimaryConstructor(
+                        return TypedPrimaryConstructor(
                             this.parameters.map(Parameter::toTypedParameter),
                             this.parameterType.map { fieldType ->
                                 when (fieldType) {
@@ -69,7 +71,7 @@ public class TypeChecker(public var environment: Environment) {
 
                         this@TypeChecker.environment = this@TypeChecker.environment.enclosing!!
 
-                        return TypedClassDeclaration.TypedSecondaryConstructor(typedParameters, typedDelegatedArguments, typedBody)
+                        return TypedSecondaryConstructor(typedParameters, typedDelegatedArguments, typedBody)
                     }
 
                     if (this.environment.getClass(it.name.lexeme) != null) {
@@ -156,7 +158,7 @@ public class TypeChecker(public var environment: Environment) {
                             "Cyclic constructor call detected"
                         }
 
-                        val currentConstructorType = FunctionType.Overload(emptyList(), argumentTypes, classType)
+                        val currentConstructorType = Overload(emptyList(), argumentTypes, classType, false, null)
 
                         val constructorOverloads = classConstructorFunctionType.overloads
 
@@ -225,11 +227,6 @@ public class TypeChecker(public var environment: Environment) {
                     val contextTypes = it.contexts.map(parser.ast.Type::toType)
                     val parameterTypes = typedParameters.map(TypedParameter::type)
 
-                    val overload = oldFunctionType.addOverload(contextTypes, parameterTypes, returnType)
-                    if (this.scope == Scope.CLASS_LEVEL) {
-                        this.currentClass!!.addFunction(it.name.lexeme, contextTypes, parameterTypes, returnType)
-                    }
-
                     this.environment = Environment(this.environment)
 
                     contextTypes.forEach {
@@ -247,21 +244,44 @@ public class TypeChecker(public var environment: Environment) {
 
                     val typedBody = check(it.body, returns)
 
-                    if (returns.isEmpty() && returnType != VariableType("Unit")) {
-                        error("Expected function $name to return $returnType but found Unit")
-                    }
+                    // todo: clean up hacky solution to have delete statements bypass return type checking
+                    val containsDelete = typedBody.size == 1 && typedBody.first() is TypedDeleteStatement
+                    if (!containsDelete) {
+                        if (returns.isEmpty() && returnType != VariableType("Unit")) {
+                            error("Expected function $name to return $returnType but found Unit")
+                        }
 
-                    for (type in returns) {
-                        if (type != returnType) {
-                            error("Expected function $name to return $returnType but found $type instead")
+                        for (type in returns) {
+                            if (type != returnType) {
+                                error("Expected function $name to return $returnType but found $type instead")
+                            }
                         }
                     }
 
                     this.environment = this.environment.enclosing!!
                     this.scope = previousScope
 
+                    val deletionReason = if (containsDelete) {
+                        (typedBody.first() as TypedDeleteStatement).reason
+                    } else {
+                        null
+                    }
+
+                    val overload = oldFunctionType.addOverload(contextTypes, parameterTypes, returnType, containsDelete, deletionReason)
+                    if (this.scope == Scope.CLASS_LEVEL) {
+                        this.currentClass!!.addFunction(it.name.lexeme, contextTypes, parameterTypes, returnType, containsDelete, deletionReason)
+                    }
+
                     // todo: update a better way to handle function overloads
-                    TypedFunctionDeclaration(it.name, "$name/${overload.overloadSuffix()}", contextTypes, typedParameters, returnType, typedBody)
+                    TypedFunctionDeclaration(
+                        it.name,
+                        "$name/${overload.overloadSuffix()}",
+                        contextTypes,
+                        typedParameters,
+                        returnType,
+                        typedBody,
+                        deleted = containsDelete
+                    )
                 }
                 is VariableStatement -> {
                     val type = it.type?.toType() ?: error("Variables must be annotated with a type (type inference is not implemented)")
@@ -302,6 +322,11 @@ public class TypeChecker(public var environment: Environment) {
                     returnTypes.add(returnType)
 
                     TypedReturnStatement(it.keyword, typedReturnExpression)
+                }
+                is DeleteStatement -> {
+                    val typedReason = it.reason?.toTypedExpression()
+
+                    TypedDeleteStatement(it.keyword, typedReason)
                 }
             }
         }
@@ -502,7 +527,7 @@ public class TypeChecker(public var environment: Environment) {
                          *
                          * this means that resolution can not end early (line 490)
                          */
-                        var found = mutableMapOf<Int, MutableList<Pair<FunctionType.Overload, List<TypedExpression>>>>()
+                        val found = mutableMapOf<Int, MutableList<Pair<FunctionType.Overload, List<TypedExpression>>>>()
                         val typedArgumentsCache = mutableMapOf<Int, TypedExpression>()
                         loop@ for (functionOverload in calleeType.overloads) {
                             // todo: update to language version 2.2
@@ -582,6 +607,10 @@ public class TypeChecker(public var environment: Environment) {
                         }
 
                         val (foundOverload, foundArgs) = max.first()
+
+                        if (foundOverload.isDeleted) {
+                            error("Calling of deleted signature for ${calleeType.name}${if (typedPinnedContexts?.isEmpty() == true) " " else " with pinned contexts of (${typedPinnedContexts!!.joinToString(", ")}) "}was found. Deletion reason: ${foundOverload.deletionReason?.let { it.toString() } ?: "none given"}")
+                        }
 
                         // todo: find a better way to handle overloads
                         val callee = when (typedCallee) {

@@ -63,6 +63,7 @@ public enum class TokenType {
     WHILE,
 
     CONTEXT,
+    DELETE,
     SUSPEND,
     FUN,
     RETURN,

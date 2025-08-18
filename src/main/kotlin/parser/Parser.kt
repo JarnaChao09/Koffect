@@ -312,6 +312,9 @@ public class Parser(tokenSequence: Sequence<Token>) {
             match(TokenType.WHILE) -> {
                 this.whileStatement()
             }
+            match(TokenType.DELETE) -> {
+                this.deleteStatement()
+            }
             match(TokenType.RETURN) -> {
                 this.returnStatement()
             }
@@ -331,6 +334,22 @@ public class Parser(tokenSequence: Sequence<Token>) {
         val body = this.parseBody()
 
         return WhileStatement(condition, body)
+    }
+
+    private fun deleteStatement(): Statement {
+        val keyword = this.previous
+
+        val reason = if (match(TokenType.LEFT_PAREN)) {
+            this.expression().also {
+                expect(TokenType.RIGHT_PAREN, "Expect ')' after deletion reason")
+            }
+        } else {
+            null
+        }
+
+        expect(TokenType.EOS, "Expect an end of statement after delete")
+
+        return DeleteStatement(keyword, reason)
     }
 
     private fun returnStatement(): Statement {

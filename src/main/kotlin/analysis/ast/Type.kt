@@ -27,7 +27,13 @@ public data class FunctionType(
     public val name: String,
     private val mutableOverloads: MutableSet<Overload> = mutableSetOf()
 ) : Type {
-    public data class Overload(public val contextTypes: List<Type>, public val parameterTypes: List<Type>, public val returnType: Type) {
+    public data class Overload(
+        public val contextTypes: List<Type>,
+        public val parameterTypes: List<Type>,
+        public val returnType: Type,
+        public val isDeleted: Boolean,
+        public val deletionReason: TypedExpression?,
+    ) {
         public val arity: Int = this.parameterTypes.size
 
         public fun overloadSuffix(): String = "${this.contextTypes.joinToString("|") { it.mangledName }}/${this.parameterTypes.joinToString("|") { it.mangledName }}/${returnType.mangledName}"
@@ -40,8 +46,14 @@ public data class FunctionType(
     public val overloads: Set<Overload>
         get() = this.mutableOverloads
 
-    public fun addOverload(contextTypes: List<Type>, parameterTypes: List<Type>, returnType: Type): Overload {
-        return Overload(contextTypes, parameterTypes, returnType).also {
+    public fun addOverload(
+        contextTypes: List<Type>,
+        parameterTypes: List<Type>,
+        returnType: Type,
+        isDeleted: Boolean = false,
+        deletionReason: TypedExpression? = null,
+    ): Overload {
+        return Overload(contextTypes, parameterTypes, returnType, isDeleted, deletionReason).also {
             if (it in this.mutableOverloads) {
                 error("Overload for function ${this.name} with type $it already exists")
             }
@@ -82,13 +94,20 @@ public data class ClassType(
         }
     }
 
-    public fun addFunction(name: String, contextTypes: List<Type>, parameterTypes: List<Type>, returnType: Type): Function {
+    public fun addFunction(
+        name: String,
+        contextTypes: List<Type>,
+        parameterTypes: List<Type>,
+        returnType: Type,
+        isDeleted: Boolean = false,
+        deletionReason: TypedExpression? = null
+    ): Function {
         return if (this.mutableFunctions.containsKey(name)) {
             this.mutableFunctions[name]!!.also {
-                it.functionType.addOverload(contextTypes, parameterTypes, returnType)
+                it.functionType.addOverload(contextTypes, parameterTypes, returnType, isDeleted, deletionReason)
             }
         } else {
-            Function(name, FunctionType(name, mutableSetOf(FunctionType.Overload(contextTypes, parameterTypes, returnType)))).also {
+            Function(name, FunctionType(name, mutableSetOf(FunctionType.Overload(contextTypes, parameterTypes, returnType, isDeleted, deletionReason)))).also {
                 this.mutableFunctions[name] = it
             }
         }
