@@ -101,6 +101,7 @@ public data class TypedInlineCall(
     val arguments: List<TypedExpression>,
     override val type: Type,
     val inlinedBody: List<TypedStatement>,
+    val inlinedParameterNames: List<TypedParameter>,
 ) : TypedExpression {
     override fun toString(): String {
         return "${this.callee}<inlined>(${this.arguments.joinToString(", ")})<${this.type}>"

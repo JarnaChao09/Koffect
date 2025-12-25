@@ -12,6 +12,7 @@ public class CodeGenerator {
     private var line: Int = 1
     private var returnEmitted: Boolean = false
     private val stack: LocalsStack = LocalsStack()
+    private var inlinedParameters: Map<String, TypedExpression> = emptyMap()
 
     public fun generate(ast: List<TypedStatement>): Chunk {
         this.currentChunk = Chunk()
@@ -407,8 +408,18 @@ public class CodeGenerator {
             }
             is TypedInlineCall -> {
                 this.stack.withNestedScope {
+                    val inlinedParameterMap = buildMap {
+                        root.inlinedParameterNames.forEachIndexed { index, parameter ->
+                            val name = parameter.name.lexeme
+                            this@CodeGenerator.stack.addVariable(name) // todo: perhaps do some mangling?
+                            put(name, root.arguments[index])
+                        }
+                    }
+
                     this.returnEmitted = false
+                    this.inlinedParameters = inlinedParameterMap
                     this.generateStatements(root.inlinedBody, inline = true)
+                    this.inlinedParameters = emptyMap()
 
                     if (!returnEmitted) {
                         val constant = this.currentChunk.addConstant(UnitValue)
@@ -595,12 +606,27 @@ public class CodeGenerator {
                     this.currentChunk.write(Opcode.GetGlobal.toInt(), this.line)
                     this.currentChunk.write(binding, this.line++)
                 } else {
-                    // if inline is true, will need to search up by mangled name + inline mangling
-                    this.currentChunk.write(Opcode.GetLocal.toInt(), this.line)
-                    this.currentChunk.write(
-                        this.stack.getVariable(root.mangledName),
-                        this.line++
-                    )
+                    if (inline) { // perform lazy initialization of parameter values instead
+                        val name = root.mangledName
+
+                        if (name in this.inlinedParameters) {
+                            val expr = this.inlinedParameters[name] ?: error("$name not found in inlined parameters (should be unreachable)")
+
+                            dfs(expr, inline)
+                        } else {
+                            this.currentChunk.write(Opcode.GetLocal.toInt(), this.line)
+                            this.currentChunk.write(
+                                this.stack.getVariable(root.mangledName),
+                                this.line++
+                            )
+                        }
+                    } else {
+                        this.currentChunk.write(Opcode.GetLocal.toInt(), this.line)
+                        this.currentChunk.write(
+                            this.stack.getVariable(root.mangledName),
+                            this.line++
+                        )
+                    }
                 }
             }
             is TypedContextVariable -> {

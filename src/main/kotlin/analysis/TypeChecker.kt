@@ -164,7 +164,8 @@ public class TypeChecker(public var environment: Environment) {
                             classType,
                             false,
                             null,
-                            null
+                            null,
+                            null,
                         )
 
                         val constructorOverloads = classConstructorFunctionType.overloads
@@ -280,7 +281,8 @@ public class TypeChecker(public var environment: Environment) {
                         returnType,
                         isDeleted = containsDelete,
                         deletionReason = deletionReason,
-                        inlinedBody = typedBody.takeIf { _ -> it.inline }
+                        inlinedBody = typedBody.takeIf { _ -> it.inline },
+                        inlinedParameterNames = typedParameters.takeIf { _ -> it.inline },
                     )
                     if (this.scope == Scope.CLASS_LEVEL) {
                         this.currentClass!!.addFunction(
@@ -290,7 +292,8 @@ public class TypeChecker(public var environment: Environment) {
                             returnType,
                             isDeleted = containsDelete,
                             deletionReason = deletionReason,
-                            inlinedBody = typedBody.takeIf { _ -> it.inline }
+                            inlinedBody = typedBody.takeIf { _ -> it.inline },
+                            inlinedParameterNames = typedParameters.takeIf { _ -> it.inline },
                         )
                     }
 
@@ -645,13 +648,14 @@ public class TypeChecker(public var environment: Environment) {
                             else -> error("Currently only support calling function types from TypedVariable AST")
                         }
 
-                        if (foundOverload.inlinedBody != null) {
+                        if (foundOverload.inlinedBody != null && foundOverload.inlinedParameterNames != null) {
                             TypedInlineCall(
                                 callee,
                                 this.paren,
                                 foundArgs,
                                 foundOverload.returnType,
-                                foundOverload.inlinedBody
+                                foundOverload.inlinedBody,
+                                foundOverload.inlinedParameterNames
                             )
                         } else {
                             TypedCall(callee, this.paren, foundArgs, foundOverload.returnType)

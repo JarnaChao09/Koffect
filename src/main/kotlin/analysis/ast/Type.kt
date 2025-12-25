@@ -34,6 +34,7 @@ public data class FunctionType(
         public val isDeleted: Boolean,
         public val deletionReason: TypedExpression?,
         public val inlinedBody: List<TypedStatement>?, // if null, then the overload was not marked inline
+        public val inlinedParameterNames: List<TypedParameter>?, // if null, then the overload was not marked inline
     ) {
         public val arity: Int = this.parameterTypes.size
 
@@ -54,8 +55,9 @@ public data class FunctionType(
         isDeleted: Boolean = false,
         deletionReason: TypedExpression? = null,
         inlinedBody: List<TypedStatement>? = null,
+        inlinedParameterNames: List<TypedParameter>? = null,
     ): Overload {
-        return Overload(contextTypes, parameterTypes, returnType, isDeleted, deletionReason, inlinedBody).also {
+        return Overload(contextTypes, parameterTypes, returnType, isDeleted, deletionReason, inlinedBody, inlinedParameterNames).also {
             if (it in this.mutableOverloads) {
                 error("Overload for function ${this.name} with type $it already exists")
             }
@@ -104,13 +106,14 @@ public data class ClassType(
         isDeleted: Boolean = false,
         deletionReason: TypedExpression? = null,
         inlinedBody: List<TypedStatement>? = null,
+        inlinedParameterNames: List<TypedParameter>? = null,
     ): Function {
         return if (this.mutableFunctions.containsKey(name)) {
             this.mutableFunctions[name]!!.also {
                 it.functionType.addOverload(contextTypes, parameterTypes, returnType, isDeleted, deletionReason, inlinedBody)
             }
         } else {
-            Function(name, FunctionType(name, mutableSetOf(FunctionType.Overload(contextTypes, parameterTypes, returnType, isDeleted, deletionReason, inlinedBody)))).also {
+            Function(name, FunctionType(name, mutableSetOf(FunctionType.Overload(contextTypes, parameterTypes, returnType, isDeleted, deletionReason, inlinedBody, inlinedParameterNames)))).also {
                 this.mutableFunctions[name] = it
             }
         }

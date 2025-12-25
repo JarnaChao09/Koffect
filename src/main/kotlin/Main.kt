@@ -509,9 +509,10 @@ public fun repl() {
         }
         
         fun main() {
+            val uniqueName: Int = 30;
             val bar: Int = 100;
             val baz: Int = -1;
-            val unused: Unit = foo(10);
+            val unused: Unit = foo(uniqueName * uniqueName);
             
             print("bar = ");
             println(bar);
