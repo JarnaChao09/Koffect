@@ -95,6 +95,18 @@ public data class TypedCall(
     }
 }
 
+public data class TypedInlineCall(
+    val callee: TypedExpression,
+    val paren: Token,
+    val arguments: List<TypedExpression>,
+    override val type: Type,
+    val inlinedBody: List<TypedStatement>,
+) : TypedExpression {
+    override fun toString(): String {
+        return "${this.callee}<inlined>(${this.arguments.joinToString(", ")})<${this.type}>"
+    }
+}
+
 public data class TypedGet(val instance: TypedExpression, val name: Token, override val type: Type) : TypedExpression {
     override fun toString(): String {
         return "${this.instance}.${this.name.lexeme}<${this.type}>"

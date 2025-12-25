@@ -65,6 +65,7 @@ public enum class TokenType {
     CONTEXT,
     DELETE,
     SUSPEND,
+    INLINE,
     FUN,
     RETURN,
 

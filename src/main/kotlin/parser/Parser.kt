@@ -27,8 +27,13 @@ public class Parser(tokenSequence: Sequence<Token>) {
             }
             match(TokenType.CONTEXT) -> {
                 val contexts = this.contextDeclaration()
+                val inline = match(TokenType.INLINE)
                 expect(TokenType.FUN, "Expected function declaration after context declaration")
-                this.functionDeclaration(contexts)
+                this.functionDeclaration(contexts, inline = inline)
+            }
+            match(TokenType.INLINE) -> {
+                expect(TokenType.FUN, "Expected function declaration after inline modifier")
+                this.functionDeclaration(emptyList(), inline = true)
             }
             match(TokenType.FUN) -> {
                 this.functionDeclaration(emptyList())
@@ -188,7 +193,7 @@ public class Parser(tokenSequence: Sequence<Token>) {
         return VariableStatement(type, name, typeAnnotation, initializer)
     }
 
-    private fun functionDeclaration(contexts: List<Type>): FunctionDeclaration {
+    private fun functionDeclaration(contexts: List<Type>, inline: Boolean = false): FunctionDeclaration {
         val name = expect(TokenType.IDENTIFIER, "Expect function name")
         expect(TokenType.LEFT_PAREN, "Expect '(' after function name")
         val parameters = this.parameterList()
@@ -214,7 +219,7 @@ public class Parser(tokenSequence: Sequence<Token>) {
             else -> error("Expected a function body")
         }
 
-        return FunctionDeclaration(name, contexts, parameters, returnType, body)
+        return FunctionDeclaration(name, contexts, parameters, returnType, body, inline)
     }
 
     private fun parameterList(): List<Parameter> {

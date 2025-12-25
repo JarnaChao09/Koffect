@@ -96,13 +96,14 @@ public data class TypedFunctionDeclaration(
     val parameters: List<TypedParameter>,
     val returnType: Type,
     val body: List<TypedStatement>,
+    val inline: Boolean,
     val deleted: Boolean,
 ) : TypedDeclaration {
     public val arity: Int
         get() = this.parameters.size
 
     override fun toString(): String {
-        return "${if (this.contexts.isNotEmpty()) "context(${this.contexts.joinToString(", ")}) " else ""}fun ${this.name.lexeme}(${this.parameters.joinToString(", ")}): ${this.returnType} {\n${
+        return "${if (this.contexts.isNotEmpty()) "context(${this.contexts.joinToString(", ")}) " else ""}${if (inline) "inline " else ""}fun ${this.name.lexeme}(${this.parameters.joinToString(", ")}): ${this.returnType} {\n${
             this.body.joinToString(
                 "\n"
             ).prependIndent()

@@ -118,7 +118,7 @@ public class FunctionBuilder(private val function: String, private val contexts:
 
     public infix fun List<String>.returns(returnType: String) {
         // todo: assuming all are variable types for now, double check if this assumption holds true
-        this@FunctionBuilder.overloads += FunctionType.Overload(contexts, this.map { VariableType(it) }, VariableType(returnType), false, null)
+        this@FunctionBuilder.overloads += FunctionType.Overload(contexts, this.map { VariableType(it) }, VariableType(returnType), false, null, null)
     }
 
     public fun build(): FunctionType {

@@ -13,6 +13,7 @@ private val defaultKeywords: Map<String, TokenType> = mapOf(
     "context" to TokenType.CONTEXT,
     "delete" to TokenType.DELETE,
     "suspend" to TokenType.SUSPEND,
+    "inline" to TokenType.INLINE,
     "fun" to TokenType.FUN,
     "return" to TokenType.RETURN,
     "class" to TokenType.CLASS,

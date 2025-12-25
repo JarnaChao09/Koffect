@@ -16,7 +16,7 @@ public class CodeGenerator {
     public fun generate(ast: List<TypedStatement>): Chunk {
         this.currentChunk = Chunk()
 
-        this.generateStatements(ast)
+        this.generateStatements(ast, false)
 
         this.currentChunk.write(Opcode.Null.toInt(), this.line++)
         this.currentChunk.write(Opcode.Return.toInt(), this.line++)
@@ -24,24 +24,27 @@ public class CodeGenerator {
         return this.currentChunk
     }
 
-    private fun generateStatements(ast: List<TypedStatement>) {
+    private fun generateStatements(ast: List<TypedStatement>, inline: Boolean) {
         ast.forEach {
             when(it) {
                 is TypedClassDeclaration -> {
                     TODO()
                 }
                 is TypedExpressionStatement -> {
-                    dfs(it.expression)
+                    dfs(it.expression, inline)
                     this.currentChunk.write(Opcode.Pop.toInt(), this.line++)
                 }
                 is TypedReturnExpressionStatement -> {
-                    dfs(it.returnExpression)
+                    dfs(it.returnExpression, inline)
                 }
                 is TypedIfStatement -> {
-                    this.generateIf(it.condition, it.trueBranch, it.falseBranch)
+                    this.generateIf(it.condition, it.trueBranch, it.falseBranch, inline)
                 }
                 is TypedFunctionDeclaration -> {
-                    if (!it.deleted) {
+                    if (inline) {
+                        error("Nested function declarations cannot be codegen-ed for inline functions")
+                    }
+                    if (!it.deleted && !it.inline) {
                         val binding = this.currentChunk.addConstant(it.mangledName.toValue())
 
                         val oldChunk = this.currentChunk
@@ -59,7 +62,7 @@ public class CodeGenerator {
                                 this.stack.addVariable(parameter.name.lexeme)
                             }
 
-                            this.generateStatements(it.body)
+                            this.generateStatements(it.body, inline)
 
                             if (!returnEmitted) {
                                 val constant = this.currentChunk.addConstant(UnitValue)
@@ -85,7 +88,7 @@ public class CodeGenerator {
                 }
                 is TypedVariableStatement -> {
                     it.initializer?.let { expr ->
-                        dfs(expr)
+                        dfs(expr, inline)
                     } ?: this.currentChunk.write(Opcode.Null.toInt(), this.line++)
 
                     if (this.stack.inGlobalScope()) {
@@ -94,6 +97,7 @@ public class CodeGenerator {
                         this.currentChunk.write(Opcode.DefineGlobal.toInt(), this.line)
                         this.currentChunk.write(binding, this.line++)
                     } else {
+                        // if inline is true, the variable will need to be mangled
                         this.currentChunk.write(Opcode.SetLocal.toInt(), this.line)
                         this.currentChunk.write(
                             this.stack.addVariable(it.name.lexeme),
@@ -105,13 +109,13 @@ public class CodeGenerator {
                 is TypedWhileStatement -> {
                     val loopStart = this.currentChunk.code.size
 
-                    this.dfs(it.condition)
+                    this.dfs(it.condition, inline)
 
                     val exitJump = this.currentChunk.emitJump(Opcode.JumpIfFalse)
                     this.currentChunk.write(Opcode.Pop.toInt(), this.line++)
 
                     this.stack.withNestedScope {
-                        this.generateStatements(it.body)
+                        this.generateStatements(it.body, inline)
                     }
 
                     this.currentChunk.patchLoop(loopStart)
@@ -120,10 +124,14 @@ public class CodeGenerator {
                     this.currentChunk.write(Opcode.Pop.toInt(), this.line++)
                 }
                 is TypedReturnStatement -> {
+                    if (inline) {
+                        error("Return statements currently cannot be codegen-ed")
+                    }
+
                     this.returnEmitted = true
 
                     it.value?.let { returnValue ->
-                        this.dfs(returnValue)
+                        this.dfs(returnValue, inline)
                     } ?: run {
                         val constant = this.currentChunk.addConstant(UnitValue)
                         this.currentChunk.write(Opcode.ObjectConstant.toInt(), this.line)
@@ -142,10 +150,10 @@ public class CodeGenerator {
         }
     }
 
-    private fun dfs(root: TypedExpression) {
+    private fun dfs(root: TypedExpression, inline: Boolean) {
         when (root) {
             is TypedAssign -> {
-                dfs(root.expression)
+                dfs(root.expression, inline)
 
                 if (this.stack.inGlobalScope() || !this.stack.isLocal(root.name.lexeme)) {
                     val binding = this.currentChunk.addConstant(root.name.lexeme.toValue())
@@ -161,8 +169,8 @@ public class CodeGenerator {
                 }
             }
             is TypedBinary -> {
-                dfs(root.left)
-                dfs(root.right)
+                dfs(root.left, inline)
+                dfs(root.right, inline)
 
                 this.currentChunk.write(when (root.operator.type) {
                     TokenType.PLUS -> {
@@ -389,13 +397,26 @@ public class CodeGenerator {
                 }.toInt(), this.line++)
             }
             is TypedCall -> {
-                dfs(root.callee)
+                dfs(root.callee, inline)
 
                 val argCount = root.arguments.size
-                root.arguments.forEach(::dfs)
+                root.arguments.forEach { this.dfs(it, inline) }
 
                 this.currentChunk.write(Opcode.Call.toInt(), this.line)
                 this.currentChunk.write(argCount, this.line++)
+            }
+            is TypedInlineCall -> {
+                this.stack.withNestedScope {
+                    this.returnEmitted = false
+                    this.generateStatements(root.inlinedBody, inline = true)
+
+                    if (!returnEmitted) {
+                        val constant = this.currentChunk.addConstant(UnitValue)
+
+                        this.currentChunk.write(Opcode.ObjectConstant.toInt(), this.line)
+                        this.currentChunk.write(constant, this.line++)
+                    }
+                }
             }
             is TypedGet -> {
                 val instance = root.instance
@@ -405,7 +426,7 @@ public class CodeGenerator {
                     is FunctionType -> TODO()
                     is LambdaType -> {
                         if (name == "invoke") {
-                            dfs(instance)
+                            this.dfs(instance, inline)
                         } else {
                             TODO()
                         }
@@ -414,10 +435,10 @@ public class CodeGenerator {
                 }
             }
             is TypedGrouping -> {
-                dfs(root.expression)
+                dfs(root.expression, inline)
             }
             is TypedIfExpression -> {
-                this.generateIf(root.condition, root.trueBranch, root.falseBranch)
+                this.generateIf(root.condition, root.trueBranch, root.falseBranch, inline)
             }
             is TypedDoubleLiteral -> {
                 val constant = this.currentChunk.addConstant(root.value.toValue())
@@ -459,7 +480,7 @@ public class CodeGenerator {
                         this.stack.addVariable(parameter.name.lexeme)
                     }
 
-                    this.generateStatements(root.body)
+                    this.generateStatements(root.body, inline)
 
                     if (!returnEmitted) {
                         val constant = this.currentChunk.addConstant(UnitValue)
@@ -484,7 +505,7 @@ public class CodeGenerator {
                 this.currentChunk.write(constant, this.line++)
             }
             is TypedLogical -> {
-                dfs(root.left)
+                dfs(root.left, inline)
 
                 val jumpType = when (root.operator.type) {
                     TokenType.AND -> Opcode.JumpIfFalse
@@ -496,7 +517,7 @@ public class CodeGenerator {
 
                 this.currentChunk.write(Opcode.Pop.toInt(), this.line++)
 
-                dfs(root.right)
+                dfs(root.right, inline)
 
                 this.currentChunk.patchJump(jump)
             }
@@ -504,7 +525,7 @@ public class CodeGenerator {
                 TODO()
             }
             is TypedUnary -> {
-                dfs(root.expression)
+                dfs(root.expression, inline)
 
                 this.currentChunk.write(when (root.operator.type) {
                     TokenType.PLUS -> {
@@ -574,6 +595,7 @@ public class CodeGenerator {
                     this.currentChunk.write(Opcode.GetGlobal.toInt(), this.line)
                     this.currentChunk.write(binding, this.line++)
                 } else {
+                    // if inline is true, will need to search up by mangled name + inline mangling
                     this.currentChunk.write(Opcode.GetLocal.toInt(), this.line)
                     this.currentChunk.write(
                         this.stack.getVariable(root.mangledName),
@@ -596,14 +618,14 @@ public class CodeGenerator {
         }
     }
 
-    private fun generateIf(condition: TypedExpression, trueBranch: List<TypedStatement>, falseBranch: List<TypedStatement>) {
-        this.dfs(condition)
+    private fun generateIf(condition: TypedExpression, trueBranch: List<TypedStatement>, falseBranch: List<TypedStatement>, inline: Boolean) {
+        this.dfs(condition, inline)
 
         val elseBranch = this.currentChunk.emitJump(Opcode.JumpIfFalse)
         this.currentChunk.write(Opcode.Pop.toInt(), this.line++)
 
         this.stack.withNestedScope {
-            this.generateStatements(trueBranch)
+            this.generateStatements(trueBranch, inline)
         }
 
         val skipElseBranch = this.currentChunk.emitJump(Opcode.Jump)
@@ -611,7 +633,7 @@ public class CodeGenerator {
         this.currentChunk.write(Opcode.Pop.toInt(), this.line++)
 
         this.stack.withNestedScope {
-            this.generateStatements(falseBranch)
+            this.generateStatements(falseBranch, inline)
         }
 
         this.currentChunk.patchJump(skipElseBranch)

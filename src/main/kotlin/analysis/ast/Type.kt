@@ -33,6 +33,7 @@ public data class FunctionType(
         public val returnType: Type,
         public val isDeleted: Boolean,
         public val deletionReason: TypedExpression?,
+        public val inlinedBody: List<TypedStatement>?, // if null, then the overload was not marked inline
     ) {
         public val arity: Int = this.parameterTypes.size
 
@@ -52,8 +53,9 @@ public data class FunctionType(
         returnType: Type,
         isDeleted: Boolean = false,
         deletionReason: TypedExpression? = null,
+        inlinedBody: List<TypedStatement>? = null,
     ): Overload {
-        return Overload(contextTypes, parameterTypes, returnType, isDeleted, deletionReason).also {
+        return Overload(contextTypes, parameterTypes, returnType, isDeleted, deletionReason, inlinedBody).also {
             if (it in this.mutableOverloads) {
                 error("Overload for function ${this.name} with type $it already exists")
             }
@@ -100,14 +102,15 @@ public data class ClassType(
         parameterTypes: List<Type>,
         returnType: Type,
         isDeleted: Boolean = false,
-        deletionReason: TypedExpression? = null
+        deletionReason: TypedExpression? = null,
+        inlinedBody: List<TypedStatement>? = null,
     ): Function {
         return if (this.mutableFunctions.containsKey(name)) {
             this.mutableFunctions[name]!!.also {
-                it.functionType.addOverload(contextTypes, parameterTypes, returnType, isDeleted, deletionReason)
+                it.functionType.addOverload(contextTypes, parameterTypes, returnType, isDeleted, deletionReason, inlinedBody)
             }
         } else {
-            Function(name, FunctionType(name, mutableSetOf(FunctionType.Overload(contextTypes, parameterTypes, returnType, isDeleted, deletionReason)))).also {
+            Function(name, FunctionType(name, mutableSetOf(FunctionType.Overload(contextTypes, parameterTypes, returnType, isDeleted, deletionReason, inlinedBody)))).also {
                 this.mutableFunctions[name] = it
             }
         }

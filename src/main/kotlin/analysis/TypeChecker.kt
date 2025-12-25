@@ -42,19 +42,19 @@ public class TypeChecker(public var environment: Environment) {
         return statements.map {
             when (it) {
                 is ClassDeclaration -> {
-                    fun ClassDeclaration.PrimaryConstructor.toTypedConstructor(): TypedClassDeclaration.TypedPrimaryConstructor {
+                    fun ClassDeclaration.PrimaryConstructor.toTypedConstructor(): TypedPrimaryConstructor {
                         return TypedPrimaryConstructor(
                             this.parameters.map(Parameter::toTypedParameter),
                             this.parameterType.map { fieldType ->
                                 when (fieldType) {
-                                    ClassDeclaration.FieldType.VAL -> TypedClassDeclaration.FieldType.VAL
-                                    ClassDeclaration.FieldType.VAR -> TypedClassDeclaration.FieldType.VAR
-                                    ClassDeclaration.FieldType.NONE -> TypedClassDeclaration.FieldType.NONE
+                                    ClassDeclaration.FieldType.VAL -> FieldType.VAL
+                                    ClassDeclaration.FieldType.VAR -> FieldType.VAR
+                                    ClassDeclaration.FieldType.NONE -> FieldType.NONE
                                 }
                             }
                         )
                     }
-                    fun ClassDeclaration.SecondaryConstructor.toTypedConstructor(): TypedClassDeclaration.TypedSecondaryConstructor {
+                    fun ClassDeclaration.SecondaryConstructor.toTypedConstructor(): TypedSecondaryConstructor {
                         this@TypeChecker.environment = Environment(this@TypeChecker.environment)
 
                         val typedParameters = this.parameters.map { param ->
@@ -141,11 +141,11 @@ public class TypeChecker(public var environment: Environment) {
                         pc.parameterTypes.forEachIndexed { index, type ->
                             val currParam = pc.parameters[index]
                             when (type) {
-                                TypedClassDeclaration.FieldType.VAL, TypedClassDeclaration.FieldType.VAR -> {
+                                FieldType.VAL, FieldType.VAR -> {
                                     this.environment.addVariable(currParam.name.lexeme, currParam.type)
                                     this.currentClass?.addProperty(currParam.name.lexeme, currParam.type)
                                 }
-                                TypedClassDeclaration.FieldType.NONE -> {}
+                                FieldType.NONE -> {}
                             }
                         }
                     }
@@ -158,7 +158,14 @@ public class TypeChecker(public var environment: Environment) {
                             "Cyclic constructor call detected"
                         }
 
-                        val currentConstructorType = Overload(emptyList(), argumentTypes, classType, false, null)
+                        val currentConstructorType = Overload(
+                            emptyList(),
+                            argumentTypes,
+                            classType,
+                            false,
+                            null,
+                            null
+                        )
 
                         val constructorOverloads = classConstructorFunctionType.overloads
 
@@ -267,9 +274,24 @@ public class TypeChecker(public var environment: Environment) {
                         null
                     }
 
-                    val overload = oldFunctionType.addOverload(contextTypes, parameterTypes, returnType, containsDelete, deletionReason)
+                    val overload = oldFunctionType.addOverload(
+                        contextTypes,
+                        parameterTypes,
+                        returnType,
+                        isDeleted = containsDelete,
+                        deletionReason = deletionReason,
+                        inlinedBody = typedBody.takeIf { _ -> it.inline }
+                    )
                     if (this.scope == Scope.CLASS_LEVEL) {
-                        this.currentClass!!.addFunction(it.name.lexeme, contextTypes, parameterTypes, returnType, containsDelete, deletionReason)
+                        this.currentClass!!.addFunction(
+                            it.name.lexeme,
+                            contextTypes,
+                            parameterTypes,
+                            returnType,
+                            isDeleted = containsDelete,
+                            deletionReason = deletionReason,
+                            inlinedBody = typedBody.takeIf { _ -> it.inline }
+                        )
                     }
 
                     // todo: update a better way to handle function overloads
@@ -280,6 +302,7 @@ public class TypeChecker(public var environment: Environment) {
                         typedParameters,
                         returnType,
                         typedBody,
+                        it.inline,
                         deleted = containsDelete
                     )
                 }
@@ -527,7 +550,7 @@ public class TypeChecker(public var environment: Environment) {
                          *
                          * this means that resolution can not end early (line 490)
                          */
-                        val found = mutableMapOf<Int, MutableList<Pair<FunctionType.Overload, List<TypedExpression>>>>()
+                        val found = mutableMapOf<Int, MutableList<Pair<Overload, List<TypedExpression>>>>()
                         val typedArgumentsCache = mutableMapOf<Int, TypedExpression>()
                         loop@ for (functionOverload in calleeType.overloads) {
                             // todo: update to language version 2.2
@@ -590,7 +613,7 @@ public class TypeChecker(public var environment: Environment) {
                         }
 
                         if (found.isEmpty()) {
-                            error("No valid function matching the call signature for ${calleeType.name}${if (typedPinnedContexts?.isEmpty() == true) " " else " with pinned contexts of (${typedPinnedContexts!!.joinToString(", ")}) "}was found. Known candidates are: $calleeType")
+                            error("No valid function matching the call signature for ${calleeType.name}${if (typedPinnedContexts?.isEmpty() ?: true) " " else " with pinned contexts of (${typedPinnedContexts!!.joinToString(", ")}) "}was found. Known candidates are: $calleeType")
                         }
 
                         val max = if (typedPinnedContexts == null) {
@@ -603,13 +626,13 @@ public class TypeChecker(public var environment: Environment) {
                         }
 
                         if (max.size != 1) {
-                            error("Ambiguous function call for ${calleeType.name}${if (typedPinnedContexts?.isEmpty() == true) " " else " with pinned contexts of (${typedPinnedContexts!!.joinToString(", ")}) "}was found. Multiple candidates found: ${max.joinToString(", ") { it.first.toString() }}")
+                            error("Ambiguous function call for ${calleeType.name}${if (typedPinnedContexts?.isEmpty() ?: true) " " else " with pinned contexts of (${typedPinnedContexts!!.joinToString(", ")}) "}was found. Multiple candidates found: ${max.joinToString(", ") { it.first.toString() }}")
                         }
 
                         val (foundOverload, foundArgs) = max.first()
 
                         if (foundOverload.isDeleted) {
-                            error("Calling of deleted signature for ${calleeType.name}${if (typedPinnedContexts?.isEmpty() == true) " " else " with pinned contexts of (${typedPinnedContexts!!.joinToString(", ")}) "}was found. Deletion reason: ${foundOverload.deletionReason?.let { it.toString() } ?: "none given"}")
+                            error("Calling of deleted signature for ${calleeType.name}${if (typedPinnedContexts?.isEmpty() ?: true) " " else " with pinned contexts of (${typedPinnedContexts!!.joinToString(", ")}) "}was found. Deletion reason: ${foundOverload.deletionReason?.toString() ?: "none given"}")
                         }
 
                         // todo: find a better way to handle overloads
@@ -622,7 +645,17 @@ public class TypeChecker(public var environment: Environment) {
                             else -> error("Currently only support calling function types from TypedVariable AST")
                         }
 
-                        TypedCall(callee, this.paren, foundArgs, foundOverload.returnType)
+                        if (foundOverload.inlinedBody != null) {
+                            TypedInlineCall(
+                                callee,
+                                this.paren,
+                                foundArgs,
+                                foundOverload.returnType,
+                                foundOverload.inlinedBody
+                            )
+                        } else {
+                            TypedCall(callee, this.paren, foundArgs, foundOverload.returnType)
+                        }
                     }
                 }
             }

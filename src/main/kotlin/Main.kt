@@ -465,38 +465,58 @@ public fun repl() {
     //     main();
     // """.trimIndent()
 
+    // val srcString = """
+    //     context(Int) fun foo() = delete("sorry, deleted");
+    //
+    //     fun foo() {
+    //         println("foo");
+    //     }
+    //
+    //     context(Double) fun foo() = delete;
+    //
+    //     context(Int, Double) fun foo() {
+    //         print("contextual int and double foo with ");
+    //         print(this@Int);
+    //         print(" ");
+    //         println(this@Double);
+    //     }
+    //
+    //     fun withIntAndDouble(intValue: Int, doubleValue: Double, block: context(Int, Double) () -> Unit) {
+    //         block(intValue, doubleValue, block);
+    //     }
+    //
+    //     fun main() {
+    //         foo();
+    //
+    //         withIntAndDouble(1, 1.0) {
+    //             // foo@Int();        // specifically calling to context(Int)         foo // which is deleted
+    //             // foo@Double();     // specifically calling to context(Double)      foo // which is deleted
+    //             foo@();           // specifically calling to context()            foo // should be this allowed?
+    //             foo();            // specifically calling to context(Int, Double) foo
+    //             foo@Double,Int(); // specifically calling to context(Int, Double) foo
+    //         };
+    //
+    //         foo();
+    //     }
+    //
+    //     main();
+    // """.trimIndent()
+
     val srcString = """
-        context(Int) fun foo() = delete("sorry, deleted");
-        
-        fun foo() {
-            println("foo");
-        }
-        
-        context(Double) fun foo() = delete;
-        
-        context(Int, Double) fun foo() {
-            print("contextual int and double foo with ");
-            print(this@Int);
-            print(" ");
-            println(this@Double);
-        }
-        
-        fun withIntAndDouble(intValue: Int, doubleValue: Double, block: context(Int, Double) () -> Unit) {
-            block(intValue, doubleValue, block);
+        inline fun foo(bar: Int) {
+            val baz: Int = bar + bar;
+            println(baz);
         }
         
         fun main() {
-            foo();
+            val bar: Int = 100;
+            val baz: Int = -1;
+            val unused: Unit = foo(10);
             
-            withIntAndDouble(1, 1.0) {
-                // foo@Int();        // specifically calling to context(Int)         foo // which is deleted
-                // foo@Double();     // specifically calling to context(Double)      foo // which is deleted
-                foo@();           // specifically calling to context()            foo // should be this allowed?
-                foo();            // specifically calling to context(Int, Double) foo
-                foo@Double,Int(); // specifically calling to context(Int, Double) foo
-            };
-            
-            foo();
+            print("bar = ");
+            println(bar);
+            print("baz = ");
+            println(baz);
         }
         
         main();
