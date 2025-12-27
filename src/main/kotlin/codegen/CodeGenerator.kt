@@ -13,6 +13,7 @@ public class CodeGenerator {
     private var returnEmitted: Boolean = false
     private val stack: LocalsStack = LocalsStack()
     private var inlinedParameters: Map<String, TypedExpression> = emptyMap()
+    private var inlinedJumps: MutableList<Int> = mutableListOf()
 
     public fun generate(ast: List<TypedStatement>): Chunk {
         this.currentChunk = Chunk()
@@ -49,6 +50,7 @@ public class CodeGenerator {
                         val binding = this.currentChunk.addConstant(it.mangledName.toValue())
 
                         val oldChunk = this.currentChunk
+                        val previousReturnEmitted = this.returnEmitted
 
                         this.currentChunk = Chunk()
                         this.returnEmitted = false
@@ -77,6 +79,7 @@ public class CodeGenerator {
                             function = ObjectFunction(Function(it.mangledName, it.arity, this.currentChunk))
 
                             this.currentChunk = oldChunk
+                            this.returnEmitted = previousReturnEmitted
                         }
 
                         val constant = this.currentChunk.addConstant(function)
@@ -125,10 +128,6 @@ public class CodeGenerator {
                     this.currentChunk.write(Opcode.Pop.toInt(), this.line++)
                 }
                 is TypedReturnStatement -> {
-                    if (inline) {
-                        error("Return statements currently cannot be codegen-ed")
-                    }
-
                     this.returnEmitted = true
 
                     it.value?.let { returnValue ->
@@ -139,7 +138,13 @@ public class CodeGenerator {
                         this.currentChunk.write(constant, this.line)
                     }
 
-                    this.currentChunk.write(Opcode.Return.toInt(), this.line++)
+                    if (inline) {
+                        this.inlinedJumps.add(
+                            this.currentChunk.emitJump(Opcode.Jump)
+                        )
+                    } else {
+                        this.currentChunk.write(Opcode.Return.toInt(), this.line++)
+                    }
                 }
                 is TypedDeleteStatement -> {
                     // do nothing
@@ -416,17 +421,29 @@ public class CodeGenerator {
                         }
                     }
 
+                    val previousReturnEmitted = this.returnEmitted
+                    val previousInlinedParameters = this.inlinedParameters
+                    val previousInlineJumps = this.inlinedJumps
+
                     this.returnEmitted = false
+                    this.inlinedJumps = mutableListOf()
                     this.inlinedParameters = inlinedParameterMap
                     this.generateStatements(root.inlinedBody, inline = true)
-                    this.inlinedParameters = emptyMap()
 
                     if (!returnEmitted) {
                         val constant = this.currentChunk.addConstant(UnitValue)
 
                         this.currentChunk.write(Opcode.ObjectConstant.toInt(), this.line)
                         this.currentChunk.write(constant, this.line++)
+                    } else {
+                        this.inlinedJumps.forEach {
+                            this.currentChunk.patchJump(it)
+                        }
                     }
+
+                    this.returnEmitted = previousReturnEmitted
+                    this.inlinedParameters = previousInlinedParameters
+                    this.inlinedJumps = previousInlineJumps
                 }
             }
             is TypedGet -> {
@@ -477,6 +494,7 @@ public class CodeGenerator {
             }
             is TypedLambda -> {
                 val oldChunk = this.currentChunk
+                val previousReturnEmitted = this.returnEmitted
 
                 this.currentChunk = Chunk()
                 this.returnEmitted = false
@@ -509,6 +527,7 @@ public class CodeGenerator {
                     function = ObjectFunction(Function("Function${arity}", arity, this.currentChunk))
 
                     this.currentChunk = oldChunk
+                    this.returnEmitted = previousReturnEmitted
                 }
 
                 val constant = this.currentChunk.addConstant(function)

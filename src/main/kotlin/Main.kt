@@ -505,6 +505,12 @@ public fun repl() {
     val srcString = """
         inline fun foo(bar: Int) {
             val baz: Int = bar + bar;
+            
+            if (baz % 2 == 0) {
+                println("was even");
+                return;
+            }
+            
             println(baz);
         }
         
