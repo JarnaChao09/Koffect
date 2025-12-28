@@ -21,11 +21,18 @@ public class TypeChecker(public var environment: Environment) {
     private var scope: Scope = Scope.TOP_LEVEL
 
     public fun check(statements: List<Statement>, returnTypes: MutableList<Type> = mutableListOf()): List<TypedStatement> {
-        fun Parameter.toTypedParameter(): TypedParameter {
-            val parameterType = this.type.toType()
+        fun Parameter.toTypedParameter(inline: Boolean = false): TypedParameter {
+            var parameterType = this.type.toType()
+
+            if (inline && parameterType is LambdaType) {
+                println("[LOG]: setting ${this.name.lexeme} to be an inline lambda type")
+                parameterType = parameterType.copy(
+                    inline = true
+                )
+            }
 
             val typedValue = this.value?.let { v ->
-                v.toTypedExpression().also { tv ->
+                v.toTypedExpression(parameterType).also { tv ->
                     require(tv.type == parameterType) {
                         "Type Mismatch: Parameter ${this.name.lexeme} expected type $parameterType but found ${tv.type}"
                     }
@@ -217,7 +224,9 @@ public class TypeChecker(public var environment: Environment) {
                 }
                 is FunctionDeclaration -> {
                     val name = it.name.lexeme
-                    val typedParameters = it.parameters.map(Parameter::toTypedParameter)
+                    println("[LOG]: checking function declaration $name with inline = ${it.inline}")
+                    val typedParameters = it.parameters.map { param -> param.toTypedParameter(it.inline) }
+                    println("[LOG]: typed parameters are $typedParameters")
                     val returnType = it.returnType.toType()
 
                     var oldFunctionType = this.environment.getVariable(name)
@@ -500,16 +509,32 @@ public class TypeChecker(public var environment: Environment) {
                             }
                         }
 
-                        TypedCall(
-                            TypedGet(
-                                typedCallee,
-                                this.paren.copy(type = TokenType.IDENTIFIER, "invoke"),
-                                calleeType,
-                            ),
-                            this.paren,
-                            finalTypedArguments,
-                            calleeType.returnType,
-                        )
+                        if (calleeType.inline) {
+                            TypedInlineCall(
+                                callee = typedCallee,
+                                // TypedGet(
+                                //     typedCallee,
+                                //     this.paren.copy(type = TokenType.IDENTIFIER, "invoke"),
+                                //     calleeType,
+                                // ),
+                                this.paren,
+                                finalTypedArguments,
+                                calleeType.returnType,
+                                inlinedBody = emptyList(),
+                                inlinedParameterNames = emptyList(),
+                            )
+                        } else {
+                            TypedCall(
+                                TypedGet(
+                                    typedCallee,
+                                    this.paren.copy(type = TokenType.IDENTIFIER, "invoke"),
+                                    calleeType,
+                                ),
+                                this.paren,
+                                finalTypedArguments,
+                                calleeType.returnType,
+                            )
+                        }
                     }
                     is FunctionType -> {
                         /**
@@ -603,7 +628,7 @@ public class TypeChecker(public var environment: Environment) {
                                 // check still required as expectedType is ignored (currently) by all other branches
                                 // except Lambda
                                 if (type != argument.type) {
-                                    // error("Argument of type ${argumentType.type} does not match $type")
+                                    // println("[LOG]: function ${calleeType.name} - Argument of type ${argument.type} does not match $type")
                                     continue@loop
                                 } else {
                                     args.add(argument)
@@ -709,6 +734,15 @@ public class TypeChecker(public var environment: Environment) {
             }
             is BooleanLiteral, is DoubleLiteral, is IntLiteral, NullLiteral, is StringLiteral -> TypedLiteral(this as Literal<*>)
             is Lambda -> {
+                val inline = if (expectedType == null) {
+                    false
+                } else {
+                    require(expectedType is LambdaType) {
+                        "inline propagation is only supported on types with inline declarations in term positions, which is currently only lambdas"
+                    }
+
+                    expectedType.inline
+                }
                 val contextTypes = if (expectedType == null || this.contexts.isNotEmpty()) {
                     this.contexts.map(parser.ast.Type::toType)
                 } else {
@@ -762,6 +796,9 @@ public class TypeChecker(public var environment: Environment) {
                         contextTypes,
                         typedParameters.map(TypedLambda.TypedParameter::type),
                         returnType,
+                        inline,
+                        inlinedBody = typedBody.takeIf { _ -> inline },
+                        inlinedParameterNames = typedParameters.takeIf { _ -> inline }
                     ),
                 )
             }
@@ -876,6 +913,13 @@ public class TypeChecker(public var environment: Environment) {
 private fun parser.ast.Type.toType(): Type {
     return when (this) {
         is TConstructor -> VariableType(this.toString())
-        is LambdaTypeConstructor -> LambdaType(this.contextTypes.map { it.toType() }, this.parameterTypes.map { it.toType() }, this.returnType.toType())
+        is LambdaTypeConstructor -> LambdaType(
+            contextTypes = this.contextTypes.map { it.toType() },
+            parameterTypes = this.parameterTypes.map { it.toType() },
+            returnType = this.returnType.toType(),
+            inline = false,
+            null,
+            null,
+        )
     }
 }

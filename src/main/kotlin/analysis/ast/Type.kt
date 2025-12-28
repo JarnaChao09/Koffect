@@ -16,11 +16,42 @@ public data class VariableType(public val name: String) : Type {
     }
 }
 
-public data class LambdaType(val contextTypes: List<Type>, val parameterTypes: List<Type>, val returnType: Type) : Type {
+public data class LambdaType(
+    val contextTypes: List<Type>,
+    val parameterTypes: List<Type>,
+    val returnType: Type,
+    val inline: Boolean,
+    val inlinedBody: List<TypedStatement>?, // if inline is true, these will not be null (since type checking hasn't assigned the body to the type yet)
+    val inlinedParameterNames: List<TypedLambda.TypedParameter>?, // if inline is true, these may be null (since type checking hasn't assigned the parameter names to the type yet)
+) : Type {
     override val mangledName: String
         get() = "Lambda<${(this.contextTypes + this.parameterTypes).let { if (it.isNotEmpty()) it.joinToString(", ", postfix = ", ") { it.mangledName } else ""}}${returnType.mangledName}>"
 
-    override fun toString(): String = "${if (contextTypes.isNotEmpty()) "context(${contextTypes.joinToString(", ")}) " else ""}(${parameterTypes.joinToString(", ")}) -> $returnType"
+    override fun toString(): String = "${if (inline) "inline " else ""}${if (contextTypes.isNotEmpty()) "context(${contextTypes.joinToString(", ")}) " else ""}(${parameterTypes.joinToString(", ")}) -> $returnType"
+
+    override fun hashCode(): Int {
+        var result = inline.hashCode()
+        result = 31 * result + contextTypes.hashCode()
+        result = 31 * result + parameterTypes.hashCode()
+        result = 31 * result + returnType.hashCode()
+        result = 31 * result + mangledName.hashCode()
+        return result
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as LambdaType
+
+        if (inline != other.inline) return false
+        if (contextTypes != other.contextTypes) return false
+        if (parameterTypes != other.parameterTypes) return false
+        if (returnType != other.returnType) return false
+        if (mangledName != other.mangledName) return false
+
+        return true
+    }
 }
 
 public data class FunctionType(

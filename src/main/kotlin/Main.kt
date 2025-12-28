@@ -371,19 +371,21 @@ public fun repl() {
     //     }
     //
     //     fun main() {
-    //         test0() {
-    //             println("Hello");
-    //         };
-    //
-    //         test0 {
-    //             println("Hello");
-    //         };
+    //         // test0() {
+    //         //     println("Hello");
+    //         // };
+    //         //
+    //         // test0 {
+    //         //     println("Hello");
+    //         // };
     //
     //         test4 { context(Int) z: Int ->
     //             test5 { context(Double, Int) x: Int ->
+    //                 println(this@Double);
     //                 println(x);
     //                 x;
     //             };
+    //             println(this@Int);
     //             println(z);
     //             z;
     //         };
@@ -502,28 +504,75 @@ public fun repl() {
     //     main();
     // """.trimIndent()
 
+    // val srcString = """
+    //     inline fun foo(bar: Int) {
+    //         val baz: Int = bar + bar;
+    //
+    //         if (baz % 2 == 0) {
+    //             println("was even");
+    //             return;
+    //         }
+    //
+    //         println(baz);
+    //     }
+    //
+    //     fun main() {
+    //         val uniqueName: Int = 30;
+    //         val bar: Int = 100;
+    //         val baz: Int = -1;
+    //         val unused: Unit = foo(uniqueName * uniqueName);
+    //
+    //         print("bar = ");
+    //         println(bar);
+    //         print("baz = ");
+    //         println(baz);
+    //     }
+    //
+    //     main();
+    // """.trimIndent()
+
+    // val srcString = """
+    //     inline fun withInt(intValue: Int, block: context(Int) () -> Unit) {
+    //         print("testing withInt with intValue = ");
+    //         println(intValue);
+    //         block(intValue);
+    //     }
+    //
+    //     context(Int) fun foo() {
+    //         print("contextual int foo with ");
+    //         println(this@Int);
+    //     }
+    //
+    //     fun main() {
+    //         println("testing inlining a function with a trailing lambda");
+    //
+    //         withInt(10) {
+    //             foo();
+    //         };
+    //     }
+    //
+    //     main();
+    // """.trimIndent()
+
     val srcString = """
-        inline fun foo(bar: Int) {
-            val baz: Int = bar + bar;
-            
-            if (baz % 2 == 0) {
-                println("was even");
-                return;
-            }
-            
-            println(baz);
+        inline fun withInt(intValue: Int, block: (Int) -> Unit) {
+            print("testing withInt with intValue = ");
+            println(intValue);
+            block(intValue);
+        }
+        
+        fun foo(bar: Int) {
+            print("foo with ");
+            println(bar);
         }
         
         fun main() {
-            val uniqueName: Int = 30;
-            val bar: Int = 100;
-            val baz: Int = -1;
-            val unused: Unit = foo(uniqueName * uniqueName);
+            val y: Int = 20;
+            println("testing inlining a function with a trailing lambda");
             
-            print("bar = ");
-            println(bar);
-            print("baz = ");
-            println(baz);
+            withInt(10) { x: Int ->
+                foo(x + y);
+            };
         }
         
         main();

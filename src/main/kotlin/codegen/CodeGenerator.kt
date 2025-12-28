@@ -12,7 +12,7 @@ public class CodeGenerator {
     private var line: Int = 1
     private var returnEmitted: Boolean = false
     private val stack: LocalsStack = LocalsStack()
-    private var inlinedParameters: Map<String, TypedExpression> = emptyMap()
+    private var inlinedParameters = ArrayDeque<Map<String, TypedExpression>>()
     private var inlinedJumps: MutableList<Int> = mutableListOf()
 
     public fun generate(ast: List<TypedStatement>): Chunk {
@@ -412,9 +412,35 @@ public class CodeGenerator {
                 this.currentChunk.write(argCount, this.line++)
             }
             is TypedInlineCall -> {
+                var inlinedParameterNames = root.inlinedParameterNames
+                var inlinedBody = root.inlinedBody
+
+                val callee = root.callee
+                val calleeType = callee.type
+                if (calleeType is LambdaType) {
+                    println("[LOG]: callee type = $calleeType\n\tinlined body = ${calleeType.inlinedBody}\n\tinlined parameter names = ${calleeType.inlinedParameterNames}")
+                    if (callee is TypedVariable) {
+                        println("[LOG]: callee is a typed variable for $callee")
+
+                        val name = callee.mangledName
+
+                        if (name in this.inlinedParameters.first()) {
+                            val param = this.inlinedParameters.first()[name] ?: error("passed map contains check but map get was null")
+                            val paramType = param.type
+                            if (paramType is LambdaType) {
+                                println("[LOG]: parameter $name was found inside inlined parameters with type $paramType\n\tinlined body = ${paramType.inlinedBody}\n\tinlined parameter names = ${paramType.inlinedParameterNames}")
+                                inlinedParameterNames = paramType.inlinedParameterNames?.map {
+                                    TypedParameter(name = it.name, type = it.type, value = null)
+                                } ?: inlinedParameterNames.also { println("[LOG]: $name from inlined parameters had no inlined parameter names") }
+                                inlinedBody = paramType.inlinedBody ?: inlinedBody.also { println("[LOG]: $name from inlined parameters had no inlined body") }
+                            }
+                        }
+                    }
+                    // todo: figure out a better way to do this (maybe have TypedLambda throw an exception to be caught here with the necessary data?)
+                }
                 this.stack.withNestedScope {
                     val inlinedParameterMap = buildMap {
-                        root.inlinedParameterNames.forEachIndexed { index, parameter ->
+                        inlinedParameterNames.forEachIndexed { index, parameter ->
                             val name = parameter.name.lexeme
                             this@CodeGenerator.stack.addVariable(name) // todo: perhaps do some mangling?
                             put(name, root.arguments[index])
@@ -422,13 +448,13 @@ public class CodeGenerator {
                     }
 
                     val previousReturnEmitted = this.returnEmitted
-                    val previousInlinedParameters = this.inlinedParameters
                     val previousInlineJumps = this.inlinedJumps
 
                     this.returnEmitted = false
                     this.inlinedJumps = mutableListOf()
-                    this.inlinedParameters = inlinedParameterMap
-                    this.generateStatements(root.inlinedBody, inline = true)
+                    this.inlinedParameters.addFirst(inlinedParameterMap)
+                    // println("[LOG]: generating for this inlined body = $inlinedBody")
+                    this.generateStatements(inlinedBody, inline = true)
 
                     if (!returnEmitted) {
                         val constant = this.currentChunk.addConstant(UnitValue)
@@ -442,7 +468,7 @@ public class CodeGenerator {
                     }
 
                     this.returnEmitted = previousReturnEmitted
-                    this.inlinedParameters = previousInlinedParameters
+                    this.inlinedParameters.removeFirst()
                     this.inlinedJumps = previousInlineJumps
                 }
             }
@@ -493,6 +519,13 @@ public class CodeGenerator {
                 this.currentChunk.write(constant, this.line++)
             }
             is TypedLambda -> {
+                if (inline) {
+                    // todo:
+                    //  root.body is accessible here, it could be thrown back to typed inline call?
+                    //  another alternative is to have the inlining logic inside typed call, so that the type checker
+                    //  doesn't need to properly figure out that calls to inlined lambdas are inlined calls?
+                    error("codegen of inlined typed lambdas is not supported")
+                }
                 val oldChunk = this.currentChunk
                 val previousReturnEmitted = this.returnEmitted
 
@@ -627,12 +660,26 @@ public class CodeGenerator {
                 } else {
                     if (inline) { // perform lazy initialization of parameter values instead
                         val name = root.mangledName
+                        println("[LOG]: inlined lookup of $name")
 
-                        if (name in this.inlinedParameters) {
-                            val expr = this.inlinedParameters[name] ?: error("$name not found in inlined parameters (should be unreachable)")
+                        var found = false
 
-                            dfs(expr, inline)
-                        } else {
+                        for (inlinedParams in this.inlinedParameters) {
+                            if (name in inlinedParams) {
+                                val expr = inlinedParams[name]
+                                    ?: error("$name not found in inlined parameters (should be unreachable)")
+
+                                println("[LOG]: found $name in inlined parameters")
+                                println("[LOG]: $name ${if (expr is TypedLambda) "is" else "isn't"} a typed lambda")
+
+                                dfs(expr, inline)
+
+                                found = true
+                                break
+                            }
+                        }
+
+                        if (!found) {
                             this.currentChunk.write(Opcode.GetLocal.toInt(), this.line)
                             this.currentChunk.write(
                                 this.stack.getVariable(root.mangledName),
