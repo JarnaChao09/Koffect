@@ -554,24 +554,77 @@ public fun repl() {
     //     main();
     // """.trimIndent()
 
+    // val srcString = """
+    //     inline fun withInt(intValue1: Int, intValue2: Int, block: context(Int) (Int) -> Unit) {
+    //         print("testing withInt with intValues = ");
+    //         print(intValue1);
+    //         print(" and ");
+    //         println(intValue2);
+    //         block(intValue1, intValue2);
+    //     }
+    //
+    //     fun foo(bar: Int) {
+    //         print("foo with ");
+    //         println(bar);
+    //     }
+    //
+    //     fun main() {
+    //         val y: Int = 20;
+    //         println("testing inlining a function with a trailing lambda");
+    //
+    //         withInt(10, y + 20) { z: Int ->
+    //             foo(this@Int - z);
+    //         };
+    //     }
+    //
+    //     main();
+    // """.trimIndent()
+
     val srcString = """
-        inline fun withInt(intValue: Int, block: (Int) -> Unit) {
-            print("testing withInt with intValue = ");
-            println(intValue);
+        inline fun withInt(intValue: Int, block: context(Int) () -> Unit) {
             block(intValue);
         }
         
-        fun foo(bar: Int) {
-            print("foo with ");
-            println(bar);
+        inline fun withDouble(doubleValue: Double, block: context(Double) () -> Unit) {
+            block(doubleValue);
+        }
+        
+        context(Int) fun foo() {
+            print("contextual foo with int=");
+            println(this@Int);
+        }
+        
+        context(Double) fun foo() {
+            print("contextual foo with double=");
+            println(this@Double);
+        }
+        
+        context(Int, Double) fun foo() {
+            print("contextual foo with both int=");
+            print(this@Int);
+            print(" and double=");
+            println(this@Double);
         }
         
         fun main() {
-            val y: Int = 20;
-            println("testing inlining a function with a trailing lambda");
+            withInt(10) {
+                foo();
+            };
             
-            withInt(10) { x: Int ->
-                foo(x + y);
+            withDouble(3.14) {
+                foo();
+            };
+            
+            withInt(42) {
+                withDouble(31.4) {
+                    foo();
+                };
+            };
+            
+            withDouble(0.314) {
+                withInt(37) {
+                    foo();
+                };
             };
         }
         

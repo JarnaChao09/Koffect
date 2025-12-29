@@ -14,6 +14,7 @@ public class CodeGenerator {
     private val stack: LocalsStack = LocalsStack()
     private var inlinedParameters = ArrayDeque<Map<String, TypedExpression>>()
     private var inlinedJumps: MutableList<Int> = mutableListOf()
+    private var inlinedContexts = ArrayDeque<Map<Type, TypedExpression>>()
 
     public fun generate(ast: List<TypedStatement>): Chunk {
         this.currentChunk = Chunk()
@@ -413,6 +414,7 @@ public class CodeGenerator {
             }
             is TypedInlineCall -> {
                 var inlinedParameterNames = root.inlinedParameterNames
+                var inlinedContexts = root.inlinedContexts
                 var inlinedBody = root.inlinedBody
 
                 val callee = root.callee
@@ -439,11 +441,22 @@ public class CodeGenerator {
                     // todo: figure out a better way to do this (maybe have TypedLambda throw an exception to be caught here with the necessary data?)
                 }
                 this.stack.withNestedScope {
+                    var contextOffset = 0
+                    val inlinedContextsMap = buildMap {
+                        inlinedContexts.forEach { (type, new) ->
+                            if (new) {
+                                put(type, root.arguments[contextOffset++])
+                            }
+                        }
+                    }
+
+                    println("[LOG]: context offset was $contextOffset for call to ${root.callee}")
+
                     val inlinedParameterMap = buildMap {
                         inlinedParameterNames.forEachIndexed { index, parameter ->
                             val name = parameter.name.lexeme
                             this@CodeGenerator.stack.addVariable(name) // todo: perhaps do some mangling?
-                            put(name, root.arguments[index])
+                            put(name, root.arguments[contextOffset + index])
                         }
                     }
 
@@ -453,6 +466,7 @@ public class CodeGenerator {
                     this.returnEmitted = false
                     this.inlinedJumps = mutableListOf()
                     this.inlinedParameters.addFirst(inlinedParameterMap)
+                    this.inlinedContexts.addFirst(inlinedContextsMap)
                     // println("[LOG]: generating for this inlined body = $inlinedBody")
                     this.generateStatements(inlinedBody, inline = true)
 
@@ -469,6 +483,7 @@ public class CodeGenerator {
 
                     this.returnEmitted = previousReturnEmitted
                     this.inlinedParameters.removeFirst()
+                    this.inlinedContexts.removeFirst()
                     this.inlinedJumps = previousInlineJumps
                 }
             }
@@ -700,12 +715,39 @@ public class CodeGenerator {
                 require(!this.stack.inGlobalScope()) {
                     "context variable should not be accessible from global scope (should be unreachable)"
                 }
+                if (inline) { // perform lazy initialization of context values instead
+                    val type = root.type
 
-                this.currentChunk.write(Opcode.GetLocal.toInt(), this.line)
-                this.currentChunk.write(
-                    this.stack.getContextVariable(root.type),
-                    this.line++
-                )
+                    var found = false
+
+                    for (inlinedContexts in this.inlinedContexts) {
+                        if (type in inlinedContexts) {
+                            val expr = inlinedContexts[type]
+                                ?: error("context variable of $type not found in inlined contexts (should be unreachable)")
+
+                            println("[LOG]: found $type in inlined contexts, value is $expr")
+
+                            dfs(expr, inline)
+
+                            found = true
+                            break
+                        }
+                    }
+
+                    if (!found) {
+                        this.currentChunk.write(Opcode.GetLocal.toInt(), this.line)
+                        this.currentChunk.write(
+                            this.stack.getContextVariable(root.type),
+                            this.line++
+                        )
+                    }
+                } else {
+                    this.currentChunk.write(Opcode.GetLocal.toInt(), this.line)
+                    this.currentChunk.write(
+                        this.stack.getContextVariable(root.type),
+                        this.line++
+                    )
+                }
             }
         }
     }

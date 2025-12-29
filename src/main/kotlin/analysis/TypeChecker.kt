@@ -463,6 +463,7 @@ public class TypeChecker(public var environment: Environment) {
                          *
                          * though this should only be how the desugared invocation looks
                          */
+                        val inlinedContexts = mutableListOf<Pair<Type, Boolean>>()
                         val finalTypedArguments = buildList {
                             var argIndex = 0
 
@@ -474,6 +475,7 @@ public class TypeChecker(public var environment: Environment) {
 
                                     this@TypeChecker.environment.getContextVariable(type)?.let {
                                         add(it)
+                                        inlinedContexts.add(type to false)
                                     } ?: run {
                                         val typedArgument =
                                             this@toTypedExpression.arguments[argIndex++].toTypedExpression(type)
@@ -484,6 +486,7 @@ public class TypeChecker(public var environment: Environment) {
                                             error("Argument of type ${typedArgument.type} does not match expected context type of $type")
                                         } else {
                                             add(typedArgument)
+                                            inlinedContexts.add(type to true)
                                         }
                                     }
                                 }
@@ -522,6 +525,7 @@ public class TypeChecker(public var environment: Environment) {
                                 calleeType.returnType,
                                 inlinedBody = emptyList(),
                                 inlinedParameterNames = emptyList(),
+                                inlinedContexts = inlinedContexts.toList(),
                             )
                         } else {
                             TypedCall(
@@ -680,7 +684,8 @@ public class TypeChecker(public var environment: Environment) {
                                 foundArgs,
                                 foundOverload.returnType,
                                 foundOverload.inlinedBody,
-                                foundOverload.inlinedParameterNames
+                                foundOverload.inlinedParameterNames,
+                                foundOverload.contextTypes.map { it to false },
                             )
                         } else {
                             TypedCall(callee, this.paren, foundArgs, foundOverload.returnType)
