@@ -194,13 +194,33 @@ public class Parser(tokenSequence: Sequence<Token>) {
     }
 
     private fun functionDeclaration(contexts: List<Type>, inline: Boolean = false): FunctionDeclaration {
-        val name = expect(TokenType.IDENTIFIER, "Expect function name")
+        val (receiver, name) = run {
+            val mark = this.tokens.mark()
+            // note:
+            //  since a receiver could be a parenthesized type. checking for an immediate parenthesis is not possible
+            //  to determine if the function declaration has no name or not and is therefore an invalid syntactic construct
+            //  instead, a simpler solution is to instead just simply have a restore point and try the type path, if no
+            //  dot is found after, then it is assumed that the signature has no receiver type and we backtrack to test
+            //  the simple identifier case for the name
+
+            // test to see if there is a receiver type
+            val mightBeReceiver = type()
+            if (match(TokenType.DOT)) {
+                val name = expect(TokenType.IDENTIFIER, "Function declaration must have a name")
+
+                mightBeReceiver to name
+            } else {
+                // if no dot, then there is no receiver, but to ensure that runaway parsing of type did not occur
+                // we will restore back to the marked location
+                this.current = this.tokens.restoreTo(mark)
+                null to expect(TokenType.IDENTIFIER, "Function declaration must have a name")
+            }
+        }
         expect(TokenType.LEFT_PAREN, "Expect '(' after function name")
         val parameters = this.parameterList()
 
         val returnType = when {
             match(TokenType.COLON) -> {
-                this.advance()
                 this.type()
             }
             else -> TConstructor("Unit")
@@ -219,7 +239,7 @@ public class Parser(tokenSequence: Sequence<Token>) {
             else -> error("Expected a function body")
         }
 
-        return FunctionDeclaration(name, contexts, parameters, returnType, body, inline)
+        return FunctionDeclaration(name, receiver, contexts, parameters, returnType, body, inline)
     }
 
     private fun parameterList(): List<Parameter> {

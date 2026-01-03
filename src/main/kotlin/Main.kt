@@ -580,55 +580,61 @@ public fun repl() {
     //     main();
     // """.trimIndent()
 
+    // val srcString = """
+    //     inline fun withInt(intValue: Int, block: context(Int) () -> Unit) {
+    //         block(intValue);
+    //     }
+    //
+    //     inline fun withDouble(doubleValue: Double, block: context(Double) () -> Unit) {
+    //         block(doubleValue);
+    //     }
+    //
+    //     context(Int) fun foo() {
+    //         print("contextual foo with int=");
+    //         println(this@Int);
+    //     }
+    //
+    //     context(Double) fun foo() {
+    //         print("contextual foo with double=");
+    //         println(this@Double);
+    //     }
+    //
+    //     context(Int, Double) fun foo() {
+    //         print("contextual foo with both int=");
+    //         print(this@Int);
+    //         print(" and double=");
+    //         println(this@Double);
+    //     }
+    //
+    //     fun main() {
+    //         withInt(10) {
+    //             foo();
+    //         };
+    //
+    //         withDouble(3.14) {
+    //             foo();
+    //         };
+    //
+    //         withInt(42) {
+    //             withDouble(31.4) {
+    //                 foo();
+    //             };
+    //         };
+    //
+    //         withDouble(0.314) {
+    //             withInt(37) {
+    //                 foo();
+    //             };
+    //         };
+    //     }
+    //
+    //     main();
+    // """.trimIndent()
+
     val srcString = """
-        inline fun withInt(intValue: Int, block: context(Int) () -> Unit) {
-            block(intValue);
+        fun Int.collapse(): Int {
+            return 1;
         }
-        
-        inline fun withDouble(doubleValue: Double, block: context(Double) () -> Unit) {
-            block(doubleValue);
-        }
-        
-        context(Int) fun foo() {
-            print("contextual foo with int=");
-            println(this@Int);
-        }
-        
-        context(Double) fun foo() {
-            print("contextual foo with double=");
-            println(this@Double);
-        }
-        
-        context(Int, Double) fun foo() {
-            print("contextual foo with both int=");
-            print(this@Int);
-            print(" and double=");
-            println(this@Double);
-        }
-        
-        fun main() {
-            withInt(10) {
-                foo();
-            };
-            
-            withDouble(3.14) {
-                foo();
-            };
-            
-            withInt(42) {
-                withDouble(31.4) {
-                    foo();
-                };
-            };
-            
-            withDouble(0.314) {
-                withInt(37) {
-                    foo();
-                };
-            };
-        }
-        
-        main();
     """.trimIndent()
 
     val lexer = Lexer(srcString)
