@@ -635,6 +635,13 @@ public fun repl() {
         fun Int.collapse(): Int {
             return 1;
         }
+        
+        fun main() {
+            val test: Int = 10.collapse();
+            println(test);
+        }
+        
+        main();
     """.trimIndent()
 
     val lexer = Lexer(srcString)

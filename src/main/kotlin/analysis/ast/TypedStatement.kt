@@ -92,6 +92,7 @@ public data class TypedReturnExpressionStatement(public val returnExpression: Ty
 public data class TypedFunctionDeclaration(
     val name: Token,
     val mangledName: String,
+    val receiver: Type?,
     val contexts: List<Type>,
     val parameters: List<TypedParameter>,
     val returnType: Type,
@@ -103,7 +104,7 @@ public data class TypedFunctionDeclaration(
         get() = this.parameters.size
 
     override fun toString(): String {
-        return "${if (this.contexts.isNotEmpty()) "context(${this.contexts.joinToString(", ")}) " else ""}${if (inline) "inline " else ""}fun ${this.name.lexeme}(${this.parameters.joinToString(", ")}): ${this.returnType} {\n${
+        return "${if (this.contexts.isNotEmpty()) "context(${this.contexts.joinToString(", ")}) " else ""}${if (inline) "inline " else ""}fun ${receiver?.let { "${it.mangledName}." } ?: ""}${this.name.lexeme}(${this.parameters.joinToString(", ")}): ${this.returnType} {\n${
             this.body.joinToString(
                 "\n"
             ).prependIndent()

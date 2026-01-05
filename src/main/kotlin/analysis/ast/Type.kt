@@ -59,6 +59,7 @@ public data class FunctionType(
     private val mutableOverloads: MutableSet<Overload> = mutableSetOf()
 ) : Type {
     public data class Overload(
+        public val receiverType: Type?,
         public val contextTypes: List<Type>,
         public val parameterTypes: List<Type>,
         public val returnType: Type,
@@ -80,6 +81,7 @@ public data class FunctionType(
         get() = this.mutableOverloads
 
     public fun addOverload(
+        receiverType: Type?,
         contextTypes: List<Type>,
         parameterTypes: List<Type>,
         returnType: Type,
@@ -88,7 +90,7 @@ public data class FunctionType(
         inlinedBody: List<TypedStatement>? = null,
         inlinedParameterNames: List<TypedParameter>? = null,
     ): Overload {
-        return Overload(contextTypes, parameterTypes, returnType, isDeleted, deletionReason, inlinedBody, inlinedParameterNames).also {
+        return Overload(receiverType, contextTypes, parameterTypes, returnType, isDeleted, deletionReason, inlinedBody, inlinedParameterNames).also {
             if (it in this.mutableOverloads) {
                 error("Overload for function ${this.name} with type $it already exists")
             }
@@ -110,7 +112,7 @@ public data class ClassType(
     public val interfaces: List<InterfaceType>,
     private val mutableProperties: MutableMap<String, Property>,
     private val mutableFunctions: MutableMap<String, Function>,
-) {
+) : Type {
     public val properties: Map<String, Property>
         get() = this.mutableProperties
 
@@ -131,6 +133,7 @@ public data class ClassType(
 
     public fun addFunction(
         name: String,
+        receiverType: Type?,
         contextTypes: List<Type>,
         parameterTypes: List<Type>,
         returnType: Type,
@@ -141,14 +144,17 @@ public data class ClassType(
     ): Function {
         return if (this.mutableFunctions.containsKey(name)) {
             this.mutableFunctions[name]!!.also {
-                it.functionType.addOverload(contextTypes, parameterTypes, returnType, isDeleted, deletionReason, inlinedBody)
+                it.functionType.addOverload(receiverType, contextTypes, parameterTypes, returnType, isDeleted, deletionReason, inlinedBody)
             }
         } else {
-            Function(name, FunctionType(name, mutableSetOf(FunctionType.Overload(contextTypes, parameterTypes, returnType, isDeleted, deletionReason, inlinedBody, inlinedParameterNames)))).also {
+            Function(name, FunctionType(name, mutableSetOf(FunctionType.Overload(receiverType, contextTypes, parameterTypes, returnType, isDeleted, deletionReason, inlinedBody, inlinedParameterNames)))).also {
                 this.mutableFunctions[name] = it
             }
         }
     }
+
+    override val mangledName: String
+        get() = this.name // currently the mangled name of a class will just be the name of the class
 }
 
 // TODO

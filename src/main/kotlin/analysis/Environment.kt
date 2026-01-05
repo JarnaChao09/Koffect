@@ -8,8 +8,19 @@ public class Environment(
     private val contextVariables: MutableMap<Type, TypedContextVariable> = mutableMapOf(),
     public val enclosing: Environment? = null,
     private val depth: Int = 0,
+    private val receiver: Type? = null,
 ) {
-    public constructor(enclosing: Environment): this(mutableMapOf(), mutableMapOf(), mutableMapOf(), enclosing, enclosing.depth + 1)
+    public constructor(
+        enclosing: Environment,
+        receiver: Type?
+    ): this(
+        mutableMapOf(),
+        mutableMapOf(),
+        mutableMapOf(),
+        enclosing,
+        enclosing.depth + 1,
+        receiver
+    )
 
     public fun addVariable(name: String, type: Type) {
         if (this.variables.containsKey(name)) {
@@ -59,6 +70,10 @@ public class Environment(
         return this.contextVariables.getOrElse(type) {
             this.enclosing?.getContextVariable(type)
         }
+    }
+
+    public fun getCurrentReceiver(): Type? {
+        return this.receiver ?: this.enclosing?.getCurrentReceiver()
     }
 }
 
@@ -118,7 +133,7 @@ public class FunctionBuilder(private val function: String, private val contexts:
 
     public infix fun List<String>.returns(returnType: String) {
         // todo: assuming all are variable types for now, double check if this assumption holds true
-        this@FunctionBuilder.overloads += FunctionType.Overload(contexts, this.map { VariableType(it) }, VariableType(returnType), false, null, null, null)
+        this@FunctionBuilder.overloads += FunctionType.Overload(null, contexts, this.map { VariableType(it) }, VariableType(returnType), false, null, null, null)
     }
 
     public fun build(): FunctionType {

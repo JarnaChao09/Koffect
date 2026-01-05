@@ -500,7 +500,26 @@ public class CodeGenerator {
                             TODO()
                         }
                     }
-                    is VariableType -> TODO()
+                    is VariableType -> {
+                        if (root.type is FunctionType) {
+                            // todo: assuming that this was an extension function
+                            if (this.stack.inGlobalScope() || !this.stack.isLocal(root.name.lexeme)) {
+                                val binding = this.currentChunk.addConstant(root.name.lexeme.toValue())
+
+                                this.currentChunk.write(Opcode.GetGlobal.toInt(), this.line)
+                                this.currentChunk.write(binding, this.line++)
+                            } else {
+                                this.currentChunk.write(Opcode.GetLocal.toInt(), this.line)
+                                this.currentChunk.write(
+                                    this.stack.getVariable(root.name.lexeme),
+                                    this.line++
+                                )
+                            }
+                        }
+                        // todo: calling convention for receiver instance
+                        // this.dfs(instance, inline)
+                    }
+                    is ClassType -> TODO()
                 }
             }
             is TypedGrouping -> {
@@ -600,7 +619,7 @@ public class CodeGenerator {
                 this.currentChunk.patchJump(jump)
             }
             is TypedThis -> {
-                TODO()
+                TODO("codegen of this keyword not yet implemented")
             }
             is TypedUnary -> {
                 dfs(root.expression, inline)

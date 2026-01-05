@@ -62,7 +62,7 @@ public class TypeChecker(public var environment: Environment) {
                         )
                     }
                     fun ClassDeclaration.SecondaryConstructor.toTypedConstructor(): TypedSecondaryConstructor {
-                        this@TypeChecker.environment = Environment(this@TypeChecker.environment)
+                        this@TypeChecker.environment = Environment(this@TypeChecker.environment, null)
 
                         val typedParameters = this.parameters.map { param ->
                             val tp = param.toTypedParameter()
@@ -120,7 +120,7 @@ public class TypeChecker(public var environment: Environment) {
                                 generateNoArgs = false
                             }
 
-                            addOverload(emptyList(), pc.parameters.map(TypedParameter::type), classType)
+                            addOverload(null, emptyList(), pc.parameters.map(TypedParameter::type), classType)
                         }
 
                         secondaryConstructors.forEach { sc ->
@@ -128,11 +128,11 @@ public class TypeChecker(public var environment: Environment) {
                                 generateNoArgs = false
                             }
 
-                            addOverload(emptyList(), sc.parameters.map(TypedParameter::type), classType)
+                            addOverload(null, emptyList(), sc.parameters.map(TypedParameter::type), classType)
                         }
 
                         if (generateNoArgs) {
-                            addOverload(emptyList(), emptyList(), classType)
+                            addOverload(null, emptyList(), emptyList(), classType)
                         }
                     }
 
@@ -142,7 +142,7 @@ public class TypeChecker(public var environment: Environment) {
                         classConstructorFunctionType,
                     )
 
-                    this.environment = Environment(this.environment)
+                    this.environment = Environment(this.environment, null)
 
                     primaryConstructor?.let { pc ->
                         pc.parameterTypes.forEachIndexed { index, type ->
@@ -166,6 +166,7 @@ public class TypeChecker(public var environment: Environment) {
                         }
 
                         val currentConstructorType = Overload(
+                            null,
                             emptyList(),
                             argumentTypes,
                             classType,
@@ -224,10 +225,11 @@ public class TypeChecker(public var environment: Environment) {
                 }
                 is FunctionDeclaration -> {
                     val name = it.name.lexeme
-                    println("[LOG]: checking function declaration $name with inline = ${it.inline}")
+                    // println("[LOG]: checking function declaration $name with inline = ${it.inline}")
                     val typedParameters = it.parameters.map { param -> param.toTypedParameter(it.inline) }
-                    println("[LOG]: typed parameters are $typedParameters")
+                    // println("[LOG]: typed parameters are $typedParameters")
                     val returnType = it.returnType.toType()
+                    val receiverType = it.receiver?.toType()
 
                     var oldFunctionType = this.environment.getVariable(name)
 
@@ -244,7 +246,7 @@ public class TypeChecker(public var environment: Environment) {
                     val contextTypes = it.contexts.map(parser.ast.Type::toType)
                     val parameterTypes = typedParameters.map(TypedParameter::type)
 
-                    this.environment = Environment(this.environment)
+                    this.environment = Environment(this.environment, receiverType)
 
                     contextTypes.forEach {
                         this.environment.addContextVariable(it)
@@ -285,6 +287,7 @@ public class TypeChecker(public var environment: Environment) {
                     }
 
                     val overload = oldFunctionType.addOverload(
+                        receiverType,
                         contextTypes,
                         parameterTypes,
                         returnType,
@@ -296,6 +299,7 @@ public class TypeChecker(public var environment: Environment) {
                     if (this.scope == Scope.CLASS_LEVEL) {
                         this.currentClass!!.addFunction(
                             it.name.lexeme,
+                            receiverType,
                             contextTypes,
                             parameterTypes,
                             returnType,
@@ -310,6 +314,7 @@ public class TypeChecker(public var environment: Environment) {
                     TypedFunctionDeclaration(
                         it.name,
                         "$name/${overload.overloadSuffix()}",
+                        receiverType,
                         contextTypes,
                         typedParameters,
                         returnType,
@@ -402,6 +407,7 @@ public class TypeChecker(public var environment: Environment) {
                     is VariableType -> leftType.name
                     is LambdaType -> error("Lookup of lambda types is currently not supported during type checking")
                     is FunctionType -> error("Lookup of function types is currently not supported during type checking")
+                    is ClassType -> error("Lookup of class types is currently not supported during type checking")
                 }
 
                 val rightType = rightTypedExpression.type
@@ -409,6 +415,7 @@ public class TypeChecker(public var environment: Environment) {
                     is VariableType -> rightType.name
                     is LambdaType -> error("Lookup of lambda types is currently not supported during type checking")
                     is FunctionType -> error("Lookup of function types is currently not supported during type checking")
+                    is ClassType -> error("Lookup of class types is currently not supported during type checking")
                 }
 
                 val receiverReference = this@TypeChecker.environment.getClass(leftTypeName) ?: error("Unknown class '$leftTypeName'")
@@ -674,6 +681,13 @@ public class TypeChecker(public var environment: Environment) {
                                     mangledName = "${typedCallee.name.lexeme}/${foundOverload.overloadSuffix()}"
                                 )
                             }
+                            is TypedGet -> {
+                                typedCallee.copy(
+                                    name = typedCallee.name.copy(
+                                        lexeme = "${typedCallee.name.lexeme}/${foundOverload.overloadSuffix()}"
+                                    )
+                                )
+                            }
                             else -> error("Currently only support calling function types from TypedVariable AST")
                         }
 
@@ -691,6 +705,7 @@ public class TypeChecker(public var environment: Environment) {
                             TypedCall(callee, this.paren, foundArgs, foundOverload.returnType)
                         }
                     }
+                    is ClassType -> error("Invoke on class types are currently not supported")
                 }
             }
             is Get -> {
@@ -700,12 +715,36 @@ public class TypeChecker(public var environment: Environment) {
                     is VariableType -> type.name
                     is LambdaType -> error("Lookup of lambda types is currently not supported during type checking")
                     is FunctionType -> error("Lookup of function types is currently not supported during type checking")
+                    is ClassType -> error("Lookup of class types is currently not supported during type checking")
                 }
 
                 val classRef = this@TypeChecker.environment.getClass(receiverName) ?: error("Unknown class '$receiverName'")
 
                 // todo: new ast node for getting a function?
-                val getType = classRef.properties[this.name.lexeme]?.type ?: classRef.functions[this.name.lexeme]?.functionType ?: error("Unknown property ${this.name.lexeme} on class '$receiverName'")
+                val getType = classRef.properties[this.name.lexeme]?.type
+                    ?: classRef.functions[this.name.lexeme]?.functionType
+                    ?: run {
+                        // todo: current workaround for not re-opening class definitions in the environment for extensions
+                        val function = when (val type = this@TypeChecker.environment.getVariable(this.name.lexeme)) {
+                            is ClassType -> error("Extension receiver lookup currently cannot handle class types")
+                            is FunctionType -> type
+                            is LambdaType -> error("Extension receiver lookup currently cannot handle lambda types")
+                            is VariableType -> error("Extension receiver lookup currently cannot handle variable types")
+                            null -> error("Cannot find function ${this.name.lexeme} with receiver $receiverName")
+                        }
+
+                        val filteredOverloads = function.overloads.filter {
+                            it.receiverType != null && it.receiverType == typedInstance.type
+                        }
+
+                        val filteredFunctionType = FunctionType(
+                            function.name,
+                            filteredOverloads.toMutableSet(),
+                        )
+
+                        filteredFunctionType
+                    }
+                    // ?: error("Unknown property ${this.name.lexeme} on class '$receiverName'")
 
                 TypedGet(typedInstance, this.name, getType)
             }
@@ -768,7 +807,7 @@ public class TypeChecker(public var environment: Environment) {
                     )
                 }
 
-                this@TypeChecker.environment = Environment(this@TypeChecker.environment)
+                this@TypeChecker.environment = Environment(this@TypeChecker.environment, null) // todo: handle lambdas with receivers
 
                 contextTypes.forEach {
                     this@TypeChecker.environment.addContextVariable(it)
@@ -816,6 +855,7 @@ public class TypeChecker(public var environment: Environment) {
                     is VariableType -> leftType.name
                     is LambdaType -> error("Lookup of lambda types is currently not supported during type checking")
                     is FunctionType -> error("Lookup of function types is currently not supported during type checking")
+                    is ClassType -> error("Lookup of class types is currently not supported during type checking")
                 }
 
                 val rightType = rightTypedExpression.type
@@ -823,6 +863,7 @@ public class TypeChecker(public var environment: Environment) {
                     is VariableType -> rightType.name
                     is LambdaType -> error("Lookup of lambda types is currently not supported during type checking")
                     is FunctionType -> error("Lookup of function types is currently not supported during type checking")
+                    is ClassType -> error("Lookup of class types is currently not supported during type checking")
                 }
 
                 val receiverReference = this@TypeChecker.environment.getClass(leftTypeName) ?: error("Unknown class '$leftTypeName'")
@@ -866,9 +907,7 @@ public class TypeChecker(public var environment: Environment) {
                         this.keyword,
                         null, // @
                         null, // label
-                        VariableType(
-                            this@TypeChecker.currentClass?.name ?: error("Invalid use of 'this' when not inside a class scope")
-                        )
+                        this@TypeChecker.environment.getCurrentReceiver() ?: error("Invalid use of 'this' when not inside a scope with a receiver")
                     )
                 }
             }
@@ -884,6 +923,7 @@ public class TypeChecker(public var environment: Environment) {
                     is VariableType -> receiverType.name
                     is LambdaType -> error("Lookup of lambda types is currently not supported during type checking")
                     is FunctionType -> error("Lookup of function types is currently not supported during type checking")
+                    is ClassType -> error("Lookup of class types is currently not supported during type checking")
                 }
 
                 val receiverReference = this@TypeChecker.environment.getClass(receiverTypeName) ?: error("Unknown class '$receiverTypeName'")
