@@ -89,6 +89,7 @@ public data class TypedCall(
     val paren: Token,
     val arguments: List<TypedExpression>,
     override val type: Type,
+    val methodInvocation: Boolean,
 ) : TypedExpression {
     override fun toString(): String {
         return "${this.callee}(${this.arguments.joinToString(", ")})<${this.type}>"

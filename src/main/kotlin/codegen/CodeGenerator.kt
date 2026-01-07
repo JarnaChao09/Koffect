@@ -59,6 +59,9 @@ public class CodeGenerator {
                         val function: ObjectFunction
 
                         this.stack.withNewScope {
+                            it.receiver?.let {
+                                this.stack.addVariable("this")
+                            }
                             it.contexts.forEach { ctx ->
                                 this.stack.addContextVariable(ctx)
                             }
@@ -406,13 +409,15 @@ public class CodeGenerator {
             is TypedCall -> {
                 dfs(root.callee, inline)
 
-                val argCount = root.arguments.size
+                // todo: figure out better way of codegen-ing correct call arg count for extension functions (and methods in the future)
+                val argCount = root.arguments.size + (if (root.methodInvocation) 1 else 0)
                 root.arguments.forEach { this.dfs(it, inline) }
 
                 this.currentChunk.write(Opcode.Call.toInt(), this.line)
                 this.currentChunk.write(argCount, this.line++)
             }
             is TypedInlineCall -> {
+                // todo: handle calling inline extension functions (and methods in the future)
                 var inlinedParameterNames = root.inlinedParameterNames
                 var inlinedContexts = root.inlinedContexts
                 var inlinedBody = root.inlinedBody
@@ -517,7 +522,7 @@ public class CodeGenerator {
                             }
                         }
                         // todo: calling convention for receiver instance
-                        // this.dfs(instance, inline)
+                        this.dfs(instance, inline)
                     }
                     is ClassType -> TODO()
                 }
@@ -619,7 +624,12 @@ public class CodeGenerator {
                 this.currentChunk.patchJump(jump)
             }
             is TypedThis -> {
-                TODO("codegen of this keyword not yet implemented")
+                check(!this.stack.inGlobalScope())
+                this.currentChunk.write(Opcode.GetLocal.toInt(), this.line)
+                this.currentChunk.write(
+                    this.stack.getVariable("this"),
+                    this.line++
+                )
             }
             is TypedUnary -> {
                 dfs(root.expression, inline)

@@ -544,6 +544,7 @@ public class TypeChecker(public var environment: Environment) {
                                 this.paren,
                                 finalTypedArguments,
                                 calleeType.returnType,
+                                false, // todo: handle lambdas with receivers
                             )
                         }
                     }
@@ -675,18 +676,18 @@ public class TypeChecker(public var environment: Environment) {
                         }
 
                         // todo: find a better way to handle overloads
-                        val callee = when (typedCallee) {
+                        val (callee, method) = when (typedCallee) {
                             is TypedVariable -> {
                                 typedCallee.copy(
                                     mangledName = "${typedCallee.name.lexeme}/${foundOverload.overloadSuffix()}"
-                                )
+                                ) to false
                             }
                             is TypedGet -> {
                                 typedCallee.copy(
                                     name = typedCallee.name.copy(
                                         lexeme = "${typedCallee.name.lexeme}/${foundOverload.overloadSuffix()}"
                                     )
-                                )
+                                ) to true
                             }
                             else -> error("Currently only support calling function types from TypedVariable AST")
                         }
@@ -702,7 +703,7 @@ public class TypeChecker(public var environment: Environment) {
                                 foundOverload.contextTypes.map { it to false },
                             )
                         } else {
-                            TypedCall(callee, this.paren, foundArgs, foundOverload.returnType)
+                            TypedCall(callee, this.paren, foundArgs, foundOverload.returnType, method)
                         }
                     }
                     is ClassType -> error("Invoke on class types are currently not supported")

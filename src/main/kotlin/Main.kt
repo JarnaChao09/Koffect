@@ -632,12 +632,12 @@ public fun repl() {
     // """.trimIndent()
 
     val srcString = """
-        fun Int.collapse(): Int {
-            return 1;
+        fun Int.collapse(other: Int): Int {
+            return this - other + 1;
         }
         
         fun main() {
-            val test: Int = 10.collapse();
+            val test: Int = 10.collapse(9);
             println(test);
         }
         
