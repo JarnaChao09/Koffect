@@ -631,14 +631,38 @@ public fun repl() {
     //     main();
     // """.trimIndent()
 
+    // val srcString = """
+    //     fun Int.collapse(other: Int): Int {
+    //         return this - other + 1;
+    //     }
+    //
+    //     fun main() {
+    //         val test: Int = 10.collapse(9);
+    //         println(test);
+    //     }
+    //
+    //     main();
+    // """.trimIndent()
+
     val srcString = """
-        fun Int.collapse(other: Int): Int {
-            return this - other + 1;
+        inline fun withInt(intValue: Int, block: context(Int) () -> Unit) {
+            block(intValue);
+        }
+        
+        context(Int) fun Int.collapse(other: Int): Int {
+            print("calling collapse with context=");
+            print(this@Int);
+            print(" and receiver=");
+            println(this);
+            return this@Int - this + other + 1;
         }
         
         fun main() {
-            val test: Int = 10.collapse(9);
-            println(test);
+            val c: Int = 20;
+            withInt(c) {
+                val test: Int = 10.collapse(9);
+                println(test);
+            };
         }
         
         main();
