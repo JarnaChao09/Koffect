@@ -653,7 +653,7 @@ public class TypeChecker(public var environment: Environment) {
                         }
 
                         if (found.isEmpty()) {
-                            error("No valid function matching the call signature for ${calleeType.name}${if (typedPinnedContexts?.isEmpty() ?: true) " " else " with pinned contexts of (${typedPinnedContexts!!.joinToString(", ")}) "}was found. Known candidates are: $calleeType")
+                            error("No valid function matching the call signature for ${calleeType.name}${if (typedPinnedContexts?.isEmpty() ?: true) " " else " with pinned contexts of (${typedPinnedContexts.joinToString(", ")}) "}was found. Known candidates are: $calleeType")
                         }
 
                         val max = if (typedPinnedContexts == null) {
@@ -666,13 +666,13 @@ public class TypeChecker(public var environment: Environment) {
                         }
 
                         if (max.size != 1) {
-                            error("Ambiguous function call for ${calleeType.name}${if (typedPinnedContexts?.isEmpty() ?: true) " " else " with pinned contexts of (${typedPinnedContexts!!.joinToString(", ")}) "}was found. Multiple candidates found: ${max.joinToString(", ") { it.first.toString() }}")
+                            error("Ambiguous function call for ${calleeType.name}${if (typedPinnedContexts?.isEmpty() ?: true) " " else " with pinned contexts of (${typedPinnedContexts.joinToString(", ")}) "}was found. Multiple candidates found: ${max.joinToString(", ") { it.first.toString() }}")
                         }
 
                         val (foundOverload, foundArgs) = max.first()
 
                         if (foundOverload.isDeleted) {
-                            error("Calling of deleted signature for ${calleeType.name}${if (typedPinnedContexts?.isEmpty() ?: true) " " else " with pinned contexts of (${typedPinnedContexts!!.joinToString(", ")}) "}was found. Deletion reason: ${foundOverload.deletionReason?.toString() ?: "none given"}")
+                            error("Calling of deleted signature for ${calleeType.name}${if (typedPinnedContexts?.isEmpty() ?: true) " " else " with pinned contexts of (${typedPinnedContexts.joinToString(", ")}) "}was found. Deletion reason: ${foundOverload.deletionReason?.toString() ?: "none given"}")
                         }
 
                         // todo: find a better way to handle overloads
