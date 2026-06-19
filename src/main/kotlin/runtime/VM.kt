@@ -23,6 +23,7 @@ public class VM(
         this.frames.addFirst(CallFrame(
             ObjectClosure(Function("script", 0, 0, chunk),emptyArray()),
             MutableList(256) { NullValue },
+            mutableMapOf(),
         ))
         this.ip = 0
 
@@ -53,7 +54,9 @@ public class VM(
                             val index = chunk.code[this.ip++]
 
                             if (isLocal == 1) {
-                                UpValue(this.frames.first().locals[index])
+                                this.frames.first().captures.getOrPut(index) {
+                                    UpValue(this.frames.first().locals[index])
+                                }
                             } else {
                                 TODO("somehow capture non-local upvalues")
                             }
@@ -292,6 +295,7 @@ public class VM(
                             CallFrame(
                                 ObjectClosure(callee.value, emptyArray()),
                                 args.toMutableList(),
+                                mutableMapOf(),
                                 returnIp = this.ip
                             ).also {
                                 this.frames.addFirst(it)
@@ -303,6 +307,7 @@ public class VM(
                             CallFrame(
                                 callee,
                                 args.toMutableList(),
+                                mutableMapOf(),
                                 returnIp = this.ip
                             ).also {
                                 this.frames.addFirst(it)

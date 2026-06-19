@@ -668,14 +668,34 @@ public fun repl() {
     //     main();
     // """.trimIndent()
 
+    // val srcString = """
+    //     fun foo() {
+    //         val x: String = "hello";
+    //         fun bar() {
+    //             println(x);
+    //         }
+    //
+    //         bar();
+    //     }
+    //
+    //     foo();
+    // """.trimIndent()
+
     val srcString = """
         fun foo() {
-            val x: String = "hello";
-            fun bar() {
+            var x: String = "hello";
+
+            fun get() {
                 println(x);
             }
 
-            bar();
+            fun set(newValue: String) {
+                x = newValue;
+            }
+
+            get();
+            set("world");
+            get();
         }
 
         foo();

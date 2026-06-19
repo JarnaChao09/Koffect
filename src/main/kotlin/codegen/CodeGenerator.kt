@@ -186,15 +186,22 @@ public class CodeGenerator {
             is TypedAssign -> {
                 dfs(root.expression, inline)
 
-                if (this.stack.inGlobalScope() || !this.stack.isLocal(root.name.lexeme)) {
+                val isLocal = this.stack.isLocal(root.name.lexeme)
+                val isCapture = this.stack.isCapture(root.name.lexeme)
+                if (this.stack.inGlobalScope() || (!isLocal && !isCapture)) {
                     val binding = this.currentChunk.addConstant(root.name.lexeme.toValue())
 
                     this.currentChunk.write(Opcode.SetGlobal.toInt(), this.line)
                     this.currentChunk.write(binding, this.line++)
                 } else {
-                    this.currentChunk.write(Opcode.SetLocal.toInt(), this.line)
+                    val (opcode, value) = when {
+                        isLocal -> Opcode.SetLocal to this.stack.getVariable(root.name.lexeme)
+                        isCapture -> Opcode.SetUpvalue to this.stack.getCapture(root.name.lexeme)
+                        else -> error("unknown opcode")
+                    }
+                    this.currentChunk.write(opcode.toInt(), this.line)
                     this.currentChunk.write(
-                        this.stack.getVariable(root.name.lexeme),
+                        value,
                         this.line++
                     )
                 }

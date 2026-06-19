@@ -384,13 +384,16 @@ public class TypeChecker(public var environment: Environment) {
         return when (this) {
             is Assign -> {
                 val typedAssignment = this.expression.toTypedExpression()
-                val variableType = this@TypeChecker.environment.getVariable(this.name.lexeme) ?: error("Undefined variable ${this.name.lexeme}")
-
-                if (typedAssignment.type == variableType) {
-                    TypedAssign(this.name, typedAssignment)
-                } else {
-                    error("Unable to assign value of type ${typedAssignment.type} to variable ${this.name.lexeme} with type $variableType")
-                }
+                this@TypeChecker.environment.getVariable(this.name.lexeme)?.let { (variableType, local, global) ->
+                    if (typedAssignment.type == variableType) {
+                        if (!local && !global) {
+                            currentCaptures.add(TypedVariable(this.name, variableType))
+                        }
+                        TypedAssign(this.name, typedAssignment)
+                    } else {
+                        error("Unable to assign value of type ${typedAssignment.type} to variable ${this.name.lexeme} with type $variableType")
+                    }
+                } ?: error("Undefined variable ${this.name.lexeme}")
             }
             is Binary -> {
                 val leftTypedExpression = this.left.toTypedExpression()
