@@ -68,6 +68,9 @@ public class CodeGenerator {
                             it.parameters.forEach { parameter ->
                                 this.stack.addVariable(parameter.name.lexeme)
                             }
+                            it.captures.forEach { capture ->
+                                this.stack.addCapture(capture.name.lexeme)
+                            }
 
                             this.generateStatements(it.body, inline)
 
@@ -80,16 +83,34 @@ public class CodeGenerator {
                                 this.currentChunk.write(Opcode.Return.toInt(), this.line++)
                             }
 
-                            function = ObjectFunction(Function(it.mangledName, it.arity, this.currentChunk))
+                            function = ObjectFunction(Function(it.mangledName, it.arity, it.captures.size, this.currentChunk))
 
                             this.currentChunk = oldChunk
                             this.returnEmitted = previousReturnEmitted
                         }
 
+                        val opcode = if (it.captures.isNotEmpty()) {
+                            Opcode.ClosureConstant
+                        } else {
+                            Opcode.ObjectConstant
+                        }.toInt()
                         val constant = this.currentChunk.addConstant(function)
-                        this.currentChunk.write(Opcode.ObjectConstant.toInt(), this.line)
-                        this.currentChunk.write(constant, this.line++)
+                        this.currentChunk.write(opcode, this.line)
+                        this.currentChunk.write(constant, this.line)
 
+                        it.captures.forEach { c ->
+                            val name = c.name.lexeme
+                            val (index, local) = if (this.stack.isLocal(name)) {
+                                this.stack.getVariable(name) to 1
+                            } else {
+                                this.stack.getCapture(name) to 0
+                            }
+
+                            this.currentChunk.write(local, this.line)
+                            this.currentChunk.write(index, this.line)
+                        }
+
+                        this.line++
                         this.currentChunk.write(Opcode.DefineGlobal.toInt(), this.line)
                         this.currentChunk.write(binding, this.line++)
                     }
@@ -596,7 +617,7 @@ public class CodeGenerator {
 
                     val arity = root.contexts.size + root.parameters.size
 
-                    function = ObjectFunction(Function("Function${arity}", arity, this.currentChunk))
+                    function = ObjectFunction(Function("Function${arity}", arity, root.captures.size, this.currentChunk))
 
                     this.currentChunk = oldChunk
                     this.returnEmitted = previousReturnEmitted
@@ -696,7 +717,9 @@ public class CodeGenerator {
                 }.toInt(), this.line++)
             }
             is TypedVariable -> {
-                if (this.stack.inGlobalScope() || !this.stack.isLocal(root.mangledName)) {
+                val isLocal = this.stack.isLocal(root.mangledName)
+                val isCapture = this.stack.isCapture(root.mangledName)
+                if (this.stack.inGlobalScope() || (!isLocal && !isCapture)) {
                     val binding = this.currentChunk.addConstant(root.mangledName.toValue())
 
                     this.currentChunk.write(Opcode.GetGlobal.toInt(), this.line)
@@ -731,9 +754,14 @@ public class CodeGenerator {
                             )
                         }
                     } else {
-                        this.currentChunk.write(Opcode.GetLocal.toInt(), this.line)
+                        val (opcode, value) = when {
+                            isLocal -> Opcode.GetLocal to this.stack.getVariable(root.mangledName)
+                            isCapture -> Opcode.GetUpvalue to this.stack.getCapture(root.mangledName)
+                            else -> error("unknown opcode")
+                        }
+                        this.currentChunk.write(opcode.toInt(), this.line)
                         this.currentChunk.write(
-                            this.stack.getVariable(root.mangledName),
+                            value,
                             this.line++
                         )
                     }
@@ -826,10 +854,15 @@ public class CodeGenerator {
 public class LocalsStack {
     public val stack: ArrayDeque<MutableMap<String, Int>> = ArrayDeque()
     public val locals: ArrayDeque<MutableMap<String, Int>> = ArrayDeque()
+    public val captures: ArrayDeque<MutableMap<String, Int>> = ArrayDeque()
     public val contexts: ArrayDeque<MutableMap<Type, String>> = ArrayDeque()
 
     public fun isLocal(variable: String): Boolean {
-        return variable in this.locals.last()
+        return variable in this.locals.lastOrNull().orEmpty()
+    }
+
+    public fun isCapture(variable: String): Boolean {
+        return variable in this.captures.lastOrNull().orEmpty()
     }
 
     public fun contextExists(type: Type): Boolean {
@@ -848,12 +881,14 @@ public class LocalsStack {
 
         this.stack.addLast(mutableMapOf())
         this.locals.addLast(mutableMapOf())
+        this.captures.addLast(mutableMapOf())
         this.contexts.addLast(mutableMapOf())
 
         block()
 
         this.stack.removeLast()
         this.locals.removeLast()
+        this.captures.removeLast()
         this.contexts.removeLast()
     }
 
@@ -865,12 +900,14 @@ public class LocalsStack {
 
         this.stack.addLast(mutableMapOf())
         this.locals.addLast(this.locals.lastOrNull()?.toMutableMap() ?: mutableMapOf())
+        this.captures.addLast(mutableMapOf())
         this.contexts.addLast(this.contexts.lastOrNull()?.toMutableMap() ?: mutableMapOf())
 
         block()
 
         this.stack.removeLast()
         this.locals.removeLast()
+        this.captures.removeLast()
         this.contexts.removeLast()
     }
 
@@ -916,5 +953,21 @@ public class LocalsStack {
         val index = currLocals[name] ?: error("unknown context variable with serialized name of $name (should be unreachable")
 
         return this.stack[index][name] ?: error("unknown context variable with serialized name of $name (should be unreachable")
+    }
+
+    public fun addCapture(variable: String): Int {
+        val currCaptures = this.captures.last()
+
+        val captureIndex = currCaptures.size
+
+        currCaptures[variable] = captureIndex
+
+        return captureIndex
+    }
+
+    public fun getCapture(variable: String): Int {
+        val currCaptures = this.captures.last()
+
+        return currCaptures[variable] ?: error("unknown capture variable (should be unreachable)")
     }
 }

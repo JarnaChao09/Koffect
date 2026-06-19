@@ -139,6 +139,7 @@ public data class TypedIfExpression(
 public data class TypedLambda(
     val contexts: List<Type>,
     val parameters: List<TypedParameter>,
+    val captures: Set<TypedExpression>,
     val body: List<TypedStatement>,
     override val type: Type,
 ) : TypedExpression {
@@ -147,7 +148,7 @@ public data class TypedLambda(
     }
 
     override fun toString(): String {
-        return "{ ${if (this.contexts.isNotEmpty()) "context(${this.contexts.joinToString(", ")}) " else ""}${if (this.parameters.isNotEmpty()) "(${this.parameters.joinToString(", ")}) " else ""}->\n${this.body.joinToString("\n").prependIndent()}\n}"
+        return "${this.captures.joinToString(prefix = "[", postfix = "]")} { ${if (this.contexts.isNotEmpty()) "context(${this.contexts.joinToString(", ")}) " else ""}${if (this.parameters.isNotEmpty()) "(${this.parameters.joinToString(", ")}) " else ""}->\n${this.body.joinToString("\n").prependIndent()}\n}"
     }
 }
 

@@ -30,10 +30,10 @@ public class Environment(
         this.variables[name] = type
     }
 
-    public fun getVariable(name: String): Type? {
-        return this.variables.getOrElse(name) {
-            this.enclosing?.getVariable(name)
-        }
+    public fun getVariable(name: String, local: Boolean = true): Triple<Type, Boolean, Boolean>? {
+        return this.variables[name]?.let {
+            Triple(it, local, this.depth == 0)
+        } ?: this.enclosing?.getVariable(name, local = false)
     }
 
     // public operator fun plusAssign(variable: Pair<String, Type>) {

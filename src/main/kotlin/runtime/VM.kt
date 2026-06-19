@@ -21,7 +21,7 @@ public class VM(
 
     public fun interpret(chunk: Chunk): Int {
         this.frames.addFirst(CallFrame(
-            ObjectFunction(Function("script", 0, chunk)),
+            ObjectClosure(Function("script", 0, 0, chunk),emptyArray()),
             MutableList(256) { NullValue },
         ))
         this.ip = 0
@@ -43,6 +43,26 @@ public class VM(
                         it.constants[index]
                     }
                     push(constant)
+                }
+                Opcode.ClosureConstant -> {
+                    val closure = this.currentChunk!!.let { chunk ->
+                        val index = chunk.code[this.ip++]
+                        val function = (chunk.constants[index] as ObjectFunction).value
+                        val captures = Array(function.captureCount) {
+                            val isLocal = chunk.code[this.ip++]
+                            val index = chunk.code[this.ip++]
+
+                            if (isLocal == 1) {
+                                UpValue(this.frames.first().locals[index])
+                            } else {
+                                TODO("somehow capture non-local upvalues")
+                            }
+                        }
+
+                        ObjectClosure(function, captures)
+                    }
+
+                    push(closure)
                 }
                 Opcode.IntIdentity -> {
                     val value = this.pop().value as Int
@@ -243,6 +263,20 @@ public class VM(
 
                     this.frames.first().locals[index] = this.peek()
                 }
+                Opcode.GetUpvalue -> {
+                    val index = this.currentChunk!!.let {
+                        it.code[this.ip++]
+                    }
+
+                    push(this.frames.first().function.captures[index].underlying)
+                }
+                Opcode.SetUpvalue -> {
+                    val index = this.currentChunk!!.let {
+                        it.code[this.ip++]
+                    }
+
+                    this.frames.first().function.captures[index].underlying = this.peek()
+                }
                 Opcode.Call -> {
                     val argCount = this.currentChunk!!.code[this.ip++]
 
@@ -255,6 +289,17 @@ public class VM(
 
                     when (callee) {
                         is ObjectFunction -> {
+                            CallFrame(
+                                ObjectClosure(callee.value, emptyArray()),
+                                args.toMutableList(),
+                                returnIp = this.ip
+                            ).also {
+                                this.frames.addFirst(it)
+                                this.ip = 0
+                                this.currentChunk = it.function.value.chunk
+                            }
+                        }
+                        is ObjectClosure -> {
                             CallFrame(
                                 callee,
                                 args.toMutableList(),

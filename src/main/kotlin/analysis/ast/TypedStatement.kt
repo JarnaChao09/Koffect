@@ -96,6 +96,7 @@ public data class TypedFunctionDeclaration(
     val contexts: List<Type>,
     val parameters: List<TypedParameter>,
     val returnType: Type,
+    val captures: Set<TypedVariable>,
     val body: List<TypedStatement>,
     val inline: Boolean,
     val deleted: Boolean,
@@ -104,7 +105,7 @@ public data class TypedFunctionDeclaration(
         get() = this.parameters.size
 
     override fun toString(): String {
-        return "${if (this.contexts.isNotEmpty()) "context(${this.contexts.joinToString(", ")}) " else ""}${if (inline) "inline " else ""}fun ${receiver?.let { "${it.mangledName}." } ?: ""}${this.name.lexeme}(${this.parameters.joinToString(", ")}): ${this.returnType} {\n${
+        return "${if (this.contexts.isNotEmpty()) "context(${this.contexts.joinToString(", ")}) " else ""}${if (inline) "inline " else ""}fun ${receiver?.let { "${it.mangledName}." } ?: ""}${this.name.lexeme}(${this.parameters.joinToString(", ")}): ${this.returnType} { ${this.captures.joinToString(prefix = "[", postfix = "]")}\n${
             this.body.joinToString(
                 "\n"
             ).prependIndent()

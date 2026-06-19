@@ -4,6 +4,7 @@ public enum class Opcode {
     IntConstant,
     DoubleConstant,
     ObjectConstant,
+    ClosureConstant,
     IntIdentity,
     IntNegate,
     DoubleIdentity,
@@ -42,6 +43,8 @@ public enum class Opcode {
     SetGlobal,
     GetLocal,
     SetLocal,
+    GetUpvalue,
+    SetUpvalue,
     Call,
     Pop,
     Return;

@@ -11,6 +11,7 @@ import parser.ast.*
 
 public class TypeChecker(public var environment: Environment) {
     private var currentClass: ClassType? = null
+    private var currentCaptures: MutableSet<TypedVariable> = mutableSetOf()
 
     private enum class Scope {
         TOP_LEVEL,
@@ -231,7 +232,7 @@ public class TypeChecker(public var environment: Environment) {
                     val returnType = it.returnType.toType()
                     val receiverType = it.receiver?.toType()
 
-                    var oldFunctionType = this.environment.getVariable(name)
+                    var oldFunctionType = this.environment.getVariable(name)?.first
 
                     if (oldFunctionType == null) {
                         val funcType = FunctionType(name)
@@ -260,6 +261,8 @@ public class TypeChecker(public var environment: Environment) {
 
                     val previousScope = this.scope
                     this.scope = Scope.FUNCTION_LEVEL
+                    val previousCaptures = this.currentCaptures
+                    this.currentCaptures = mutableSetOf()
 
                     val typedBody = check(it.body, returns)
 
@@ -279,6 +282,10 @@ public class TypeChecker(public var environment: Environment) {
 
                     this.environment = this.environment.enclosing!!
                     this.scope = previousScope
+                    val captures = this.currentCaptures
+                    this.currentCaptures = previousCaptures
+
+                    println("[LOG]: function declaration ${it.name.lexeme} captures $captures")
 
                     val deletionReason = if (containsDelete) {
                         (typedBody.first() as TypedDeleteStatement).reason
@@ -318,6 +325,7 @@ public class TypeChecker(public var environment: Environment) {
                         contextTypes,
                         typedParameters,
                         returnType,
+                        captures.toSet(),
                         typedBody,
                         it.inline,
                         deleted = containsDelete
@@ -726,7 +734,7 @@ public class TypeChecker(public var environment: Environment) {
                     ?: classRef.functions[this.name.lexeme]?.functionType
                     ?: run {
                         // todo: current workaround for not re-opening class definitions in the environment for extensions
-                        val function = when (val type = this@TypeChecker.environment.getVariable(this.name.lexeme)) {
+                        val function = when (val type = this@TypeChecker.environment.getVariable(this.name.lexeme)?.first) {
                             is ClassType -> error("Extension receiver lookup currently cannot handle class types")
                             is FunctionType -> type
                             is LambdaType -> error("Extension receiver lookup currently cannot handle lambda types")
@@ -821,6 +829,8 @@ public class TypeChecker(public var environment: Environment) {
                 // todo: determine if keeping at function level is ok
                 val previousScope = this@TypeChecker.scope
                 this@TypeChecker.scope = Scope.FUNCTION_LEVEL
+                val previousCaptures = this@TypeChecker.currentCaptures
+                this@TypeChecker.currentCaptures = mutableSetOf()
 
                 // todo: update type check to error on using un-labelled return statements in lambdas
                 val body = check(this.body)
@@ -832,10 +842,15 @@ public class TypeChecker(public var environment: Environment) {
 
                 this@TypeChecker.environment = this@TypeChecker.environment.enclosing!!
                 this@TypeChecker.scope = previousScope
+                val captures = this@TypeChecker.currentCaptures
+                this@TypeChecker.currentCaptures = previousCaptures
+
+                println("[LOG]: lambda captures $captures")
 
                 TypedLambda(
                     contextTypes,
                     typedParameters,
+                    captures.toSet(),
                     typedBody,
                     LambdaType(
                         contextTypes,
@@ -949,8 +964,13 @@ public class TypeChecker(public var environment: Environment) {
                 TypedUnary(this.operator, typedExpression, returnType)
             }
             is Variable -> {
-                val variableType = this@TypeChecker.environment.getVariable(this.name.lexeme) ?: error("Undefined variable ${this.name.lexeme}")
-                TypedVariable(this.name, variableType)
+                this@TypeChecker.environment.getVariable(this.name.lexeme)?.let { (variableType, local, global) ->
+                    TypedVariable(this.name, variableType).also {
+                        if (!local && !global) {
+                            currentCaptures.add(it)
+                        }
+                    }
+                } ?: error("Undefined variable ${this.name.lexeme}")
             }
         }
     }

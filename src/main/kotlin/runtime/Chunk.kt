@@ -57,7 +57,9 @@ public class Chunk(
             }
             Opcode.Call,
             Opcode.GetLocal,
-            Opcode.SetLocal, -> {
+            Opcode.SetLocal,
+            Opcode.GetUpvalue,
+            Opcode.SetUpvalue, -> {
                 val slot = this@Chunk.code[offset + 1]
                 appendLine("%-16s %4d".format(instruction, slot))
                 offset + 2
@@ -103,6 +105,30 @@ public class Chunk(
             Opcode.Return -> {
                 appendLine(instruction)
                 offset + 1
+            }
+
+            Opcode.ClosureConstant -> {
+                var c = 1
+                val constant = this@Chunk.code[offset + c++]
+                this@Chunk.constants[constant].also {
+                    when (it) {
+                        is ObjectFunction -> {
+                            functions.add(it)
+                            appendLine("%-16s %4d $it".format(instruction, constant))
+                            val function = it.value
+
+                            repeat(function.captureCount) {
+                                val isLocal = this@Chunk.code[offset + c++]
+                                val index = this@Chunk.code[offset + c++]
+
+                                appendLine("%04d      |                     %s %d".format(offset + c - 2, if (isLocal == 1) "local" else "upvalue", index))
+                            }
+                        }
+                        else -> error("constant following opcode closure constant is not a function")
+                    }
+                }
+
+                offset + c
             }
         }
     }
