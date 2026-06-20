@@ -71,7 +71,7 @@ public data class TypedStringLiteral(override val value: String) : TypedLiteral<
 
 public data class TypedAssign(val name: Token, val expression: TypedExpression) : TypedExpression {
     override val type: Type
-        get() = this.expression.type
+        get() = VariableType("Unit")
 
     override fun toString(): String {
         return "${this.name.lexeme} = ${this.expression}"
@@ -139,7 +139,7 @@ public data class TypedIfExpression(
 public data class TypedLambda(
     val contexts: List<Type>,
     val parameters: List<TypedParameter>,
-    val captures: Set<TypedExpression>,
+    val captures: Set<TypedVariable>,
     val body: List<TypedStatement>,
     override val type: Type,
 ) : TypedExpression {

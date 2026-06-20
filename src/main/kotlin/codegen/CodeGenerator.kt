@@ -608,6 +608,9 @@ public class CodeGenerator {
                     root.parameters.forEach { parameter ->
                         this.stack.addVariable(parameter.name.lexeme)
                     }
+                    root.captures.forEach { capture ->
+                        this.stack.addCapture(capture.name.lexeme)
+                    }
 
                     this.generateStatements(root.body, inline)
 
@@ -630,9 +633,28 @@ public class CodeGenerator {
                     this.returnEmitted = previousReturnEmitted
                 }
 
+                val opcode = if (root.captures.isNotEmpty()) {
+                    Opcode.ClosureConstant
+                } else {
+                    Opcode.ObjectConstant
+                }.toInt()
                 val constant = this.currentChunk.addConstant(function)
-                this.currentChunk.write(Opcode.ObjectConstant.toInt(), this.line)
-                this.currentChunk.write(constant, this.line++)
+                this.currentChunk.write(opcode, this.line)
+                this.currentChunk.write(constant, this.line)
+
+                root.captures.forEach { c ->
+                    val name = c.name.lexeme
+                    val (index, local) = if (this.stack.isLocal(name)) {
+                        this.stack.getVariable(name) to 1
+                    } else {
+                        this.stack.getCapture(name) to 0
+                    }
+
+                    this.currentChunk.write(local, this.line)
+                    this.currentChunk.write(index, this.line)
+                }
+
+                this.line++
             }
             is TypedLogical -> {
                 dfs(root.left, inline)

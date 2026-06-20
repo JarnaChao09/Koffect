@@ -681,25 +681,71 @@ public fun repl() {
     //     foo();
     // """.trimIndent()
 
+    // val srcString = """
+    //     fun foo() {
+    //         var x: String = "hello";
+    //
+    //         fun get() {
+    //             println(x);
+    //         }
+    //
+    //         fun set(newValue: String) {
+    //             x = newValue;
+    //         }
+    //
+    //         get();
+    //         set("world");
+    //         get();
+    //     }
+    //
+    //     foo();
+    // """.trimIndent()
+
     val srcString = """
-        fun foo() {
-            var x: String = "hello";
-
-            fun get() {
+        fun main() {
+            var x: String = "foo";
+            
+            val get: () -> Unit = {
                 println(x);
-            }
-
-            fun set(newValue: String) {
-                x = newValue;
-            }
-
+            };
+            
+            val set: (String) -> Unit = { v: String ->
+                x = v;
+            };
+            
             get();
-            set("world");
+            set("bar");
             get();
         }
-
-        foo();
+        
+        main();
     """.trimIndent()
+
+    // val srcString = """
+    //     var get: () -> Unit = {};
+    //     var set: (String) -> Unit = { s: String -> println(s); };
+    //
+    //     fun foo() {
+    //         var x: String = "hello";
+    //
+    //         fun g() {
+    //             println(x);
+    //         }
+    //
+    //         fun s(n: String) {
+    //             x = n;
+    //         }
+    //
+    //         get = g;
+    //         set = s;
+    //     }
+    //
+    //     foo();
+    //
+    //     get();
+    //     set("world");
+    //     get();
+    // """.trimIndent()
 
     val lexer = Lexer(srcString)
     val parser = Parser(lexer.tokens)
