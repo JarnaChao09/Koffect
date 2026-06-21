@@ -37,11 +37,11 @@ public sealed interface ObjectValue<T> : Value<T>
 public data class Function(val name: String, val arity: Int, val captureCount: Int, val chunk: Chunk)
 
 public data class ObjectFunction(override val value: Function) : ObjectValue<Function> {
-    override fun toString(): String = "<function/${value.arity} ${value.name}>"
+    override fun toString(): String = "<function/${value.arity} ${value.name} ${value.captureCount}>"
 }
 
 public class ObjectClosure(override val value: Function, public val captures: Array<UpValue>) : ObjectValue<Function> {
-    override fun toString(): String = "<closure/{${value.arity} ${value.name}>"
+    override fun toString(): String = "<closure/${value.arity} ${value.name} ${value.captureCount}>"
 }
 
 public data class ObjectString(override val value: String) : ObjectValue<String> {

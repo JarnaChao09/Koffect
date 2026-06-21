@@ -58,7 +58,9 @@ public class VM(
                                     UpValue(this.frames.first().locals[index])
                                 }
                             } else {
-                                TODO("somehow capture non-local upvalues")
+                                this.frames.drop(1).first().captures.getOrElse(index) {
+                                    error("unknown captured upvalue")
+                                }
                             }
                         }
 

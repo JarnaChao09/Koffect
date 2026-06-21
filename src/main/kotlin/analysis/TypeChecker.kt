@@ -283,7 +283,10 @@ public class TypeChecker(public var environment: Environment) {
                     this.environment = this.environment.enclosing!!
                     this.scope = previousScope
                     val captures = this.currentCaptures
-                    this.currentCaptures = previousCaptures
+                    this.currentCaptures = (previousCaptures + captures.filterKeys { capture ->
+                        // NOTE: second is local test
+                        this.environment.getVariable(capture)?.second?.not() ?: error("capture found that is not in parent environment")
+                    }).toMutableMap()
 
                     println("[LOG]: function declaration ${it.name.lexeme} captures $captures")
 
@@ -846,7 +849,10 @@ public class TypeChecker(public var environment: Environment) {
                 this@TypeChecker.environment = this@TypeChecker.environment.enclosing!!
                 this@TypeChecker.scope = previousScope
                 val captures = this@TypeChecker.currentCaptures
-                this@TypeChecker.currentCaptures = previousCaptures
+                this@TypeChecker.currentCaptures = (previousCaptures + captures.filterKeys { capture ->
+                    // NOTE: second is local test
+                    this@TypeChecker.environment.getVariable(capture)?.second?.not() ?: error("capture found that is not in parent environment")
+                }).toMutableMap()
 
                 println("[LOG]: lambda captures $captures")
 

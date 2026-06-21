@@ -721,15 +721,32 @@ public fun repl() {
     //     main();
     // """.trimIndent()
 
+    // val srcString = """
+    //     fun foo(y: Int): () -> Int {
+    //         val x: Int = 100;
+    //
+    //         return { x + y; };
+    //     }
+    //
+    //     fun main() {
+    //         val f: () -> Int = foo(10);
+    //         println(f());
+    //     }
+    //
+    //     main();
+    // """.trimIndent()
+
     val srcString = """
-        fun foo(y: Int): () -> Int {
-            val x: Int = 100;
+        fun foo(x: Int): () -> Int {
+            fun bar(): () -> Int {
+                return { x; };
+            }
             
-            return { x + y; };
+            return bar();
         }
         
         fun main() {
-            val f: () -> Int = foo(10);
+            val f: () -> Int = foo(1);
             println(f());
         }
         
