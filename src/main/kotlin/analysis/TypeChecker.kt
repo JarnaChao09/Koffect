@@ -11,7 +11,7 @@ import parser.ast.*
 
 public class TypeChecker(public var environment: Environment) {
     private var currentClass: ClassType? = null
-    private var currentCaptures: MutableSet<TypedVariable> = mutableSetOf()
+    private var currentCaptures: MutableMap<String, TypedVariable> = mutableMapOf()
 
     private enum class Scope {
         TOP_LEVEL,
@@ -262,7 +262,7 @@ public class TypeChecker(public var environment: Environment) {
                     val previousScope = this.scope
                     this.scope = Scope.FUNCTION_LEVEL
                     val previousCaptures = this.currentCaptures
-                    this.currentCaptures = mutableSetOf()
+                    this.currentCaptures = mutableMapOf()
 
                     val typedBody = check(it.body, returns)
 
@@ -325,7 +325,7 @@ public class TypeChecker(public var environment: Environment) {
                         contextTypes,
                         typedParameters,
                         returnType,
-                        captures.toSet(),
+                        captures.values.toSet(),
                         typedBody,
                         it.inline,
                         deleted = containsDelete
@@ -387,7 +387,7 @@ public class TypeChecker(public var environment: Environment) {
                 this@TypeChecker.environment.getVariable(this.name.lexeme)?.let { (variableType, local, global) ->
                     if (typedAssignment.type == variableType) {
                         if (!local && !global) {
-                            currentCaptures.add(TypedVariable(this.name, variableType))
+                            currentCaptures[this.name.lexeme] = TypedVariable(this.name, variableType)
                         }
                         TypedAssign(this.name, typedAssignment)
                     } else {
@@ -833,7 +833,7 @@ public class TypeChecker(public var environment: Environment) {
                 val previousScope = this@TypeChecker.scope
                 this@TypeChecker.scope = Scope.FUNCTION_LEVEL
                 val previousCaptures = this@TypeChecker.currentCaptures
-                this@TypeChecker.currentCaptures = mutableSetOf()
+                this@TypeChecker.currentCaptures = mutableMapOf()
 
                 // todo: update type check to error on using un-labelled return statements in lambdas
                 val body = check(this.body)
@@ -853,7 +853,7 @@ public class TypeChecker(public var environment: Environment) {
                 TypedLambda(
                     contextTypes,
                     typedParameters,
-                    captures.toSet(),
+                    captures.values.toSet(),
                     typedBody,
                     LambdaType(
                         contextTypes,
@@ -970,7 +970,7 @@ public class TypeChecker(public var environment: Environment) {
                 this@TypeChecker.environment.getVariable(this.name.lexeme)?.let { (variableType, local, global) ->
                     TypedVariable(this.name, variableType).also {
                         if (!local && !global) {
-                            currentCaptures.add(it)
+                            currentCaptures[this.name.lexeme] = it
                         }
                     }
                 } ?: error("Undefined variable ${this.name.lexeme}")

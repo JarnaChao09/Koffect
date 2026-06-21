@@ -701,21 +701,36 @@ public fun repl() {
     //     foo();
     // """.trimIndent()
 
+    // val srcString = """
+    //     fun main() {
+    //         var x: String = "foo";
+    //
+    //         val get: () -> Unit = {
+    //             println(x);
+    //         };
+    //
+    //         val set: (String) -> Unit = { v: String ->
+    //             x = v;
+    //         };
+    //
+    //         get();
+    //         set("bar");
+    //         get();
+    //     }
+    //
+    //     main();
+    // """.trimIndent()
+
     val srcString = """
+        fun foo(y: Int): () -> Int {
+            val x: Int = 100;
+            
+            return { x + y; };
+        }
+        
         fun main() {
-            var x: String = "foo";
-            
-            val get: () -> Unit = {
-                println(x);
-            };
-            
-            val set: (String) -> Unit = { v: String ->
-                x = v;
-            };
-            
-            get();
-            set("bar");
-            get();
+            val f: () -> Int = foo(10);
+            println(f());
         }
         
         main();

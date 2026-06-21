@@ -10,7 +10,7 @@ import kotlin.contracts.contract
 public class CodeGenerator {
     private lateinit var currentChunk: Chunk
     private var line: Int = 1
-    private var returnEmitted: Boolean = false
+    private var returnEmitted: Boolean? = false // NOTE: if null, currently not inside a function
     private val stack: LocalsStack = LocalsStack()
     private var inlinedParameters = ArrayDeque<Map<String, TypedExpression>>()
     private var inlinedJumps: MutableList<Int> = mutableListOf()
@@ -39,6 +39,13 @@ public class CodeGenerator {
                 }
                 is TypedReturnExpressionStatement -> {
                     dfs(it.returnExpression, inline)
+
+                    if (this.returnEmitted != null) {
+                        // TODO: better handling of when this is the last statement in a lambda vs if/else branches
+                        this.returnEmitted = true
+
+                        this.currentChunk.write(Opcode.Return.toInt(), this.line++)
+                    }
                 }
                 is TypedIfStatement -> {
                     this.generateIf(it.condition, it.trueBranch, it.falseBranch, inline)
@@ -74,7 +81,7 @@ public class CodeGenerator {
 
                             this.generateStatements(it.body, inline)
 
-                            if (!returnEmitted) {
+                            if (this.returnEmitted == false) {
                                 val constant = this.currentChunk.addConstant(UnitValue)
 
                                 this.currentChunk.write(Opcode.ObjectConstant.toInt(), this.line)
@@ -503,7 +510,7 @@ public class CodeGenerator {
                     // println("[LOG]: generating for this inlined body = $inlinedBody")
                     this.generateStatements(inlinedBody, inline = true)
 
-                    if (!returnEmitted) {
+                    if (this.returnEmitted == false) {
                         val constant = this.currentChunk.addConstant(UnitValue)
 
                         this.currentChunk.write(Opcode.ObjectConstant.toInt(), this.line)
@@ -614,7 +621,7 @@ public class CodeGenerator {
 
                     this.generateStatements(root.body, inline)
 
-                    if (!returnEmitted) {
+                    if (this.returnEmitted == false) {
                         val constant = this.currentChunk.addConstant(UnitValue)
 
                         this.currentChunk.write(Opcode.ObjectConstant.toInt(), this.line)
@@ -839,6 +846,9 @@ public class CodeGenerator {
     }
 
     private fun generateIf(condition: TypedExpression, trueBranch: List<TypedStatement>, falseBranch: List<TypedStatement>, inline: Boolean) {
+        val previousReturnEmitted = this.returnEmitted
+        this.returnEmitted = null
+
         this.dfs(condition, inline)
 
         val elseBranch = this.currentChunk.emitJump(Opcode.JumpIfFalse)
@@ -857,6 +867,8 @@ public class CodeGenerator {
         }
 
         this.currentChunk.patchJump(skipElseBranch)
+
+        this.returnEmitted = previousReturnEmitted
     }
 
     private fun Chunk.emitJump(instruction: Opcode): Int {
