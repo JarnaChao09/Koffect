@@ -556,7 +556,24 @@ public class CodeGenerator {
                                 )
                             }
                         }
+
                         // todo: calling convention for receiver instance
+                        if (root.type is LambdaType) {
+                            // todo: assuming that this was an extension lambda call
+                            if (this.stack.inGlobalScope() || !this.stack.isLocal(root.name.lexeme)) {
+                                val binding = this.currentChunk.addConstant(root.name.lexeme.toValue())
+
+                                this.currentChunk.write(Opcode.GetGlobal.toInt(), this.line)
+                                this.currentChunk.write(binding, this.line++)
+                            } else {
+                                this.currentChunk.write(Opcode.GetLocal.toInt(), this.line)
+                                this.currentChunk.write(
+                                    this.stack.getVariable(root.name.lexeme),
+                                    this.line++
+                                )
+                            }
+                        }
+
                         this.dfs(instance, inline)
                     }
                     is ClassType -> TODO()
@@ -609,6 +626,9 @@ public class CodeGenerator {
                 val function: ObjectFunction
 
                 this.stack.withNewScope {
+                    root.receiver?.let {
+                        this.stack.addVariable("this")
+                    }
                     root.contexts.forEach { ctx ->
                         this.stack.addContextVariable(ctx)
                     }
@@ -966,7 +986,7 @@ public class LocalsStack {
 
     public fun getVariable(variable: String): Int {
         val currLocals= this.locals.last()
-        val index = currLocals[variable] ?: error("unknown variable (should be unreachable)")
+        val index = currLocals[variable] ?: error("unknown variable (should be unreachable - $variable)")
 
         return this.stack[index][variable] ?: error("unknown variable (should be unreachable)")
     }

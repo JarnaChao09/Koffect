@@ -138,6 +138,7 @@ public data class TypedIfExpression(
 
 public data class TypedLambda(
     val contexts: List<Type>,
+    val receiver: Type?,
     val parameters: List<TypedParameter>,
     val captures: Set<TypedVariable>,
     val body: List<TypedStatement>,

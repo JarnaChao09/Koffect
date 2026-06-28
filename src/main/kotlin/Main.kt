@@ -736,18 +736,32 @@ public fun repl() {
     //     main();
     // """.trimIndent()
 
+    // val srcString = """
+    //     fun foo(x: Int): () -> Int {
+    //         fun bar(): () -> Int {
+    //             return { x; };
+    //         }
+    //
+    //         return bar();
+    //     }
+    //
+    //     fun main() {
+    //         val f: () -> Int = foo(1);
+    //         println(f());
+    //     }
+    //
+    //     main();
+    // """.trimIndent()
+
     val srcString = """
-        fun foo(x: Int): () -> Int {
-            fun bar(): () -> Int {
-                return { x; };
-            }
-            
-            return bar();
+        fun runWith(self: Int, block: Int.() -> Unit) {
+            self.block();
         }
         
         fun main() {
-            val f: () -> Int = foo(1);
-            println(f());
+            runWith(10) {
+                println(this * 2);
+            };
         }
         
         main();

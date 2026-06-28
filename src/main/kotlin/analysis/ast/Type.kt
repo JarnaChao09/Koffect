@@ -18,6 +18,7 @@ public data class VariableType(public val name: String) : Type {
 
 public data class LambdaType(
     val contextTypes: List<Type>,
+    val receiverType: Type?,
     val parameterTypes: List<Type>,
     val returnType: Type,
     val inline: Boolean,
@@ -27,7 +28,7 @@ public data class LambdaType(
     override val mangledName: String
         get() = "Lambda<${(this.contextTypes + this.parameterTypes).let { if (it.isNotEmpty()) it.joinToString(", ", postfix = ", ") { it.mangledName } else ""}}${returnType.mangledName}>"
 
-    override fun toString(): String = "${if (inline) "inline " else ""}${if (contextTypes.isNotEmpty()) "context(${contextTypes.joinToString(", ")}) " else ""}(${parameterTypes.joinToString(", ")}) -> $returnType"
+    override fun toString(): String = "${if (inline) "inline " else ""}${if (contextTypes.isNotEmpty()) "context(${contextTypes.joinToString(", ")}) " else ""}${receiverType?.let { "$it." } ?: ""}(${parameterTypes.joinToString(", ")}) -> $returnType"
 
     override fun hashCode(): Int {
         var result = inline.hashCode()

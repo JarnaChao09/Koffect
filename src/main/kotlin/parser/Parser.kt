@@ -291,6 +291,27 @@ public class Parser(tokenSequence: Sequence<Token>) {
         }
 
         if (match(TokenType.IDENTIFIER)) {
+            val potentialReceiver = this.previous
+
+            if (match(TokenType.DOT)) {
+                // lambda with receiver A.(B, C) -> D
+                // we have consumed `A.`, so `type` recursion gives (B, C) -> D
+
+                val lambdaTypeWithoutReceiver = type()
+
+                if (lambdaTypeWithoutReceiver is LambdaTypeConstructor && lambdaTypeWithoutReceiver.receiverType != null) {
+                    error("Lambda type already has a receiver type, conflict of $potentialReceiver vs ${lambdaTypeWithoutReceiver.receiverType}")
+                }
+
+                if (lambdaTypeWithoutReceiver !is LambdaTypeConstructor) {
+                    error("Receivers can only be applied to a lambda")
+                }
+
+                return lambdaTypeWithoutReceiver.copy(
+                    receiverType = TConstructor(potentialReceiver.lexeme)
+                )
+            }
+
             if (context.isNotEmpty()) {
                 error("Context declaration is only valid on lambda types")
             }
@@ -322,7 +343,7 @@ public class Parser(tokenSequence: Sequence<Token>) {
 
             val returnType = type()
 
-            return LambdaTypeConstructor(context, types, returnType)
+            return LambdaTypeConstructor(context, null, types, returnType)
         } else {
             error("Expected a type")
         }

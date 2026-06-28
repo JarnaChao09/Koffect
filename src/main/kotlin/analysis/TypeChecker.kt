@@ -558,7 +558,7 @@ public class TypeChecker(public var environment: Environment) {
                                 this.paren,
                                 finalTypedArguments,
                                 calleeType.returnType,
-                                false, // todo: handle lambdas with receivers
+                                calleeType.receiverType != null, // todo: handle lambdas with receivers
                             )
                         }
                     }
@@ -740,24 +740,32 @@ public class TypeChecker(public var environment: Environment) {
                     ?: classRef.functions[this.name.lexeme]?.functionType
                     ?: run {
                         // todo: current workaround for not re-opening class definitions in the environment for extensions
-                        val function = when (val type = this@TypeChecker.environment.getVariable(this.name.lexeme)?.first) {
+                        val functionType = when (val type = this@TypeChecker.environment.getVariable(this.name.lexeme)?.first) {
                             is ClassType -> error("Extension receiver lookup currently cannot handle class types")
-                            is FunctionType -> type
-                            is LambdaType -> error("Extension receiver lookup currently cannot handle lambda types")
+                            is FunctionType -> {
+                                val filteredOverloads = type.overloads.filter {
+                                    it.receiverType != null && it.receiverType == typedInstance.type
+                                }
+
+                                val filteredFunctionType = FunctionType(
+                                    type.name,
+                                    filteredOverloads.toMutableSet(),
+                                )
+
+                                filteredFunctionType
+                            }
+                            is LambdaType -> {
+                                if (type.receiverType != typedInstance.type) {
+                                    error("Incorrect receiver types: ${type.receiverType} vs ${typedInstance.type}")
+                                }
+
+                                type
+                            }
                             is VariableType -> error("Extension receiver lookup currently cannot handle variable types")
                             null -> error("Cannot find function ${this.name.lexeme} with receiver $receiverName")
                         }
 
-                        val filteredOverloads = function.overloads.filter {
-                            it.receiverType != null && it.receiverType == typedInstance.type
-                        }
-
-                        val filteredFunctionType = FunctionType(
-                            function.name,
-                            filteredOverloads.toMutableSet(),
-                        )
-
-                        filteredFunctionType
+                        functionType
                     }
                     // ?: error("Unknown property ${this.name.lexeme} on class '$receiverName'")
 
@@ -815,6 +823,9 @@ public class TypeChecker(public var environment: Environment) {
 
                     expectedType.contextTypes
                 }
+
+                val typedReceiver = expectedType?.receiverType // TODO(Jaran): lambda expressions cannot explicitly define a receiver currently
+
                 val typedParameters = this.parameters.map {
                     TypedLambda.TypedParameter(
                         it.name,
@@ -822,7 +833,7 @@ public class TypeChecker(public var environment: Environment) {
                     )
                 }
 
-                this@TypeChecker.environment = Environment(this@TypeChecker.environment, null) // todo: handle lambdas with receivers
+                this@TypeChecker.environment = Environment(this@TypeChecker.environment, typedReceiver) // todo: handle lambdas with receivers
 
                 contextTypes.forEach {
                     this@TypeChecker.environment.addContextVariable(it)
@@ -858,11 +869,13 @@ public class TypeChecker(public var environment: Environment) {
 
                 TypedLambda(
                     contextTypes,
+                    typedReceiver,
                     typedParameters,
                     captures.values.toSet(),
                     typedBody,
                     LambdaType(
                         contextTypes,
+                        typedReceiver,
                         typedParameters.map(TypedLambda.TypedParameter::type),
                         returnType,
                         inline,
@@ -990,6 +1003,7 @@ private fun parser.ast.Type.toType(): Type {
         is TConstructor -> VariableType(this.toString())
         is LambdaTypeConstructor -> LambdaType(
             contextTypes = this.contextTypes.map { it.toType() },
+            receiverType = this.receiverType?.toType(),
             parameterTypes = this.parameterTypes.map { it.toType() },
             returnType = this.returnType.toType(),
             inline = false,
