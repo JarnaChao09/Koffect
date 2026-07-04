@@ -31,7 +31,25 @@ public class CodeGenerator {
         ast.forEach {
             when(it) {
                 is TypedClassDeclaration -> {
-                    TODO()
+                    val binding = this.currentChunk.addConstant(it.name.lexeme.toValue())
+
+                    this.currentChunk.write(Opcode.Class.toInt(), this.line)
+                    this.currentChunk.write(binding, this.line++)
+
+                    // TODO: code-gen constructors
+
+                    if (this.stack.inGlobalScope()) {
+                        this.currentChunk.write(Opcode.DefineGlobal.toInt(), this.line)
+                        this.currentChunk.write(binding, this.line++)
+                    } else {
+                        error("local classes are currently not supported during code-gen")
+                        // this.currentChunk.write(Opcode.SetLocal.toInt(), this.line)
+                        // this.currentChunk.write(
+                        //     this.stack.addVariable(it.name.lexeme),
+                        //     this.line
+                        // )
+                        // this.currentChunk.write(Opcode.Pop.toInt(), this.line++)
+                    }
                 }
                 is TypedExpressionStatement -> {
                     dfs(it.expression, inline)

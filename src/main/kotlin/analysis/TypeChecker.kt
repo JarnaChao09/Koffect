@@ -113,15 +113,17 @@ public class TypeChecker(public var environment: Environment) {
                     val previousCurrentClass = this.currentClass
                     this.currentClass = currentClassType
 
-                    val classType = VariableType(it.name.lexeme)
+                    // val classType = VariableType(it.name.lexeme)
                     val classConstructorFunctionType = FunctionType(it.name.lexeme).apply {
-                        var generateNoArgs = true
+                        var generateNoArgs = false
                         primaryConstructor?.let { pc ->
-                            if (pc.parameters.isEmpty()) {
-                                generateNoArgs = false
-                            }
+                            // if (pc.parameters.isEmpty()) {
+                            //     generateNoArgs = false
+                            // }
 
-                            addOverload(null, emptyList(), pc.parameters.map(TypedParameter::type), classType)
+                            addOverload(null, emptyList(), pc.parameters.map(TypedParameter::type), currentClassType)
+                        } ?: run {
+                            generateNoArgs = true
                         }
 
                         secondaryConstructors.forEach { sc ->
@@ -129,28 +131,30 @@ public class TypeChecker(public var environment: Environment) {
                                 generateNoArgs = false
                             }
 
-                            addOverload(null, emptyList(), sc.parameters.map(TypedParameter::type), classType)
+                            addOverload(null, emptyList(), sc.parameters.map(TypedParameter::type), currentClassType)
                         }
 
                         if (generateNoArgs) {
-                            addOverload(null, emptyList(), emptyList(), classType)
+                            addOverload(null, emptyList(), emptyList(), currentClassType)
                         }
                     }
 
                     this.environment.addClass(it.name.lexeme, currentClassType)
                     this.environment.addVariable(
                         it.name.lexeme,
-                        classConstructorFunctionType,
+                        currentClassType,
+                        // classConstructorFunctionType,
                     )
+                    currentClassType.addFunction("constructor", classConstructorFunctionType)
 
-                    this.environment = Environment(this.environment, null)
+                    this.environment = Environment(this.environment, currentClassType)
 
                     primaryConstructor?.let { pc ->
                         pc.parameterTypes.forEachIndexed { index, type ->
                             val currParam = pc.parameters[index]
                             when (type) {
                                 FieldType.VAL, FieldType.VAR -> {
-                                    this.environment.addVariable(currParam.name.lexeme, currParam.type)
+                                    // this.environment.addVariable(currParam.name.lexeme, currParam.type)
                                     this.currentClass?.addProperty(currParam.name.lexeme, currParam.type)
                                 }
                                 FieldType.NONE -> {}
@@ -170,7 +174,7 @@ public class TypeChecker(public var environment: Environment) {
                             null,
                             emptyList(),
                             argumentTypes,
-                            classType,
+                            currentClassType,
                             false,
                             null,
                             null,
@@ -179,8 +183,17 @@ public class TypeChecker(public var environment: Environment) {
 
                         val constructorOverloads = classConstructorFunctionType.overloads
 
-                        require(currentConstructorType in constructorOverloads) {
-                            "Undefined constructor with type $currentConstructorType"
+                        // println("[LOG | SecondaryConstructors]: currentConstructorType = $currentConstructorType with hashcode ${currentConstructorType.hashCode()}")
+                        // println("[LOG | SecondaryConstructors]: constructorOverloads = $constructorOverloads with hashcodes ${constructorOverloads.map { o -> o.hashCode() }}")
+                        // println("[LOG | SecondaryConstructors]: currentConstructorType in constructorOverloads = ${currentConstructorType in constructorOverloads}")
+                        // println("[LOG | SecondaryConstructors]: constructorOverloads.any { o -> o == currentConstructorType} = ${constructorOverloads.any { o -> o == currentConstructorType}}")
+
+                        // NOTE: cannot rely on `in` operator (contains function) as the values of the set (FunctionType.Overload)
+                        //       inherently relies on mutation through the return type which is a ClassType
+                        // TODO: figure out how to remove the hashcode depending on the mutable properties inside ClassType
+                        // require(currentConstructorType in constructorOverloads) {
+                        require(constructorOverloads.any { o -> o == currentConstructorType}) {
+                            "Undefined constructor with type $currentConstructorType found in $constructorOverloads"
                         }
                     }
 
@@ -232,12 +245,22 @@ public class TypeChecker(public var environment: Environment) {
                     val returnType = it.returnType.toType()
                     val receiverType = it.receiver?.toType()
 
-                    var oldFunctionType = this.environment.getVariable(name)?.first
+                    var oldFunctionType = if (this.scope == Scope.CLASS_LEVEL) {
+                        val currentClass = this.currentClass ?: error("inside a class scope but current class is null (should be unreachable)")
+                        currentClass.functions[name]?.functionType
+                        // TODO("finding the function type of a method not implemented")
+                    } else {
+                        this.environment.getVariable(name)?.first
+                    }
 
                     if (oldFunctionType == null) {
                         val funcType = FunctionType(name)
                         oldFunctionType = funcType
-                        this.environment.addVariable(name, oldFunctionType)
+                        if (this.scope == Scope.CLASS_LEVEL) {
+                            // currently do nothing
+                        } else {
+                            this.environment.addVariable(name, oldFunctionType)
+                        }
                     } else {
                         require(oldFunctionType is FunctionType) {
                             "Function overloads cannot shadow variables currently" // todo: update environment to allow for both variables and functions to have the same identifier
@@ -341,7 +364,9 @@ public class TypeChecker(public var environment: Environment) {
                     val initializerType = typedInitializer?.type
 
                     initializerType?.let { initType ->
-                        if (initType != type) {
+                        if (initType is ClassType && initType.mangledName != type.mangledName) {
+                            error("Variable initializer does not match declared type, found class $initType but expected $type")
+                        } else if (initType !is ClassType && initType != type) {
                             error("Variable initializer does not match declared type, found $initType but expected $type")
                         }
                     }
@@ -653,7 +678,7 @@ public class TypeChecker(public var environment: Environment) {
 
                                 // check still required as expectedType is ignored (currently) by all other branches
                                 // except Lambda
-                                if (type != argument.type) {
+                                if (type.mangledName != "Any" && type != argument.type) {
                                     // println("[LOG]: function ${calleeType.name} - Argument of type ${argument.type} does not match $type")
                                     continue@loop
                                 } else {
@@ -679,11 +704,27 @@ public class TypeChecker(public var environment: Environment) {
                             found[typedPinnedContexts.size] ?: error("When pinning contexts, the overload found should have the pinned amount of contexts")
                         }
 
-                        if (max.size != 1) {
-                            error("Ambiguous function call for ${calleeType.name}${if (typedPinnedContexts?.isEmpty() ?: true) " " else " with pinned contexts of (${typedPinnedContexts.joinToString(", ")}) "}was found. Multiple candidates found: ${max.joinToString(", ") { it.first.toString() }}")
+                        // TODO: better handling of subtypes
+                        val (foundOverload, foundArgs) = if (max.size != 1) {
+                            val noAny = max.filter { (overload, _) ->
+                                overload.parameterTypes.all { it.mangledName != "Any" }
+                            }
+                            if (noAny.size != 1) {
+                                error(
+                                    "Ambiguous function call for ${calleeType.name}${
+                                        if (typedPinnedContexts?.isEmpty() ?: true) " " else " with pinned contexts of (${
+                                            typedPinnedContexts.joinToString(
+                                                ", "
+                                            )
+                                        }) "
+                                    }was found. Multiple candidates found: ${max.joinToString(", ") { it.first.toString() }}"
+                                )
+                            } else {
+                                noAny.first()
+                            }
+                        } else {
+                            max.first()
                         }
-
-                        val (foundOverload, foundArgs) = max.first()
 
                         if (foundOverload.isDeleted) {
                             error("Calling of deleted signature for ${calleeType.name}${if (typedPinnedContexts?.isEmpty() ?: true) " " else " with pinned contexts of (${typedPinnedContexts.joinToString(", ")}) "}was found. Deletion reason: ${foundOverload.deletionReason?.toString() ?: "none given"}")
@@ -720,7 +761,66 @@ public class TypeChecker(public var environment: Environment) {
                             TypedCall(callee, this.paren, foundArgs, foundOverload.returnType, method)
                         }
                     }
-                    is ClassType -> error("Invoke on class types are currently not supported")
+                    is ClassType -> {
+                        calleeType.functions["constructor"]?.functionType?.overloads?.let { overloads ->
+                            val found = mutableListOf<Pair<Overload, List<TypedExpression>>>()
+                            val typedArgumentsCache = mutableMapOf<Int, TypedExpression>()
+                            loop@ for (overload in overloads) {
+                                val args = mutableListOf<TypedExpression>()
+
+                                if (overload.arity != this.arguments.size) {
+                                    continue // error diagnostic?
+                                }
+
+                                for (i in this.arguments.indices) {
+                                    val type = overload.parameterTypes[i]
+                                    val argument = if (type is LambdaType) {
+                                        this.arguments[i].toTypedExpression(type)
+                                    } else {
+                                        typedArgumentsCache.getOrPut(i) {
+                                            this.arguments[i].toTypedExpression()
+                                        }
+                                    }
+
+                                    // check still required as expectedType is ignored (currently) by all other branches
+                                    // except Lambda
+                                    if (type.mangledName != "Any" && type != argument.type) {
+                                        // println("[LOG]: function ${calleeType.name} - Argument of type ${argument.type} does not match $type")
+                                        continue@loop
+                                    } else {
+                                        args.add(argument)
+                                    }
+                                }
+
+                                found.add(overload to args.toList())
+                            }
+
+                            // TODO: better handling of subtypes
+                            val (foundOverload, foundArgs) = if (found.size != 1) {
+                                val noAny = found.filter { (overload, _) ->
+                                    overload.parameterTypes.all { it.mangledName != "Any" }
+                                }
+                                if (noAny.size != 1) {
+                                    error(
+                                        "Ambiguous function call for ${calleeType.name}${
+                                            if (typedPinnedContexts?.isEmpty() ?: true) " " else " with pinned contexts of (${
+                                                typedPinnedContexts.joinToString(
+                                                    ", "
+                                                )
+                                            }) "
+                                        }was found. Multiple candidates found: ${found.joinToString(", ") { it.first.toString() }}"
+                                    )
+                                } else {
+                                    noAny.first()
+                                }
+                            } else {
+                                found.first()
+                            }
+
+                            // note: constructors cannot be inline
+                            TypedCall(typedCallee, this.paren, foundArgs, foundOverload.returnType, false)
+                        } ?: error("class $calleeType does not have a constructor (should be unreachable)")
+                    }
                 }
             }
             is Get -> {
@@ -730,7 +830,10 @@ public class TypeChecker(public var environment: Environment) {
                     is VariableType -> type.name
                     is LambdaType -> error("Lookup of lambda types is currently not supported during type checking")
                     is FunctionType -> error("Lookup of function types is currently not supported during type checking")
-                    is ClassType -> error("Lookup of class types is currently not supported during type checking")
+                    is ClassType -> {
+                        type.name
+                        // error("Lookup of class types is currently not supported during type checking")
+                    }
                 }
 
                 val classRef = this@TypeChecker.environment.getClass(receiverName) ?: error("Unknown class '$receiverName'")
@@ -991,6 +1094,38 @@ public class TypeChecker(public var environment: Environment) {
                         if (!local && !global) {
                             currentCaptures[this.name.lexeme] = it
                         }
+                    }
+                } ?: run {
+                    val currentClass = this@TypeChecker.currentClass ?: return@run null
+                    val property = currentClass.properties[this.name.lexeme]
+                    val function = currentClass.functions[this.name.lexeme]
+
+                    if (property == null && function == null) {
+                        null
+                    } else if (property != null && function == null) {
+                        TypedGet(
+                            instance = TypedThis(
+                                keyword = this.name,
+                                at = null,
+                                label = null,
+                                type = currentClass
+                            ),
+                            name = this.name,
+                            type = property.type
+                        )
+                    } else if (property == null && function != null) {
+                        TypedGet(
+                            instance = TypedThis(
+                                keyword = this.name,
+                                at = null,
+                                label = null,
+                                type = currentClass
+                            ),
+                            name = this.name,
+                            type = function.functionType
+                        )
+                    } else { // property != null && function != null
+                        error("shadowing of a class property and function found")
                     }
                 } ?: error("Undefined variable ${this.name.lexeme}")
             }

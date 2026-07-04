@@ -45,7 +45,8 @@ public class Chunk(
             Opcode.ObjectConstant,
             Opcode.DefineGlobal,
             Opcode.GetGlobal,
-            Opcode.SetGlobal, -> {
+            Opcode.SetGlobal,
+            Opcode.Class, -> {
                 val constant = this@Chunk.code[offset + 1]
                 appendLine("%-16s %4d ${this@Chunk.constants[constant].also {
                     when (it) {

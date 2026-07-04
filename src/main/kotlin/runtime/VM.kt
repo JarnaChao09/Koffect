@@ -322,6 +322,9 @@ public class VM(
 
                             this.push(result)
                         }
+                        is ObjectClass -> {
+                            this.push(Instance(callee.value).toValue())
+                        }
                         else -> error("Can only call functions and classes")
                     }
                 }
@@ -346,6 +349,14 @@ public class VM(
                         this.push(result)
                         this.currentChunk = it.function.value.chunk
                     }
+                }
+                Opcode.Class -> {
+                    val constant = this.currentChunk!!.let {
+                        val index = it.code[this.ip++]
+                        it.constants[index] as? ObjectString
+                    } ?: error("runtime: class name was not a string (should be unreachable)")
+
+                    push(Class(constant.value).toValue())
                 }
             }
         }

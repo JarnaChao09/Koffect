@@ -22,14 +22,14 @@ public fun main(args: Array<String>) {
 public fun repl() {
     val env = buildEnvironment {
         function("println") {
-            for (type in listOf("Int", "Double", "Boolean", "String", "Unit", "Nothing?")) {
+            for (type in listOf("Any", "Int", "Double", "Boolean", "String", "Unit", "Nothing?")) {
                 listOf(type) returns "Unit"
             }
             emptyList<String>() returns "Unit"
         }
 
         function("print") {
-            for (type in listOf("Int", "Double", "Boolean", "String", "Unit", "Nothing?")) {
+            for (type in listOf("Any", "Int", "Double", "Boolean", "String", "Unit", "Nothing?")) {
                 listOf(type) returns "Unit"
             }
         }
@@ -93,7 +93,7 @@ public fun repl() {
     val typechecker = TypeChecker(env)
     val vm = VM()
 
-    for (inputType in listOf("Int", "Double", "Boolean", "String", "Unit", "Nothing?")) {
+    for (inputType in listOf("Any", "Int", "Double", "Boolean", "String", "Unit", "Nothing?")) {
         vm.addNativeFunction("println//$inputType/Unit") {
             assert(it.size == 1)
             println(it[0])
@@ -753,19 +753,60 @@ public fun repl() {
     //     main();
     // """.trimIndent()
 
+    // val srcString = """
+    //     fun runWith(self: Int, block: Int.() -> Unit) {
+    //         self.block();
+    //     }
+    //
+    //     fun main() {
+    //         runWith(10) {
+    //             println(this * 2);
+    //         };
+    //     }
+    //
+    //     main();
+    // """.trimIndent()
+
     val srcString = """
-        fun runWith(self: Int, block: Int.() -> Unit) {
-            self.block();
-        }
+        class Foo {}
         
-        fun main() {
-            runWith(10) {
-                println(this * 2);
-            };
-        }
-        
-        main();
+        println(Foo());
     """.trimIndent()
+
+    // val srcString = """
+    //     class Foo constructor(val bar: Double) {
+    //         val baz1: Int = bar.toInt();
+    //         val baz2: Int = this.bar.toInt();
+    //
+    //         constructor(l: Int, r: Int) : this((l + r).toDouble()) {
+    //             print("secondary constructor with ");
+    //             print(l);
+    //             print(" + ");
+    //             println(r);
+    //         }
+    //
+    //         fun quux(): Double {
+    //             val bar: Double = 3.14;
+    //             return bar + this.bar;
+    //         }
+    //     }
+    //
+    //     fun main() {
+    //         val f1: Foo = Foo(10.0);
+    //         val f2: Foo = Foo(3, 4);
+    //         // val f3: Foo = Foo(5); // error
+    //
+    //         println(f1.baz1);
+    //         println(f1.baz2);
+    //         println(f1.quux());
+    //
+    //         println(f2.baz1);
+    //         println(f2.baz2);
+    //         println(f2.quux());
+    //     }
+    //
+    //     main();
+    // """.trimIndent()
 
     // val srcString = """
     //     var get: () -> Unit = {};

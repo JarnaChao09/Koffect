@@ -107,6 +107,7 @@ public data class FunctionType(
         get() = error("function types should not have a mangled name as it depends on the particular overload (should be unreachable)")
 }
 
+// TODO: figure out how to remove the hashcode depending on the mutable properties inside ClassType (see TypeChecker)
 public data class ClassType(
     public val name: String,
     public val superclass: ClassType?,
@@ -134,6 +135,19 @@ public data class ClassType(
 
     public fun addFunction(
         name: String,
+        functionType: FunctionType,
+    ): Function {
+        return if (this.mutableFunctions.containsKey(name)) {
+            error("A function with name $name already exists inside of class ${this.name}")
+        } else {
+            Function(name, functionType).also {
+                this.mutableFunctions[name] = it
+            }
+        }
+    }
+
+    public fun addFunction(
+        name: String,
         receiverType: Type?,
         contextTypes: List<Type>,
         parameterTypes: List<Type>,
@@ -152,6 +166,10 @@ public data class ClassType(
                 this.mutableFunctions[name] = it
             }
         }
+    }
+
+    override fun toString(): String {
+        return this.name
     }
 
     override val mangledName: String

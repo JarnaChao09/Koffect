@@ -48,6 +48,18 @@ public data class ObjectString(override val value: String) : ObjectValue<String>
     override fun toString(): String = this.value
 }
 
+public data class Class(val name: String)
+
+public data class ObjectClass(override val value: Class) : ObjectValue<Class> {
+    override fun toString(): String = "<class/${value.name}>"
+}
+
+public data class Instance(val klass: Class)
+
+public data class ObjectInstance(override val value: Instance) : ObjectValue<Instance> {
+    override fun toString(): String = "<instance/${value.klass}>"
+}
+
 public typealias NativeFunc = (List<Value<*>>) -> Value<*>
 
 public data class NativeFunction(val function: NativeFunc)
@@ -70,6 +82,8 @@ public inline fun <T : Any> T?.toValue(): Value<T> = when(this) {
     is Boolean -> BooleanValue(this)
     is String -> ObjectString(this)
     is Function -> ObjectFunction(this)
+    is Class -> ObjectClass(this)
+    is Instance -> ObjectInstance(this)
     is NativeFunction -> ObjectNativeFunction(this)
     else -> error("Invalid value type")
 } as Value<T>
