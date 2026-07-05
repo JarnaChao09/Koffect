@@ -140,7 +140,7 @@ public data class TypedLambda(
     val contexts: List<Type>,
     val receiver: Type?,
     val parameters: List<TypedParameter>,
-    val captures: Set<TypedVariable>,
+    val captures: Set<TypedCapture>,
     val body: List<TypedStatement>,
     override val type: Type,
 ) : TypedExpression {
@@ -174,13 +174,15 @@ public data class TypedUnary(val operator: Token, val expression: TypedExpressio
     }
 }
 
-public data class TypedVariable(val name: Token, override val type: Type, val mangledName: String = name.lexeme) : TypedExpression {
+public sealed interface TypedCapture : TypedExpression
+
+public data class TypedVariable(val name: Token, override val type: Type, val mangledName: String = name.lexeme) : TypedCapture {
     override fun toString(): String {
         return "${this.name.lexeme}<${this.type}>"
     }
 }
 
-public data class TypedContextVariable(val depth: Int, override val type: Type) : TypedExpression {
+public data class TypedContextVariable(val depth: Int, override val type: Type) : TypedCapture {
     override fun toString(): String {
         return "context_variable_${type}_$depth"
     }

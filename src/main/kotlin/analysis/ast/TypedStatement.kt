@@ -96,7 +96,7 @@ public data class TypedFunctionDeclaration(
     val contexts: List<Type>,
     val parameters: List<TypedParameter>,
     val returnType: Type,
-    val captures: Set<TypedVariable>,
+    val captures: Set<TypedCapture>,
     val body: List<TypedStatement>,
     val inline: Boolean,
     val deleted: Boolean,

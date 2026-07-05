@@ -11,7 +11,7 @@ import parser.ast.*
 
 public class TypeChecker(public var environment: Environment) {
     private var currentClass: ClassType? = null
-    private var currentCaptures: MutableMap<String, TypedVariable> = mutableMapOf()
+    private var currentCaptures: MutableMap<String, TypedCapture> = mutableMapOf()
 
     private enum class Scope {
         TOP_LEVEL,
@@ -306,9 +306,12 @@ public class TypeChecker(public var environment: Environment) {
                     this.environment = this.environment.enclosing!!
                     this.scope = previousScope
                     val captures = this.currentCaptures
-                    this.currentCaptures = (previousCaptures + captures.filterKeys { capture ->
+                    this.currentCaptures = (previousCaptures + captures.filter { (name, capture) ->
                         // NOTE: second is local test
-                        this.environment.getVariable(capture)?.second?.not() ?: error("capture found that is not in parent environment")
+                        when (capture) {
+                            is TypedContextVariable -> this@TypeChecker.environment.getContextVariable(capture.type)?.second?.not() ?: error("context capture found that is not in parent environment")
+                            is TypedVariable -> this@TypeChecker.environment.getVariable(name)?.second?.not() ?: error("capture found that is not in parent environment")
+                        }
                     }).toMutableMap()
 
                     println("[LOG]: function declaration ${it.name.lexeme} captures $captures")
@@ -519,8 +522,12 @@ public class TypeChecker(public var environment: Environment) {
                                         error("Not enough arguments passed to invoke $calleeType")
                                     }
 
-                                    this@TypeChecker.environment.getContextVariable(type)?.let {
-                                        add(it)
+                                    this@TypeChecker.environment.getContextVariable(type)?.let { (cvar, local) ->
+                                        if (!local) {
+                                            // todo: figure out how to merge captures with context variables
+                                            currentCaptures[cvar.toString()] = cvar
+                                        }
+                                        add(cvar)
                                         inlinedContexts.add(type to false)
                                     } ?: run {
                                         val typedArgument =
@@ -638,8 +645,12 @@ public class TypeChecker(public var environment: Environment) {
 
                             if (typedPinnedContexts == null) {
                                 for (type in functionOverload.contextTypes) {
-                                    this@TypeChecker.environment.getContextVariable(type)?.let {
-                                        args.add(it)
+                                    this@TypeChecker.environment.getContextVariable(type)?.let { (cvar, local) ->
+                                        if (!local) {
+                                            // todo: figure out how to merge captures with context variables
+                                            currentCaptures[cvar.toString()] = cvar
+                                        }
+                                        args.add(cvar)
                                     } ?: continue@loop
                                 }
                             } else {
@@ -653,8 +664,12 @@ public class TypeChecker(public var environment: Environment) {
                                     if (context !in typedPinnedContexts) {
                                         continue@loop
                                     } else {
-                                        this@TypeChecker.environment.getContextVariable(context)?.let {
-                                            args.add(it)
+                                        this@TypeChecker.environment.getContextVariable(context)?.let { (cvar, local) ->
+                                            if (!local) {
+                                                // todo: figure out how to merge captures with context variables
+                                                currentCaptures[cvar.toString()] = cvar
+                                            }
+                                            args.add(cvar)
                                         } ?: continue@loop
                                     }
                                 }
@@ -963,9 +978,12 @@ public class TypeChecker(public var environment: Environment) {
                 this@TypeChecker.environment = this@TypeChecker.environment.enclosing!!
                 this@TypeChecker.scope = previousScope
                 val captures = this@TypeChecker.currentCaptures
-                this@TypeChecker.currentCaptures = (previousCaptures + captures.filterKeys { capture ->
+                this@TypeChecker.currentCaptures = (previousCaptures + captures.filter { (name, capture) ->
                     // NOTE: second is local test
-                    this@TypeChecker.environment.getVariable(capture)?.second?.not() ?: error("capture found that is not in parent environment")
+                    when (capture) {
+                        is TypedContextVariable -> this@TypeChecker.environment.getContextVariable(capture.type)?.second?.not() ?: error("context capture found that is not in parent environment")
+                        is TypedVariable -> this@TypeChecker.environment.getVariable(name)?.second?.not() ?: error("capture found that is not in parent environment")
+                    }
                 }).toMutableMap()
 
                 println("[LOG]: lambda captures $captures")
@@ -1040,7 +1058,16 @@ public class TypeChecker(public var environment: Environment) {
 
                     // todo: update to support all possible labels
                     // todo: should qualified this be able to qualify receiver based on type instead of function name?
-                    this@TypeChecker.environment.getContextVariable(labelType) ?: error("Labeled this could not find $labelType in scope")
+                    this@TypeChecker
+                        .environment
+                        .getContextVariable(labelType)
+                        ?.let { (cvar, local) ->
+                            if (!local) {
+                                currentCaptures[cvar.toString()] = TypedVariable(name = this.keyword, type = labelType)
+                            }
+                            cvar
+                        }
+                        ?: error("Labeled this could not find $labelType in scope")
                 } else {
                     // unqualified this will go to current class
                     // todo: update unqualified this usage to include functions/lambdas with a receiver (extensions)

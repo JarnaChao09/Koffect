@@ -66,10 +66,10 @@ public class Environment(
         this.contextVariables[type] = TypedContextVariable(depth, type)
     }
 
-    public fun getContextVariable(type: Type): TypedContextVariable? {
-        return this.contextVariables.getOrElse(type) {
-            this.enclosing?.getContextVariable(type)
-        }
+    public fun getContextVariable(type: Type, local: Boolean = true): Pair<TypedContextVariable, Boolean>? {
+        return this.contextVariables[type]?.let {
+            it to local
+        } ?: this.enclosing?.getContextVariable(type, local = false)
     }
 
     public fun getCurrentReceiver(): Type? {

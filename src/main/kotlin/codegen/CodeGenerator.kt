@@ -94,7 +94,7 @@ public class CodeGenerator {
                                 this.stack.addVariable(parameter.name.lexeme)
                             }
                             it.captures.forEach { capture ->
-                                this.stack.addCapture(capture.name.lexeme)
+                                this.stack.addCapture(capture)
                             }
 
                             this.generateStatements(it.body, inline)
@@ -124,11 +124,23 @@ public class CodeGenerator {
                         this.currentChunk.write(constant, this.line)
 
                         it.captures.forEach { c ->
-                            val name = c.name.lexeme
-                            val (index, local) = if (this.stack.isLocal(name)) {
-                                this.stack.getVariable(name) to 1
-                            } else {
-                                this.stack.getCapture(name) to 0
+                            val (index, local) = when (c) {
+                                is TypedContextVariable -> {
+                                    val type = c.type
+                                    if (this.stack.isLocalContext(type)) {
+                                        this.stack.getContextVariable(type) to 1
+                                    } else {
+                                        this.stack.getCapture(c) to 0
+                                    }
+                                }
+                                is TypedVariable -> {
+                                    val name = c.name.lexeme
+                                    if (this.stack.isLocal(name)) {
+                                        this.stack.getVariable(name) to 1
+                                    } else {
+                                        this.stack.getCapture(name) to 0
+                                    }
+                                }
                             }
 
                             this.currentChunk.write(local, this.line)
@@ -654,7 +666,7 @@ public class CodeGenerator {
                         this.stack.addVariable(parameter.name.lexeme)
                     }
                     root.captures.forEach { capture ->
-                        this.stack.addCapture(capture.name.lexeme)
+                        this.stack.addCapture(capture)
                     }
 
                     this.generateStatements(root.body, inline)
@@ -688,11 +700,23 @@ public class CodeGenerator {
                 this.currentChunk.write(constant, this.line)
 
                 root.captures.forEach { c ->
-                    val name = c.name.lexeme
-                    val (index, local) = if (this.stack.isLocal(name)) {
-                        this.stack.getVariable(name) to 1
-                    } else {
-                        this.stack.getCapture(name) to 0
+                    val (index, local) = when (c) {
+                        is TypedContextVariable -> {
+                            val type = c.type
+                            if (this.stack.isLocalContext(type)) {
+                                this.stack.getContextVariable(type) to 1
+                            } else {
+                                this.stack.getCapture(c) to 0
+                            }
+                        }
+                        is TypedVariable -> {
+                            val name = c.name.lexeme
+                            if (this.stack.isLocal(name)) {
+                                this.stack.getVariable(name) to 1
+                            } else {
+                                this.stack.getCapture(name) to 0
+                            }
+                        }
                     }
 
                     this.currentChunk.write(local, this.line)
@@ -873,9 +897,14 @@ public class CodeGenerator {
                         )
                     }
                 } else {
-                    this.currentChunk.write(Opcode.GetLocal.toInt(), this.line)
+                    val isLocal = this.stack.isLocalContext(root.type)
+                    val (opcode, value) = when {
+                        isLocal -> Opcode.GetLocal to this.stack.getContextVariable(root.type)
+                        else -> Opcode.GetUpvalue to this.stack.getCapture(root.toString())
+                    }
+                    this.currentChunk.write(opcode.toInt(), this.line)
                     this.currentChunk.write(
-                        this.stack.getContextVariable(root.type),
+                        value,
                         this.line++
                     )
                 }
@@ -938,6 +967,10 @@ public class LocalsStack {
 
     public fun isLocal(variable: String): Boolean {
         return variable in this.locals.lastOrNull().orEmpty()
+    }
+
+    public fun isLocalContext(type: Type): Boolean {
+        return type in this.contexts.lastOrNull().orEmpty()
     }
 
     public fun isCapture(variable: String): Boolean {
@@ -1034,12 +1067,17 @@ public class LocalsStack {
         return this.stack[index][name] ?: error("unknown context variable with serialized name of $name (should be unreachable")
     }
 
-    public fun addCapture(variable: String): Int {
+    public fun addCapture(capture: TypedCapture): Int {
         val currCaptures = this.captures.last()
 
         val captureIndex = currCaptures.size
 
-        currCaptures[variable] = captureIndex
+        val name = when (capture) {
+            is TypedContextVariable -> capture.toString()
+            is TypedVariable -> capture.name.lexeme
+        }
+
+        currCaptures[name] = captureIndex
 
         return captureIndex
     }
@@ -1048,5 +1086,16 @@ public class LocalsStack {
         val currCaptures = this.captures.last()
 
         return currCaptures[variable] ?: error("unknown capture variable (should be unreachable)")
+    }
+
+    public fun getCapture(capture: TypedCapture): Int {
+        val currCaptures = this.captures.last()
+
+        val name = when (capture) {
+            is TypedContextVariable -> capture.toString()
+            is TypedVariable -> capture.name.lexeme
+        }
+
+        return currCaptures[name] ?: error("unknown capture variable (should be unreachable)")
     }
 }
