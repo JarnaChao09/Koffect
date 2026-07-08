@@ -45,8 +45,7 @@ public class Chunk(
             Opcode.ObjectConstant,
             Opcode.DefineGlobal,
             Opcode.GetGlobal,
-            Opcode.SetGlobal,
-            Opcode.Class, -> {
+            Opcode.SetGlobal, -> {
                 val constant = this@Chunk.code[offset + 1]
                 appendLine("%-16s %4d ${this@Chunk.constants[constant].also {
                     when (it) {
@@ -56,11 +55,20 @@ public class Chunk(
                 }}".format(instruction, constant))
                 offset + 2
             }
+            Opcode.Class -> {
+                val constant = this@Chunk.code[offset + 1]
+                val fieldCount = this@Chunk.code[offset + 2]
+                appendLine("%-16s %4d %4d ${this@Chunk.constants[constant]}".format(instruction, fieldCount, constant))
+                offset + 3
+            }
             Opcode.Call,
             Opcode.GetLocal,
             Opcode.SetLocal,
             Opcode.GetUpvalue,
-            Opcode.SetUpvalue, -> {
+            Opcode.SetUpvalue,
+            Opcode.GetProperty,
+            Opcode.SetProperty,
+            Opcode.Constructor -> {
                 val slot = this@Chunk.code[offset + 1]
                 appendLine("%-16s %4d".format(instruction, slot))
                 offset + 2
@@ -107,7 +115,6 @@ public class Chunk(
                 appendLine(instruction)
                 offset + 1
             }
-
             Opcode.ClosureConstant -> {
                 var c = 1
                 val constant = this@Chunk.code[offset + c++]

@@ -48,16 +48,16 @@ public data class ObjectString(override val value: String) : ObjectValue<String>
     override fun toString(): String = this.value
 }
 
-public data class Class(val name: String)
+public data class Class(val name: String, val fieldCount: Int, val constructors: MutableMap<Int, ObjectClosure>)
 
 public data class ObjectClass(override val value: Class) : ObjectValue<Class> {
     override fun toString(): String = "<class/${value.name}>"
 }
 
-public data class Instance(val klass: Class)
+public class Instance(public val klass: Class, public val fields: Array<Value<*>>)
 
 public data class ObjectInstance(override val value: Instance) : ObjectValue<Instance> {
-    override fun toString(): String = "<instance/${value.klass}>"
+    override fun toString(): String = "<instance/${value.klass}/${value.fields.contentToString()}>"
 }
 
 public typealias NativeFunc = (List<Value<*>>) -> Value<*>

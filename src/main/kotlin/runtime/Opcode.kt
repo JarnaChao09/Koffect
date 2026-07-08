@@ -45,10 +45,13 @@ public enum class Opcode {
     SetLocal,
     GetUpvalue,
     SetUpvalue,
+    GetProperty,
+    SetProperty,
     Call,
     Pop,
     Return,
-    Class;
+    Class,
+    Constructor;
 
     override fun toString(): String {
         return super.toString().uppercase()

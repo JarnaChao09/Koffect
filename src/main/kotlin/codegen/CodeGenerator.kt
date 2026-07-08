@@ -34,9 +34,12 @@ public class CodeGenerator {
                     val binding = this.currentChunk.addConstant(it.name.lexeme.toValue())
 
                     this.currentChunk.write(Opcode.Class.toInt(), this.line)
-                    this.currentChunk.write(binding, this.line++)
+                    this.currentChunk.write(binding, this.line)
+                    this.currentChunk.write(it.type.properties.size, this.line++)
 
                     // TODO: code-gen constructors
+                    // primary constructor
+                    it.primaryConstructor?.generate(it.name.lexeme)
 
                     if (this.stack.inGlobalScope()) {
                         this.currentChunk.write(Opcode.DefineGlobal.toInt(), this.line)
@@ -956,6 +959,45 @@ public class CodeGenerator {
         val offset = this.code.size - loopStart + 1
 
         this.write(-offset, this@CodeGenerator.line++)
+    }
+
+    private fun TypedClassDeclaration.TypedPrimaryConstructor.generate(className: String) {
+        val oldChunk = this@CodeGenerator.currentChunk
+        val previousReturnEmitted = this@CodeGenerator.returnEmitted
+
+        this@CodeGenerator.currentChunk = Chunk()
+        this@CodeGenerator.returnEmitted = false
+
+        val function: ObjectFunction
+
+        this@CodeGenerator.stack.withNewScope {
+            repeat(this.parameters.size) {
+                this@CodeGenerator.currentChunk.write(Opcode.GetLocal.toInt(), this@CodeGenerator.line)
+                this@CodeGenerator.currentChunk.write(0, this@CodeGenerator.line)
+
+                this@CodeGenerator.currentChunk.write(Opcode.GetLocal.toInt(), this@CodeGenerator.line)
+                this@CodeGenerator.currentChunk.write(it + 1, this@CodeGenerator.line)
+
+                this@CodeGenerator.currentChunk.write(Opcode.SetProperty.toInt(), this@CodeGenerator.line)
+                this@CodeGenerator.currentChunk.write(it, this@CodeGenerator.line++)
+            }
+
+            this@CodeGenerator.currentChunk.write(Opcode.GetLocal.toInt(), this@CodeGenerator.line)
+            this@CodeGenerator.currentChunk.write(0, this@CodeGenerator.line)
+            this@CodeGenerator.currentChunk.write(Opcode.Return.toInt(), this@CodeGenerator.line++)
+
+            function = ObjectFunction(Function("${className}_constructor//${this.parameters.joinToString("|") { it.type.mangledName }}/$className", this.parameters.size, 0, this@CodeGenerator.currentChunk))
+
+            this@CodeGenerator.currentChunk = oldChunk
+            this@CodeGenerator.returnEmitted = previousReturnEmitted
+        }
+
+        val constant = this@CodeGenerator.currentChunk.addConstant(function)
+        this@CodeGenerator.currentChunk.write(Opcode.ClosureConstant.toInt(), this@CodeGenerator.line)
+        this@CodeGenerator.currentChunk.write(constant, this@CodeGenerator.line)
+
+        this@CodeGenerator.currentChunk.write(Opcode.Constructor.toInt(), this@CodeGenerator.line)
+        this@CodeGenerator.currentChunk.write(this.parameters.size, this@CodeGenerator.line++)
     }
 }
 

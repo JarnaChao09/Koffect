@@ -214,6 +214,7 @@ public class TypeChecker(public var environment: Environment) {
                     @Suppress("UNCHECKED_CAST")
                     TypedClassDeclaration(
                         name = it.name,
+                        type = currentClassType,
                         primaryConstructor = primaryConstructor,
                         secondaryConstructors = secondaryConstructors,
                         superClass = superClassType,
@@ -808,6 +809,10 @@ public class TypeChecker(public var environment: Environment) {
                                 }
 
                                 found.add(overload to args.toList())
+                            }
+
+                            if (found.isEmpty()) {
+                                error("No valid function matching the call signature for ${calleeType.name}${if (typedPinnedContexts?.isEmpty() ?: true) " " else " with pinned contexts of (${typedPinnedContexts.joinToString(", ")}) "}was found. Known candidates are: ${overloads}")
                             }
 
                             // TODO: better handling of subtypes

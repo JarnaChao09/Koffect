@@ -205,6 +205,7 @@ public class Parser(tokenSequence: Sequence<Token>) {
 
             // test to see if there is a receiver type
             val mightBeReceiver = type()
+            // println("might be receiver $mightBeReceiver")
             if (match(TokenType.DOT)) {
                 val name = expect(TokenType.IDENTIFIER, "Function declaration must have a name")
 
@@ -216,6 +217,7 @@ public class Parser(tokenSequence: Sequence<Token>) {
                 null to expect(TokenType.IDENTIFIER, "Function declaration must have a name")
             }
         }
+        // println("parsed receiver, current token is ${this.peek()} -> $receiver, $name")
         expect(TokenType.LEFT_PAREN, "Expect '(' after function name")
         val parameters = this.parameterList()
 
@@ -293,6 +295,8 @@ public class Parser(tokenSequence: Sequence<Token>) {
         if (match(TokenType.IDENTIFIER)) {
             val potentialReceiver = this.previous
 
+            val mark = this.tokens.mark()
+
             if (match(TokenType.DOT)) {
                 // lambda with receiver A.(B, C) -> D
                 // we have consumed `A.`, so `type` recursion gives (B, C) -> D
@@ -304,18 +308,23 @@ public class Parser(tokenSequence: Sequence<Token>) {
                 }
 
                 if (lambdaTypeWithoutReceiver !is LambdaTypeConstructor) {
-                    error("Receivers can only be applied to a lambda")
+                    // error("Receivers can only be applied to a lambda")
+                    // NOTE: if the following is not a lambda type constructor, then it could be an extension function
+                    //       so we need to mark and restore
+                    // println("$potentialReceiver is not for a receiver lambda, restoring")
+                    this.current = this.tokens.restoreTo(mark)
+                    // println("restored to ${this.peek()}")
+                } else {
+                    return lambdaTypeWithoutReceiver.copy(
+                        receiverType = TConstructor(potentialReceiver.lexeme)
+                    )
                 }
-
-                return lambdaTypeWithoutReceiver.copy(
-                    receiverType = TConstructor(potentialReceiver.lexeme)
-                )
             }
 
             if (context.isNotEmpty()) {
                 error("Context declaration is only valid on lambda types")
             }
-            return TConstructor(this.previous.lexeme)
+            return TConstructor(potentialReceiver.lexeme) // .also { println("returning $it") }
         } else if (match(TokenType.LEFT_PAREN)) {
             // parenthesized type (A) or function type (A, B) -> C
 

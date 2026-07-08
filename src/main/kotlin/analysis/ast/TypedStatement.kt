@@ -13,6 +13,7 @@ public sealed interface TypedDeclaration : TypedStatement
 
 public data class TypedClassDeclaration(
     val name: Token,
+    val type: ClassType,
     val primaryConstructor: TypedPrimaryConstructor?,
     val secondaryConstructors: List<TypedSecondaryConstructor>,
     val superClass: Type?,

@@ -767,36 +767,43 @@ public fun repl() {
     //     main();
     // """.trimIndent()
 
-    val srcString = """
-        fun with(value: Int, block: context(Int) () -> Unit) {
-            block(value);
-        }
-        
-        fun run(block: () -> Unit) {
-            block();
-        }
-        
-        context(Int) fun foo() {
-            print("calling foo with ");
-            println(this@Int);
-        }
-        
-        fun main() {
-            with(10) {
-                run {
-                    foo();
-                };
-            };
-        }
-        
-        main();
-    """.trimIndent()
+    // val srcString = """
+    //     fun with(value: Int, block: context(Int) () -> Unit) {
+    //         block(value);
+    //     }
+    //
+    //     fun run(block: () -> Unit) {
+    //         block();
+    //     }
+    //
+    //     context(Int) fun foo() {
+    //         print("calling foo with ");
+    //         println(this@Int);
+    //     }
+    //
+    //     fun main() {
+    //         with(10) {
+    //             run {
+    //                 foo();
+    //             };
+    //         };
+    //     }
+    //
+    //     main();
+    // """.trimIndent()
 
     // val srcString = """
     //     class Foo {}
     //
     //     println(Foo());
     // """.trimIndent()
+
+    val srcString = """
+        class Add(val left: Int, val right: Int) {}
+
+        val a: Add = Add(10, 20);
+        println(a);
+    """.trimIndent()
 
     // val srcString = """
     //     class Foo constructor(val bar: Double) {

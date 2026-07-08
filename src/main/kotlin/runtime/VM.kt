@@ -282,13 +282,30 @@ public class VM(
 
                     this.frames.first().function.captures[index].underlying = this.peek()
                 }
+                Opcode.GetProperty -> {
+                    val instance = (peek() as ObjectInstance).value
+                    val slot = this.currentChunk!!.code[this.ip++]
+
+                    pop() // removing instance
+                    push(instance.fields[slot])
+                }
+                Opcode.SetProperty -> {
+                    val instance = (peek(1) as ObjectInstance).value
+                    val slot = this.currentChunk!!.code[this.ip++]
+
+                    instance.fields[slot] = peek()
+                    val value = pop()
+                    pop() // instance
+                    push(value)
+                }
                 Opcode.Call -> {
                     val argCount = this.currentChunk!!.code[this.ip++]
 
                     val callee = this.peek(argCount)
+                    val offset = if (callee is ObjectClass) 1 else 0
                     val args = MutableList<Value<*>>(256) { NullValue }
                     repeat(argCount) {
-                        args[argCount - it - 1] = this.pop()
+                        args[argCount - it - 1 + offset] = this.pop()
                     }
                     this.pop()
 
@@ -323,7 +340,21 @@ public class VM(
                             this.push(result)
                         }
                         is ObjectClass -> {
-                            this.push(Instance(callee.value).toValue())
+                            val klass = callee.value
+                            args[0] = Instance(callee.value, Array(klass.fieldCount) { NullValue }).toValue()
+
+                            val constructor = klass.constructors[argCount] ?: error("constructor for ${klass.name} with $argCount does not exist in VM (should be unreachable)")
+
+                            CallFrame(
+                                constructor,
+                                args.toMutableList(),
+                                mutableMapOf(),
+                                returnIp = this.ip
+                            ).also {
+                                this.frames.addFirst(it)
+                                this.ip = 0
+                                this.currentChunk = it.function.value.chunk
+                            }
                         }
                         else -> error("Can only call functions and classes")
                     }
@@ -351,12 +382,23 @@ public class VM(
                     }
                 }
                 Opcode.Class -> {
-                    val constant = this.currentChunk!!.let {
+                    val (constant, fieldCount) = this.currentChunk!!.let {
                         val index = it.code[this.ip++]
-                        it.constants[index] as? ObjectString
+                        val fieldCount = it.code[this.ip++]
+                        (it.constants[index] as? ObjectString)?.let { objectString ->
+                            objectString to fieldCount
+                        }
                     } ?: error("runtime: class name was not a string (should be unreachable)")
 
-                    push(Class(constant.value).toValue())
+                    push(Class(constant.value, fieldCount, mutableMapOf()).toValue())
+                }
+                Opcode.Constructor -> {
+                    this.currentChunk!!.let { chunk ->
+                        val arity = chunk.code[this.ip++]
+                        val closure = pop() as ObjectClosure
+                        val klass = peek() as ObjectClass
+                        klass.value.constructors[arity] = closure
+                    }
                 }
             }
         }
