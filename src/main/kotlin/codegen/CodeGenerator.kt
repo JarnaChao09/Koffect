@@ -41,6 +41,8 @@ public class CodeGenerator {
                     // primary constructor
                     it.primaryConstructor?.generate(it.name.lexeme)
 
+                    it.secondaryConstructors.forEach { constructor -> constructor.generate(it.name.lexeme) }
+
                     if (this.stack.inGlobalScope()) {
                         this.currentChunk.write(Opcode.DefineGlobal.toInt(), this.line)
                         this.currentChunk.write(binding, this.line++)
@@ -971,6 +973,12 @@ public class CodeGenerator {
         val function: ObjectFunction
 
         this@CodeGenerator.stack.withNewScope {
+            this@CodeGenerator.currentChunk.write(Opcode.GetLocal.toInt(), this@CodeGenerator.line)
+            this@CodeGenerator.currentChunk.write(0, this@CodeGenerator.line)
+            this@CodeGenerator.currentChunk.write(Opcode.New.toInt(), this@CodeGenerator.line)
+            this@CodeGenerator.currentChunk.write(Opcode.SetLocal.toInt(), this@CodeGenerator.line)
+            this@CodeGenerator.currentChunk.write(0, this@CodeGenerator.line++)
+
             repeat(this.parameters.size) {
                 this@CodeGenerator.currentChunk.write(Opcode.GetLocal.toInt(), this@CodeGenerator.line)
                 this@CodeGenerator.currentChunk.write(0, this@CodeGenerator.line)
@@ -987,6 +995,53 @@ public class CodeGenerator {
             this@CodeGenerator.currentChunk.write(Opcode.Return.toInt(), this@CodeGenerator.line++)
 
             function = ObjectFunction(Function("${className}_constructor//${this.parameters.joinToString("|") { it.type.mangledName }}/$className", this.parameters.size, 0, this@CodeGenerator.currentChunk))
+
+            this@CodeGenerator.currentChunk = oldChunk
+            this@CodeGenerator.returnEmitted = previousReturnEmitted
+        }
+
+        val constant = this@CodeGenerator.currentChunk.addConstant(function)
+        this@CodeGenerator.currentChunk.write(Opcode.ClosureConstant.toInt(), this@CodeGenerator.line)
+        this@CodeGenerator.currentChunk.write(constant, this@CodeGenerator.line)
+
+        this@CodeGenerator.currentChunk.write(Opcode.Constructor.toInt(), this@CodeGenerator.line)
+        this@CodeGenerator.currentChunk.write(this.parameters.size, this@CodeGenerator.line++)
+    }
+
+    private fun TypedClassDeclaration.TypedSecondaryConstructor.generate(className: String) {
+        val oldChunk = this@CodeGenerator.currentChunk
+        val previousReturnEmitted = this@CodeGenerator.returnEmitted
+
+        this@CodeGenerator.currentChunk = Chunk()
+        this@CodeGenerator.returnEmitted = false
+
+        val function: ObjectFunction
+
+        this@CodeGenerator.stack.withNewScope {
+            this@CodeGenerator.stack.addVariable("this")
+
+            this.parameters.forEach { parameter ->
+                this@CodeGenerator.stack.addVariable(parameter.name.lexeme)
+            }
+
+            this@CodeGenerator.currentChunk.write(Opcode.GetLocal.toInt(), this@CodeGenerator.line)
+            this@CodeGenerator.currentChunk.write(0, this@CodeGenerator.line++)
+
+            this.delegatedArguments.forEach { argument -> dfs(argument, false) }
+
+            this@CodeGenerator.currentChunk.write(Opcode.Call.toInt(), this@CodeGenerator.line)
+            this@CodeGenerator.currentChunk.write(this.delegatedArguments.size, this@CodeGenerator.line++)
+
+            this@CodeGenerator.currentChunk.write(Opcode.SetLocal.toInt(), this@CodeGenerator.line)
+            this@CodeGenerator.currentChunk.write(0, this@CodeGenerator.line++)
+
+            this@CodeGenerator.generateStatements(this.body, false)
+
+            this@CodeGenerator.currentChunk.write(Opcode.GetLocal.toInt(), this@CodeGenerator.line)
+            this@CodeGenerator.currentChunk.write(0, this@CodeGenerator.line)
+            this@CodeGenerator.currentChunk.write(Opcode.Return.toInt(), this@CodeGenerator.line++)
+
+            function = ObjectFunction(Function("${className}_constructor/${this.parameters.joinToString("|") { it.type.mangledName }}/$className", this.parameters.size, 0, this@CodeGenerator.currentChunk))
 
             this@CodeGenerator.currentChunk = oldChunk
             this@CodeGenerator.returnEmitted = previousReturnEmitted

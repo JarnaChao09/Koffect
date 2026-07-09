@@ -20,16 +20,26 @@ public fun main(args: Array<String>) {
 }
 
 public fun repl() {
+    val printTypes = listOf(
+        "Any",
+        // "Int",
+        // "Double",
+        // "Boolean",
+        // "String",
+        // "Unit",
+        // "Nothing?",
+    )
+
     val env = buildEnvironment {
         function("println") {
-            for (type in listOf("Any", "Int", "Double", "Boolean", "String", "Unit", "Nothing?")) {
+            for (type in printTypes) {
                 listOf(type) returns "Unit"
             }
             emptyList<String>() returns "Unit"
         }
 
         function("print") {
-            for (type in listOf("Any", "Int", "Double", "Boolean", "String", "Unit", "Nothing?")) {
+            for (type in printTypes) {
                 listOf(type) returns "Unit"
             }
         }
@@ -93,7 +103,7 @@ public fun repl() {
     val typechecker = TypeChecker(env)
     val vm = VM()
 
-    for (inputType in listOf("Any", "Int", "Double", "Boolean", "String", "Unit", "Nothing?")) {
+    for (inputType in printTypes) {
         vm.addNativeFunction("println//$inputType/Unit") {
             assert(it.size == 1)
             println(it[0])
@@ -799,10 +809,16 @@ public fun repl() {
     // """.trimIndent()
 
     val srcString = """
-        class Add(val left: Int, val right: Int) {}
+        class Add(val left: Int, val right: Int) {
+            constructor(combined: Int) : this(combined / 2, combined / 2) {
+                println(combined);
+            }
+        }
 
-        val a: Add = Add(10, 20);
-        println(a);
+        val a1: Add = Add(10, 20);
+        val a2: Add = Add(30);
+        println(a1);
+        println(a2);
     """.trimIndent()
 
     // val srcString = """

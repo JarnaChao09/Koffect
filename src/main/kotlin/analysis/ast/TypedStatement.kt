@@ -28,17 +28,17 @@ public data class TypedClassDeclaration(
         override fun toString(): String {
             return buildString {
                 append("(")
-                this@TypedPrimaryConstructor.parameters.zip(this@TypedPrimaryConstructor.parameterTypes)
-                    .forEach { (param, paramType) ->
-                        append(
+                append(
+                    this@TypedPrimaryConstructor.parameters
+                        .zip(this@TypedPrimaryConstructor.parameterTypes)
+                        .joinToString(separator = ", ") { (param, paramType) ->
                             when (paramType) {
-                                FieldType.VAL -> "val "
-                                FieldType.VAR -> "var "
-                                FieldType.NONE -> ""
+                                FieldType.VAL -> "val $param"
+                                FieldType.VAR -> "var $param"
+                                FieldType.NONE -> "$param"
                             }
-                        )
-                        append(param)
-                    }
+                        }
+                )
                 append(")")
             }
         }

@@ -51,7 +51,8 @@ public enum class Opcode {
     Pop,
     Return,
     Class,
-    Constructor;
+    Constructor,
+    New;
 
     override fun toString(): String {
         return super.toString().uppercase()

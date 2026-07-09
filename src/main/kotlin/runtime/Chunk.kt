@@ -111,7 +111,8 @@ public class Chunk(
             Opcode.IntMod,
             Opcode.DoubleMod,
             Opcode.Pop,
-            Opcode.Return -> {
+            Opcode.Return,
+            Opcode.New-> {
                 appendLine(instruction)
                 offset + 1
             }

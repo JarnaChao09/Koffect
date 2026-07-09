@@ -341,7 +341,7 @@ public class VM(
                         }
                         is ObjectClass -> {
                             val klass = callee.value
-                            args[0] = Instance(callee.value, Array(klass.fieldCount) { NullValue }).toValue()
+                            args[0] = callee
 
                             val constructor = klass.constructors[argCount] ?: error("constructor for ${klass.name} with $argCount does not exist in VM (should be unreachable)")
 
@@ -399,6 +399,11 @@ public class VM(
                         val klass = peek() as ObjectClass
                         klass.value.constructors[arity] = closure
                     }
+                }
+                Opcode.New -> {
+                    val klass = (pop() as ObjectClass).value
+
+                    push(Instance(klass, Array(klass.fieldCount) { NullValue }).toValue())
                 }
             }
         }
