@@ -815,10 +815,14 @@ public fun repl() {
             }
         }
 
-        val a1: Add = Add(10, 20);
-        val a2: Add = Add(30);
-        println(a1);
-        println(a2);
+        fun main() {
+            val a1: Add = Add(10, 20);
+            val a2: Add = Add(30);
+            println(a1.left);
+            println(a2.right);
+        }
+        
+        main();
     """.trimIndent()
 
     // val srcString = """

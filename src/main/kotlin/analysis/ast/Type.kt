@@ -121,14 +121,14 @@ public data class ClassType(
     public val functions: Map<String, Function>
         get() = this.mutableFunctions
 
-    public data class Property(val name: String, val type: Type)
+    public data class Property(val name: String, val type: Type, val slot: Int)
     public data class Function(val name: String, val functionType: FunctionType)
 
     public fun addProperty(name: String, type: Type): Property {
         if (this.mutableProperties.containsKey(name)) {
             error("A property with name $name already exists inside of class ${this.name}")
         }
-        return Property(name, type).also {
+        return Property(name, type, this.mutableProperties.size).also {
             this.mutableProperties[name] = it
         }
     }

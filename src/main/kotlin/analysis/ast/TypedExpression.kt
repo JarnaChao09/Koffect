@@ -110,7 +110,7 @@ public data class TypedInlineCall(
     }
 }
 
-public data class TypedGet(val instance: TypedExpression, val name: Token, override val type: Type) : TypedExpression {
+public data class TypedGet(val instance: TypedExpression, val name: Token, val slot: Int, override val type: Type) : TypedExpression {
     override fun toString(): String {
         return "${this.instance}.${this.name.lexeme}<${this.type}>"
     }

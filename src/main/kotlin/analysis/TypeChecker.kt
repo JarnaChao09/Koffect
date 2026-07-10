@@ -586,6 +586,7 @@ public class TypeChecker(public var environment: Environment) {
                                 TypedGet(
                                     typedCallee,
                                     this.paren.copy(type = TokenType.IDENTIFIER, "invoke"),
+                                    -1,
                                     calleeType,
                                 ),
                                 this.paren,
@@ -859,8 +860,8 @@ public class TypeChecker(public var environment: Environment) {
                 val classRef = this@TypeChecker.environment.getClass(receiverName) ?: error("Unknown class '$receiverName'")
 
                 // todo: new ast node for getting a function?
-                val getType = classRef.properties[this.name.lexeme]?.type
-                    ?: classRef.functions[this.name.lexeme]?.functionType
+                val (getType, slot) = classRef.properties[this.name.lexeme]?.let { (_, type, slot) -> type to slot }
+                    ?: classRef.functions[this.name.lexeme]?.functionType?.let { it to -1 }
                     ?: run {
                         // todo: current workaround for not re-opening class definitions in the environment for extensions
                         val functionType = when (val type = this@TypeChecker.environment.getVariable(this.name.lexeme)?.first) {
@@ -888,11 +889,11 @@ public class TypeChecker(public var environment: Environment) {
                             null -> error("Cannot find function ${this.name.lexeme} with receiver $receiverName")
                         }
 
-                        functionType
+                        functionType to -1
                     }
                     // ?: error("Unknown property ${this.name.lexeme} on class '$receiverName'")
 
-                TypedGet(typedInstance, this.name, getType)
+                TypedGet(typedInstance, this.name, slot, getType)
             }
             is Grouping -> {
                 TypedGrouping(this.expression.toTypedExpression())
@@ -1143,6 +1144,7 @@ public class TypeChecker(public var environment: Environment) {
                                 type = currentClass
                             ),
                             name = this.name,
+                            slot = property.slot,
                             type = property.type
                         )
                     } else if (property == null && function != null) {
@@ -1154,6 +1156,7 @@ public class TypeChecker(public var environment: Environment) {
                                 type = currentClass
                             ),
                             name = this.name,
+                            slot = -1, // TODO: function slots
                             type = function.functionType
                         )
                     } else { // property != null && function != null

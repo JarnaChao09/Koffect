@@ -566,6 +566,8 @@ public class CodeGenerator {
                 val instance = root.instance
                 val name = root.name.lexeme
 
+                println("[LOG | TypedGet]: root type = ${root.type} while instance type = ${instance.type}")
+
                 when (instance.type) {
                     is FunctionType -> TODO()
                     is LambdaType -> {
@@ -578,6 +580,7 @@ public class CodeGenerator {
                     is VariableType -> {
                         if (root.type is FunctionType) {
                             // todo: assuming that this was an extension function
+                            println("[LOG | TypedGet]: extension function call $root")
                             if (this.stack.inGlobalScope() || !this.stack.isLocal(root.name.lexeme)) {
                                 val binding = this.currentChunk.addConstant(root.name.lexeme.toValue())
 
@@ -595,6 +598,7 @@ public class CodeGenerator {
                         // todo: calling convention for receiver instance
                         if (root.type is LambdaType) {
                             // todo: assuming that this was an extension lambda call
+                            println("[LOG | TypedGet]: extension lambda call $root")
                             if (this.stack.inGlobalScope() || !this.stack.isLocal(root.name.lexeme)) {
                                 val binding = this.currentChunk.addConstant(root.name.lexeme.toValue())
 
@@ -609,7 +613,15 @@ public class CodeGenerator {
                             }
                         }
 
+                        println("[LOG | TypedGet]: dfs of $instance")
                         this.dfs(instance, inline)
+
+                        if (root.type is VariableType) {
+                            // todo: assuming that this was a property get as the instance type is currently not being
+                            //       merged with existing class types
+                            this.currentChunk.write(Opcode.GetProperty.toInt(), this.line)
+                            this.currentChunk.write(root.slot, this.line++)
+                        }
                     }
                     is ClassType -> TODO()
                 }

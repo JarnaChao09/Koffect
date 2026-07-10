@@ -157,7 +157,7 @@ public class ClassBuilder(private val klass: String) {
             "Property with name '$property' already exists"
         }
 
-        this.properties[property] = ClassType.Property(property, VariableType(type))
+        this.properties[property] = ClassType.Property(property, VariableType(type), this.properties.size)
     }
 
     public fun function(function: String, contexts: List<String> = emptyList(), block: FunctionBuilder.() -> Unit) {
