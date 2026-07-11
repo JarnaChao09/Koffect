@@ -116,6 +116,15 @@ public data class TypedGet(val instance: TypedExpression, val name: Token, val s
     }
 }
 
+public data class TypedSet(val instance: TypedExpression, val name: Token, val expression: TypedExpression, val slot: Int) : TypedExpression {
+    override val type: Type
+        get() = VariableType("Unit")
+
+    override fun toString(): String {
+        return "${this.instance}.${this.name.lexeme}"
+    }
+}
+
 public data class TypedGrouping(val expression: TypedExpression) : TypedExpression {
     override val type: Type
         get() = this.expression.type

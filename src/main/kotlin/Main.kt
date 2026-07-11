@@ -808,18 +808,34 @@ public fun repl() {
     //     println(Foo());
     // """.trimIndent()
 
-    val srcString = """
-        class Add(val left: Int, val right: Int) {
-            constructor(combined: Int) : this(combined / 2, combined / 2) {
-                println(combined);
-            }
-        }
+    // val srcString = """
+    //     class Add(val left: Int, val right: Int) {
+    //         constructor(combined: Int) : this(combined / 2, combined / 2) {
+    //             println(combined);
+    //         }
+    //     }
+    //
+    //     fun main() {
+    //         val a1: Add = Add(10, 20);
+    //         val a2: Add = Add(30);
+    //         println(a1.left);
+    //         println(a2.right);
+    //     }
+    //
+    //     main();
+    // """.trimIndent()
 
+    val srcString = """
+        class Box(var value: Int) {}
+        
         fun main() {
-            val a1: Add = Add(10, 20);
-            val a2: Add = Add(30);
-            println(a1.left);
-            println(a2.right);
+            val box: Box = Box(42);
+            
+            println(box.value);
+            
+            box.value = -42;
+            
+            println(box.value);
         }
         
         main();

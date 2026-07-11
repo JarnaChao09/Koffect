@@ -895,6 +895,29 @@ public class TypeChecker(public var environment: Environment) {
 
                 TypedGet(typedInstance, this.name, slot, getType)
             }
+            is parser.ast.Set -> {
+                val typedInstance = this.instance.toTypedExpression()
+                val typedExpression = this.expression.toTypedExpression()
+
+                val receiverName = when (val type = typedInstance.type) {
+                    is ClassType -> type.name
+                    is FunctionType -> error("Set of function type not supported")
+                    is LambdaType -> error("Set of lambda type not supported")
+                    is VariableType -> type.name
+                }
+
+                val classRef = this@TypeChecker.environment.getClass(receiverName) ?: error("Unknown class '$receiverName'")
+
+                // TODO: update kotlin version for named destructuring
+                val (_, setType, slot) = classRef.properties[this.name.lexeme] ?: error("Unknown property ${this.name.lexeme} on class '$receiverName'")
+
+                // TODO: handle subtyping
+                if (setType != typedExpression.type) {
+                    error("${typedExpression.type} does not match the expected type of $setType for ${this.name.lexeme}")
+                }
+
+                TypedSet(typedInstance, this.name, typedExpression, slot)
+            }
             is Grouping -> {
                 TypedGrouping(this.expression.toTypedExpression())
             }

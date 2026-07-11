@@ -44,6 +44,8 @@ public data class Call(
 
 public data class Get(val instance: Expression, val name: Token) : Expression
 
+public data class Set(val instance: Expression, val name: Token, val expression: Expression) : Expression
+
 public data class Grouping(val expression: Expression) : Expression
 
 public data class IfExpression(

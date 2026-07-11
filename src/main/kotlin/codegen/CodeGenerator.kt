@@ -626,6 +626,16 @@ public class CodeGenerator {
                     is ClassType -> TODO()
                 }
             }
+            is TypedSet -> {
+                val instance = root.instance
+                val expression = root.expression
+
+                this.dfs(instance, inline)
+                this.dfs(expression, inline)
+
+                this.currentChunk.write(Opcode.SetProperty.toInt(), this.line)
+                this.currentChunk.write(root.slot, this.line++)
+            }
             is TypedGrouping -> {
                 dfs(root.expression, inline)
             }

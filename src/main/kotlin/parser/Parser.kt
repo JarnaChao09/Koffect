@@ -473,6 +473,10 @@ public class Parser(tokenSequence: Sequence<Token>) {
                 return Assign(name, value)
             }
 
+            if (expr is Get) {
+                return Set(expr.instance, expr.name, value)
+            }
+
             error("Invalid Assignment Target on ${equals.line} at ${equals.column}")
         }
 
