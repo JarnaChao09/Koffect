@@ -390,7 +390,7 @@ public class VM(
                         }
                     } ?: error("runtime: class name was not a string (should be unreachable)")
 
-                    push(Class(constant.value, fieldCount, mutableMapOf()).toValue())
+                    push(Class(constant.value, fieldCount, mutableMapOf(), mutableListOf()).toValue())
                 }
                 Opcode.Constructor -> {
                     this.currentChunk!!.let { chunk ->
@@ -404,6 +404,41 @@ public class VM(
                     val klass = (pop() as ObjectClass).value
 
                     push(Instance(klass, Array(klass.fieldCount) { NullValue }).toValue())
+                }
+                Opcode.Method -> {
+                    val closure = pop() as ObjectClosure
+                    val klass = peek() as ObjectClass
+                    klass.value.methods.add(closure)
+                }
+
+                Opcode.Invoke -> {
+                    this.currentChunk!!.let { chunk ->
+                        val slot = chunk.code[this.ip++]
+                        val argCount = chunk.code[this.ip++]
+
+                        val callee = this.peek(argCount) as ObjectInstance
+                        val args = MutableList<Value<*>>(256) { NullValue }
+                        repeat(argCount) {
+                            args[argCount - it] = this.pop()
+                        }
+                        this.pop()
+
+                        val klass = callee.value.klass
+                        val closure = klass.methods[slot]
+
+                        args[0] = callee
+
+                        CallFrame(
+                            function = closure,
+                            locals = args.toMutableList(),
+                            captures = mutableMapOf(),
+                            returnIp = this.ip,
+                        ).also {
+                            this.frames.addFirst(it)
+                            this.ip = 0
+                            this.currentChunk = it.function.value.chunk
+                        }
+                    }
                 }
             }
         }

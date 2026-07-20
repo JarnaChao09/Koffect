@@ -73,6 +73,12 @@ public class Chunk(
                 appendLine("%-16s %4d".format(instruction, slot))
                 offset + 2
             }
+            Opcode.Invoke -> {
+                val slot = this@Chunk.code[offset + 1]
+                val arity = this@Chunk.code[offset + 2]
+                appendLine("%-16s %4d %4d".format(instruction, slot, arity))
+                offset + 3
+            }
             Opcode.Jump,
             Opcode.JumpIfTrue,
             Opcode.JumpIfFalse -> {
@@ -112,7 +118,8 @@ public class Chunk(
             Opcode.DoubleMod,
             Opcode.Pop,
             Opcode.Return,
-            Opcode.New-> {
+            Opcode.New,
+            Opcode.Method -> {
                 appendLine(instruction)
                 offset + 1
             }

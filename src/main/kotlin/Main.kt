@@ -825,17 +825,37 @@ public fun repl() {
     //     main();
     // """.trimIndent()
 
+    // val srcString = """
+    //     class Box(var value: Int) {}
+    //
+    //     fun main() {
+    //         val box: Box = Box(42);
+    //
+    //         println(box.value);
+    //
+    //         box.value = -42;
+    //
+    //         println(box.value);
+    //     }
+    //
+    //     main();
+    // """.trimIndent()
+
     val srcString = """
-        class Box(var value: Int) {}
+        class Box(var value: Int) {
+            fun print(other: Int) {
+                println(this.value * other);
+            }
+        }
         
         fun main() {
             val box: Box = Box(42);
             
-            println(box.value);
+            box.print(2);
             
             box.value = -42;
-            
-            println(box.value);
+         
+            box.print(2);
         }
         
         main();

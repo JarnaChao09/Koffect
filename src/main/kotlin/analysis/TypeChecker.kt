@@ -347,10 +347,16 @@ public class TypeChecker(public var environment: Environment) {
                         )
                     }
 
+                    // TODO: update to a better way of differentiating between method name mangling and function name mangling
+                    val namePrefix = if (this.scope == Scope.CLASS_LEVEL)
+                        "${this.currentClass!!.name}_${name}"
+                    else
+                        name
+
                     // todo: update a better way to handle function overloads
                     TypedFunctionDeclaration(
                         it.name,
-                        "$name/${overload.overloadSuffix()}",
+                        "$namePrefix/${overload.overloadSuffix()}",
                         receiverType,
                         contextTypes,
                         typedParameters,
@@ -861,7 +867,7 @@ public class TypeChecker(public var environment: Environment) {
 
                 // todo: new ast node for getting a function?
                 val (getType, slot) = classRef.properties[this.name.lexeme]?.let { (_, type, slot) -> type to slot }
-                    ?: classRef.functions[this.name.lexeme]?.functionType?.let { it to -1 }
+                    ?: classRef.functions[this.name.lexeme]?.let { it.functionType to it.slot }
                     ?: run {
                         // todo: current workaround for not re-opening class definitions in the environment for extensions
                         val functionType = when (val type = this@TypeChecker.environment.getVariable(this.name.lexeme)?.first) {

@@ -27,7 +27,7 @@ public class CodeGenerator {
         return this.currentChunk
     }
 
-    private fun generateStatements(ast: List<TypedStatement>, inline: Boolean) {
+    private fun generateStatements(ast: List<TypedStatement>, inline: Boolean, method: Boolean = false) {
         ast.forEach {
             when(it) {
                 is TypedClassDeclaration -> {
@@ -42,6 +42,8 @@ public class CodeGenerator {
                     it.primaryConstructor?.generate(it.name.lexeme)
 
                     it.secondaryConstructors.forEach { constructor -> constructor.generate(it.name.lexeme) }
+
+                    generateStatements(it.methods, inline, method = true)
 
                     if (this.stack.inGlobalScope()) {
                         this.currentChunk.write(Opcode.DefineGlobal.toInt(), this.line)
@@ -78,7 +80,11 @@ public class CodeGenerator {
                         error("Nested function declarations cannot be codegen-ed for inline functions")
                     }
                     if (!it.deleted && !it.inline) {
-                        val binding = this.currentChunk.addConstant(it.mangledName.toValue())
+                        val binding = if (method)
+                            -1 // NOTE: this is a method we are binding to the ObjectClass instance, it should not be in
+                               //       the constants pool
+                        else
+                            this.currentChunk.addConstant(it.mangledName.toValue())
 
                         val oldChunk = this.currentChunk
                         val previousReturnEmitted = this.returnEmitted
@@ -90,6 +96,12 @@ public class CodeGenerator {
 
                         this.stack.withNewScope {
                             it.receiver?.let {
+                                this.stack.addVariable("this")
+                            }
+                            if (method) {
+                                if (it.receiver != null) {
+                                    TODO("methods cannot have receivers")
+                                }
                                 this.stack.addVariable("this")
                             }
                             it.contexts.forEach { ctx ->
@@ -119,7 +131,7 @@ public class CodeGenerator {
                             this.returnEmitted = previousReturnEmitted
                         }
 
-                        val opcode = if (it.captures.isNotEmpty()) {
+                        val opcode = if (it.captures.isNotEmpty() || method) {
                             Opcode.ClosureConstant
                         } else {
                             Opcode.ObjectConstant
@@ -152,9 +164,14 @@ public class CodeGenerator {
                             this.currentChunk.write(index, this.line)
                         }
 
-                        this.line++
-                        this.currentChunk.write(Opcode.DefineGlobal.toInt(), this.line)
-                        this.currentChunk.write(binding, this.line++)
+                        if (method) {
+                            this.line++
+                            this.currentChunk.write(Opcode.Method.toInt(), this.line++)
+                        } else {
+                            this.line++
+                            this.currentChunk.write(Opcode.DefineGlobal.toInt(), this.line)
+                            this.currentChunk.write(binding, this.line++)
+                        }
                     }
                 }
                 is TypedVariableStatement -> {
@@ -477,13 +494,22 @@ public class CodeGenerator {
                 }.toInt(), this.line++)
             }
             is TypedCall -> {
-                dfs(root.callee, inline)
+                val (opcode, slot) = if (root.callee is TypedGet && root.callee.slot != -1) { // NOTE: calling a method
+                    dfs(root.callee.instance, inline)
+                    Opcode.Invoke to root.callee.slot
+                } else {
+                    dfs(root.callee, inline)
+                    Opcode.Call to -1
+                }
 
                 // todo: figure out better way of codegen-ing correct call arg count for extension functions (and methods in the future)
-                val argCount = root.arguments.size + (if (root.methodInvocation) 1 else 0)
+                val argCount = root.arguments.size + (if (slot == -1 && root.methodInvocation) 1 else 0)
                 root.arguments.forEach { this.dfs(it, inline) }
 
-                this.currentChunk.write(Opcode.Call.toInt(), this.line)
+                this.currentChunk.write(opcode.toInt(), this.line)
+                if (slot != -1) { // NOTE: calling a method, - 1 accounting for the "constructor method"
+                    this.currentChunk.write(slot - 1, this.line)
+                }
                 this.currentChunk.write(argCount, this.line++)
             }
             is TypedInlineCall -> {
@@ -566,7 +592,7 @@ public class CodeGenerator {
                 val instance = root.instance
                 val name = root.name.lexeme
 
-                println("[LOG | TypedGet]: root type = ${root.type} while instance type = ${instance.type}")
+                println("[LOG | TypedGet]: $root root type = ${root.type} while instance type = ${instance.type}")
 
                 when (instance.type) {
                     is FunctionType -> TODO()
@@ -580,18 +606,22 @@ public class CodeGenerator {
                     is VariableType -> {
                         if (root.type is FunctionType) {
                             // todo: assuming that this was an extension function
-                            println("[LOG | TypedGet]: extension function call $root")
-                            if (this.stack.inGlobalScope() || !this.stack.isLocal(root.name.lexeme)) {
-                                val binding = this.currentChunk.addConstant(root.name.lexeme.toValue())
-
-                                this.currentChunk.write(Opcode.GetGlobal.toInt(), this.line)
-                                this.currentChunk.write(binding, this.line++)
+                            println("[LOG | TypedGet]: extension function call $root at slot ${root.slot}")
+                            if (root.slot != -1) { // NOTE: this is a method
+                                TODO("figure out how to rectify typed get with method call")
                             } else {
-                                this.currentChunk.write(Opcode.GetLocal.toInt(), this.line)
-                                this.currentChunk.write(
-                                    this.stack.getVariable(root.name.lexeme),
-                                    this.line++
-                                )
+                                if (this.stack.inGlobalScope() || !this.stack.isLocal(root.name.lexeme)) {
+                                    val binding = this.currentChunk.addConstant(root.name.lexeme.toValue())
+
+                                    this.currentChunk.write(Opcode.GetGlobal.toInt(), this.line)
+                                    this.currentChunk.write(binding, this.line++)
+                                } else {
+                                    this.currentChunk.write(Opcode.GetLocal.toInt(), this.line)
+                                    this.currentChunk.write(
+                                        this.stack.getVariable(root.name.lexeme),
+                                        this.line++
+                                    )
+                                }
                             }
                         }
 
@@ -623,7 +653,13 @@ public class CodeGenerator {
                             this.currentChunk.write(root.slot, this.line++)
                         }
                     }
-                    is ClassType -> TODO()
+                    is ClassType -> {
+                        println("[LOG | TypedGet]: dfs of $instance")
+                        this.dfs(instance, inline)
+
+                        this.currentChunk.write(Opcode.GetProperty.toInt(), this.line)
+                        this.currentChunk.write(root.slot, this.line++)
+                    }
                 }
             }
             is TypedSet -> {

@@ -167,7 +167,7 @@ public class ClassBuilder(private val klass: String) {
 
         val builder = FunctionBuilder(function, contexts = contexts.map { VariableType(it) })
         builder.block()
-        this.functions[function] = ClassType.Function(function, builder.build())
+        this.functions[function] = ClassType.Function(function, builder.build(), this.functions.size)
     }
 
     public fun build(currentClasses: Map<String, ClassType>): ClassType {

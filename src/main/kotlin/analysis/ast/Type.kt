@@ -122,7 +122,7 @@ public data class ClassType(
         get() = this.mutableFunctions
 
     public data class Property(val name: String, val type: Type, val slot: Int)
-    public data class Function(val name: String, val functionType: FunctionType)
+    public data class Function(val name: String, val functionType: FunctionType, val slot: Int)
 
     public fun addProperty(name: String, type: Type): Property {
         if (this.mutableProperties.containsKey(name)) {
@@ -140,7 +140,7 @@ public data class ClassType(
         return if (this.mutableFunctions.containsKey(name)) {
             error("A function with name $name already exists inside of class ${this.name}")
         } else {
-            Function(name, functionType).also {
+            Function(name, functionType, this.mutableFunctions.size).also {
                 this.mutableFunctions[name] = it
             }
         }
@@ -162,7 +162,25 @@ public data class ClassType(
                 it.functionType.addOverload(receiverType, contextTypes, parameterTypes, returnType, isDeleted, deletionReason, inlinedBody)
             }
         } else {
-            Function(name, FunctionType(name, mutableSetOf(FunctionType.Overload(receiverType, contextTypes, parameterTypes, returnType, isDeleted, deletionReason, inlinedBody, inlinedParameterNames)))).also {
+            Function(
+                name,
+                FunctionType(
+                    name,
+                    mutableSetOf(
+                        FunctionType.Overload(
+                            receiverType,
+                            contextTypes,
+                            parameterTypes,
+                            returnType,
+                            isDeleted,
+                            deletionReason,
+                            inlinedBody,
+                            inlinedParameterNames
+                        )
+                    )
+                ),
+                this.mutableFunctions.size
+            ).also {
                 this.mutableFunctions[name] = it
             }
         }

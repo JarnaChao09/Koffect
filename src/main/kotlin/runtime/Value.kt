@@ -48,7 +48,12 @@ public data class ObjectString(override val value: String) : ObjectValue<String>
     override fun toString(): String = this.value
 }
 
-public data class Class(val name: String, val fieldCount: Int, val constructors: MutableMap<Int, ObjectClosure>)
+public data class Class(
+    val name: String,
+    val fieldCount: Int,
+    val constructors: MutableMap<Int, ObjectClosure>,
+    val methods: MutableList<ObjectClosure>,
+)
 
 public data class ObjectClass(override val value: Class) : ObjectValue<Class> {
     override fun toString(): String = "<class/${value.name}>"

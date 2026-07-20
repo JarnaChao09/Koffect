@@ -52,7 +52,9 @@ public enum class Opcode {
     Return,
     Class,
     Constructor,
-    New;
+    New,
+    Method,
+    Invoke;
 
     override fun toString(): String {
         return super.toString().uppercase()
