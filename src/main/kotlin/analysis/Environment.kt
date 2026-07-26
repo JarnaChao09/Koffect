@@ -72,6 +72,10 @@ public class Environment(
         } ?: this.enclosing?.getContextVariable(type, local = false)
     }
 
+    public fun currentContextVariables(): List<TypedContextVariable> {
+        return this.contextVariables.values + this.enclosing?.currentContextVariables().orEmpty()
+    }
+
     public fun getCurrentReceiver(): Type? {
         return this.receiver ?: this.enclosing?.getCurrentReceiver()
     }

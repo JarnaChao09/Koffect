@@ -699,9 +699,14 @@ public class TypeChecker(public var environment: Environment) {
                                     }
                                 }
 
+                                val initialTypeEq = type == argument.type
+                                val typeNameCheck = type.mangledName == argument.type.mangledName
+                                val typeEq = initialTypeEq || typeNameCheck
+                                val isAny = type.mangledName == "Any"
+
                                 // check still required as expectedType is ignored (currently) by all other branches
                                 // except Lambda
-                                if (type.mangledName != "Any" && type != argument.type) {
+                                if (!isAny && !typeEq) {
                                     // println("[LOG]: function ${calleeType.name} - Argument of type ${argument.type} does not match $type")
                                     continue@loop
                                 } else {
@@ -1158,12 +1163,59 @@ public class TypeChecker(public var environment: Environment) {
                         }
                     }
                 } ?: run {
-                    val currentClass = this@TypeChecker.currentClass ?: return@run null
-                    val property = currentClass.properties[this.name.lexeme]
-                    val function = currentClass.functions[this.name.lexeme]
+                    val currentClass = this@TypeChecker.currentClass
+                    val property = currentClass?.properties[this.name.lexeme]
+                    val function = currentClass?.functions[this.name.lexeme]
 
                     if (property == null && function == null) {
-                        null
+                        val contexts = this@TypeChecker.environment.currentContextVariables()
+
+                        var foundInstance: TypedContextVariable? = null
+                        var foundSlot: Int = -2
+                        var foundType: Type? = null
+
+                        contexts.forEach {
+                            val cType = it.type
+
+                            val klass = when (cType) {
+                                is ClassType -> cType
+                                is FunctionType -> error("context lookup for function type not supported during type checking")
+                                is LambdaType -> error("context lookup for lambda type not supported during type checking")
+                                is VariableType -> this@TypeChecker.environment.getClass(cType.name) ?: error("Unknown class of context type '${cType.name}'")
+                            }
+
+                            println("[LOG | Variable.toTypedExpression]: checking $klass for ${this.name.lexeme}")
+
+                            val property = klass.properties[this.name.lexeme]
+                            val function = klass.functions[this.name.lexeme]
+
+                            if (property == null && function == null) {
+                                // continue
+                            } else if (property != null && function == null) {
+                                foundInstance = it
+                                foundSlot = property.slot
+                                foundType = property.type
+                            } else if (property == null && function != null) {
+                                foundInstance = it
+                                foundSlot = function.slot
+                                foundType = function.functionType
+                            } else {
+                                println("[LOG | Variable.toTypedExpression]: shadowing of a context class property and function found for ${this.name.lexeme}")
+                                // continue
+                            }
+                        }
+
+                        if (foundInstance != null && foundType != null) {
+                            println("[LOG | Variable.toTypedExpression]: found ${this.name.lexeme}")
+                            TypedGet(
+                                instance = foundInstance,
+                                name = this.name,
+                                slot = foundSlot,
+                                type = foundType,
+                            )
+                        } else {
+                            null
+                        }
                     } else if (property != null && function == null) {
                         TypedGet(
                             instance = TypedThis(

@@ -1035,7 +1035,8 @@ public class CodeGenerator {
             this@CodeGenerator.currentChunk.write(0, this@CodeGenerator.line)
             this@CodeGenerator.currentChunk.write(Opcode.New.toInt(), this@CodeGenerator.line)
             this@CodeGenerator.currentChunk.write(Opcode.SetLocal.toInt(), this@CodeGenerator.line)
-            this@CodeGenerator.currentChunk.write(0, this@CodeGenerator.line++)
+            this@CodeGenerator.currentChunk.write(0, this@CodeGenerator.line)
+            this@CodeGenerator.currentChunk.write(Opcode.Pop.toInt(), this@CodeGenerator.line++)
 
             repeat(this.parameters.size) {
                 this@CodeGenerator.currentChunk.write(Opcode.GetLocal.toInt(), this@CodeGenerator.line)
@@ -1045,7 +1046,8 @@ public class CodeGenerator {
                 this@CodeGenerator.currentChunk.write(it + 1, this@CodeGenerator.line)
 
                 this@CodeGenerator.currentChunk.write(Opcode.SetProperty.toInt(), this@CodeGenerator.line)
-                this@CodeGenerator.currentChunk.write(it, this@CodeGenerator.line++)
+                this@CodeGenerator.currentChunk.write(it, this@CodeGenerator.line)
+                this@CodeGenerator.currentChunk.write(Opcode.Pop.toInt(), this@CodeGenerator.line++)
             }
 
             this@CodeGenerator.currentChunk.write(Opcode.GetLocal.toInt(), this@CodeGenerator.line)

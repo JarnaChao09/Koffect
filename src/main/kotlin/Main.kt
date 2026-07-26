@@ -841,23 +841,48 @@ public fun repl() {
     //     main();
     // """.trimIndent()
 
+    // val srcString = """
+    //     class Box(var value: Int) {
+    //         fun print(other: Int) {
+    //             println(this.value * other);
+    //         }
+    //     }
+    //
+    //     fun main() {
+    //         val box: Box = Box(42);
+    //
+    //         box.print(2);
+    //
+    //         box.value = -42;
+    //
+    //         box.print(2);
+    //     }
+    //
+    //     main();
+    // """.trimIndent()
+
     val srcString = """
-        class Box(var value: Int) {
-            fun print(other: Int) {
-                println(this.value * other);
+        class Context(val backing: Int) {
+            fun contextualFunction() {
+                println(backing);
             }
         }
-        
-        fun main() {
-            val box: Box = Box(42);
-            
-            box.print(2);
-            
-            box.value = -42;
-         
-            box.print(2);
+
+        fun withContext(c: Context, block: context(Context) () -> Unit) {
+            block(c);
         }
-        
+
+        context(Context)
+        fun func() {
+            contextualFunction();
+        }
+
+        fun main() {
+            withContext(Context(10)) {
+                func();
+            };
+        }
+
         main();
     """.trimIndent()
 

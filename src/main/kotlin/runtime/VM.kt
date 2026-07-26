@@ -356,7 +356,7 @@ public class VM(
                                 this.currentChunk = it.function.value.chunk
                             }
                         }
-                        else -> error("Can only call functions and classes")
+                        else -> error("Can only call functions and classes, calling $callee")
                     }
                 }
                 Opcode.Pop -> {
@@ -410,7 +410,6 @@ public class VM(
                     val klass = peek() as ObjectClass
                     klass.value.methods.add(closure)
                 }
-
                 Opcode.Invoke -> {
                     this.currentChunk!!.let { chunk ->
                         val slot = chunk.code[this.ip++]

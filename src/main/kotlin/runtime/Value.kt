@@ -62,7 +62,8 @@ public data class ObjectClass(override val value: Class) : ObjectValue<Class> {
 public class Instance(public val klass: Class, public val fields: Array<Value<*>>)
 
 public data class ObjectInstance(override val value: Instance) : ObjectValue<Instance> {
-    override fun toString(): String = "<instance/${value.klass}/${value.fields.contentToString()}>"
+    // override fun toString(): String = "<instance/${value.klass}/${value.fields.contentToString()}>"
+    override fun toString(): String = "<instance/${value.klass.name}>"
 }
 
 public typealias NativeFunc = (List<Value<*>>) -> Value<*>
