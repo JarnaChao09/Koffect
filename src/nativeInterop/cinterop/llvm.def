@@ -1,0 +1,11 @@
+headers = llvm-c/Core.h \
+          llvm-c/Error.h \
+          llvm-c/LLJIT.h \
+          llvm-c/Support.h \
+          llvm-c/Target.h
+headerFilter = llvm-c/**
+
+compilerOpts.osx = -I/opt/homebrew/opt/llvm/include
+linkerOpts.osx = -L/opt/homebrew/opt/llvm/lib -lLLVM
+
+strictEnums = LLVMIntPredicate LLVMOpcode LLVMDLLStorageClass LLVMCallConv LLVMThreadLocalMode LLVMAtomicOrdering

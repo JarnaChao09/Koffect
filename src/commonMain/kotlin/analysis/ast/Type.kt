@@ -41,14 +41,17 @@ public data class LambdaType(
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
-        if (javaClass != other?.javaClass) return false
+        if (other == null || this::class != other::class) return false
 
         other as LambdaType
 
         if (inline != other.inline) return false
         if (contextTypes != other.contextTypes) return false
+        if (receiverType != other.receiverType) return false
         if (parameterTypes != other.parameterTypes) return false
         if (returnType != other.returnType) return false
+        if (inlinedBody != other.inlinedBody) return false
+        if (inlinedParameterNames != other.inlinedParameterNames) return false
         if (mangledName != other.mangledName) return false
 
         return true

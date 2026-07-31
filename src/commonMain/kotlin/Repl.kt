@@ -1,35 +1,20 @@
 import analysis.TypeChecker
+import analysis.ast.TypedStatement
 import analysis.buildEnvironment
-import codegen.CodeGenerator
 import lexer.Lexer
 import parser.Parser
-import runtime.*
-import kotlin.math.pow
-import kotlin.system.exitProcess
 
-public fun main(args: Array<String>) {
-    if (args.size > 1) {
-        println("Flags currently unsupported")
-        exitProcess(64)
-    } else if (args.size == 1) {
-        println("Running file currently unsupported")
-        exitProcess(64)
-    } else {
-        repl()
-    }
-}
+public val printTypes: List<String> = listOf(
+    "Any",
+    // "Int",
+    // "Double",
+    // "Boolean",
+    // "String",
+    // "Unit",
+    // "Nothing?",
+)
 
 public fun repl() {
-    val printTypes = listOf(
-        "Any",
-        // "Int",
-        // "Double",
-        // "Boolean",
-        // "String",
-        // "Unit",
-        // "Nothing?",
-    )
-
     val env = buildEnvironment {
         function("println") {
             for (type in printTypes) {
@@ -101,56 +86,12 @@ public fun repl() {
         }
     }
     val typechecker = TypeChecker(env)
-    val vm = VM()
 
-    for (inputType in printTypes) {
-        vm.addNativeFunction("println//$inputType/Unit") {
-            assert(it.size == 1)
-            println(it[0])
-            UnitValue
-        }
-
-        vm.addNativeFunction("print//$inputType/Unit") {
-            assert(it.size == 1)
-            print(it[0])
-            UnitValue
-        }
-    }
-
-    vm.addNativeFunction("println///Unit") {
-        println()
-        UnitValue
-    }
-
-    vm.addNativeFunction("pow") {
-        assert(it.size == 2)
-        val (a, b) = it
-        assert(a.value is Double)
-        assert(b.value is Double)
-
-        val av = a.value as Double
-        val bv = b.value as Double
-
-        av.pow(bv).toValue()
-    }
-
-    vm.addNativeFunction("readInt") {
-        assert(it.isEmpty())
-
-        readln().toInt().toValue()
-    }
-
-    vm.addNativeFunction("readDouble") {
-        assert(it.isEmpty())
-
-        readln().toDouble().toValue()
-    }
-
-    vm.addNativeFunction("clock") {
-        assert(it.isEmpty())
-
-        (System.currentTimeMillis() / 1000.0).toValue()
-    }
+    // vm.addNativeFunction("clock") {
+    //     require(it.isEmpty())
+    //
+    //     (System.currentTimeMillis() / 1000.0).toValue()
+    // }
 
    // val srcString = """
    //     var a: Int = 0;
@@ -949,7 +890,6 @@ public fun repl() {
 
     val lexer = Lexer(srcString)
     val parser = Parser(lexer.tokens)
-    val codegen = CodeGenerator()
 
     val tree = parser.parse()
 
@@ -959,12 +899,7 @@ public fun repl() {
 
     typedTree.forEach(::println)
 
-    val chunk = codegen.generate(typedTree)
-
-    vm.interpret(chunk.also { c ->
-        println(c.disassemble("source string"))
-        println("=== source string ===")
-    })
+    execute(typedTree)
 
 //    var i = 0
 //    while (true) {
@@ -1000,3 +935,5 @@ public fun repl() {
 //        } ?: break
 //    }
 }
+
+public expect fun execute(typedTree: List<TypedStatement>)

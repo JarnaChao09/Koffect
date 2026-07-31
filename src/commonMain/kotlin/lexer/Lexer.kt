@@ -182,10 +182,11 @@ public class Lexer(private val source: String, private val keywords: Map<String,
         }
 
         return this.createToken(
-            this.keywords.getOrDefault(
-                this.source.substring(this.start..<this.current),
+            this.keywords.getOrElse(
+                this.source.substring(this.start..<this.current)
+            ) {
                 TokenType.IDENTIFIER
-            )
+            }
         )
     }
 

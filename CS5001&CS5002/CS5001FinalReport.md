@@ -306,7 +306,7 @@ As of writing, most of the project hours have been put into research and design 
 - Researching and documenting async paradigms (see [async.md](../design_notes/async.md)): ~15 hours
 - Researching and documenting correctness (see [correctness.md](../design_notes/correctness.md)): ~10 hours
 - Designing and documenting syntax and semantics around contexts (see [context.md](../design_notes/context.md)): ~10 hours (and counting)
-- Following [Type Inference by Example](https://github.com/Ahnfelt/type-inference-by-example) (see [prototype.typeInferenceByExample](../src/main/kotlin/prototype/typeInferenceByExample)): ~10 hours
+- Following [Type Inference by Example](https://github.com/Ahnfelt/type-inference-by-example) (see [prototype.typeInferenceByExample](../src/commonMain/kotlin/prototype/typeInferenceByExample)): ~10 hours
 - Completing all required CS5001 Assignments: ~10 hours
 
 Total hours = ~55 hours
