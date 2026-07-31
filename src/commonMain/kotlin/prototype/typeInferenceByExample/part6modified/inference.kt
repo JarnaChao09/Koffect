@@ -1,7 +1,5 @@
 package prototype.typeInferenceByExample.part6modified
 
-import java.lang.RuntimeException
-
 public sealed interface Type
 
 public data class TConstructor(val name: String, val generics: List<Type> = listOf()) : Type {
