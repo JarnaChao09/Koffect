@@ -802,31 +802,75 @@ public fun repl() {
     //     main();
     // """.trimIndent()
 
+    // val srcString = """
+    //     class Context(val backing: Int) {
+    //         fun contextualFunction() {
+    //             println(backing);
+    //         }
+    //     }
+    //
+    //     fun withContext(c: Context, block: context(Context) () -> Unit) {
+    //         block(c);
+    //     }
+    //
+    //     context(Context)
+    //     fun func() {
+    //         contextualFunction();
+    //     }
+    //
+    //     fun main() {
+    //         withContext(Context(10)) {
+    //             func();
+    //         };
+    //     }
+    //
+    //     main();
+    // """.trimIndent()
+
     val srcString = """
         class Context(val backing: Int) {
-            fun contextualFunction() {
+            fun Int.contextualFunction() {
                 println(backing);
             }
         }
-
+        
+        context(Context)
+        fun func() {
+            10.contextualFunction();
+        }
+        
         fun withContext(c: Context, block: context(Context) () -> Unit) {
             block(c);
         }
-
-        context(Context)
-        fun func() {
-            contextualFunction();
-        }
-
+        
         fun main() {
             withContext(Context(10)) {
                 func();
             };
         }
-
-        main();
     """.trimIndent()
 
+    // TODO
+    // val srcString = """
+    //     class Context1(val backing: Int) {
+    //         fun contextualFunction() {
+    //             println(backing + 1);
+    //         }
+    //     }
+    //
+    //     class Context2(val backing: Int) {
+    //         fun contextualFunction() {
+    //             println(backing + 2);
+    //         }
+    //     }
+    //
+    //     context(Context1, Context2)
+    //     fun func() {
+    //         contextualFunction();
+    //     }
+    // """.trimIndent()
+
+    // TODO
     // val srcString = """
     //     class Foo constructor(val bar: Double) {
     //         val baz1: Int = bar.toInt();
