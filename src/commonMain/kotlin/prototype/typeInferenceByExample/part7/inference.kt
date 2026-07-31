@@ -230,7 +230,7 @@ public fun infer(environment: Map<String, GenericType>, expectedType: Type, expr
             val instantiation = genericType.generics.zip(newGenerics).toMap<_, Type>()
             val variableType = instantiate(instantiation, genericType.uninstantiatedType)
             if (expression.generics.isNotEmpty()) {
-                assert(expression.generics.size == genericType.generics.size)
+                require(expression.generics.size == genericType.generics.size)
                 expression.generics.zip(newGenerics).forEach { (t, v) ->
                     typeConstraints += CEquality(t, v)
                 }
@@ -294,7 +294,7 @@ public fun instantiate(instantiation: Map<String, Type>, t: Type): Type = when {
 
     t is TConstructor -> {
         instantiation[t.name]?.let {
-            assert(t.generics.isEmpty())
+            require(t.generics.isEmpty())
             it
         } ?: TConstructor(t.name, t.generics.map {
             instantiate(instantiation, it)

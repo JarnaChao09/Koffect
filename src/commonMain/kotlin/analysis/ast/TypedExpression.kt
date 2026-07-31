@@ -149,7 +149,7 @@ public data class TypedLambda(
     val contexts: List<Type>,
     val receiver: Type?,
     val parameters: List<TypedParameter>,
-    val captures: Set<TypedCapture>,
+    val captures: kotlin.collections.Set<TypedCapture>,
     val body: List<TypedStatement>,
     override val type: Type,
 ) : TypedExpression {

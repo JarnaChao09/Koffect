@@ -1,5 +1,7 @@
 package runtime
 
+import utils.format
+
 public class Chunk(
     public val code: MutableList<Int> = mutableListOf(),
     public val constants: MutableList<Value<*>> = mutableListOf(),

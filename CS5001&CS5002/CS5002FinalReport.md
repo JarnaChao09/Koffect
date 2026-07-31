@@ -75,7 +75,7 @@ The following are approximations of the time allocation for all current (04/2024
 - Researching and documenting async paradigms (see [async.md](../design_notes/async.md)): ~15 hours
 - Researching and documenting correctness (see [correctness.md](../design_notes/correctness.md)): ~10 hours
 - Designing and documenting syntax and semantics around contexts (see [context.md](../design_notes/context.md)): ~10 hours (and counting)
-- Following [Type Inference by Example](https://github.com/Ahnfelt/type-inference-by-example) (see [prototype.typeInferenceByExample](../src/main/kotlin/prototype/typeInferenceByExample)): ~10 hours
+- Following [Type Inference by Example](https://github.com/Ahnfelt/type-inference-by-example) (see [prototype.typeInferenceByExample](../src/commonMain/kotlin/prototype/typeInferenceByExample)): ~10 hours
 - Completing all required CS5001 Assignments: ~10 hours
 
 Total time: ~55 hours
@@ -83,11 +83,11 @@ Total time: ~55 hours
 #### Spring Semester
 
 - Designing and documenting syntax and semantics around contexts (see [context.md](../design_notes/context.md)): ~10 hours
-- Creating the lexer subcomponent (see [lexer](../src/main/kotlin/lexer)): ~3 hours
-- Creating the parser subcomponent (see [parser](../src/main/kotlin/parser)): ~5 hours
-- Creating the type checker subcomponent (see [analysis](../src/main/kotlin/analysis)): ~10 hours
-- Creating the code generator subcomponent (see [codegen](../src/main/kotlin/codegen)): ~10 hours
-- Creating the runtime VM subcomponent (see [runtime](../src/main/kotlin/runtime)): ~10 hours
+- Creating the lexer subcomponent (see [lexer](../src/commonMain/kotlin/lexer)): ~3 hours
+- Creating the parser subcomponent (see [parser](../src/commonMain/kotlin/parser)): ~5 hours
+- Creating the type checker subcomponent (see [analysis](../src/commonMain/kotlin/analysis)): ~10 hours
+- Creating the code generator subcomponent (see [codegen](../src/commonMain/kotlin/codegen)): ~10 hours
+- Creating the runtime VM subcomponent (see [runtime](../src/commonMain/kotlin/runtime)): ~10 hours
 - Completing all required CS5002 Assignments and preparation for the expo: ~7 hours
 
 Total time: ~55 hours
