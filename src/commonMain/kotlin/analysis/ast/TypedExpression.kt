@@ -187,7 +187,7 @@ public sealed interface TypedCapture : TypedExpression
 
 public data class TypedVariable(val name: Token, override val type: Type, val mangledName: String = name.lexeme) : TypedCapture {
     override fun toString(): String {
-        return "${this.name.lexeme}<${this.type}>"
+        return "${this.name.lexeme}(${this.mangledName})<${this.type}>"
     }
 }
 

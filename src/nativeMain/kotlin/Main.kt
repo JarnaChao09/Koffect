@@ -17,14 +17,14 @@ public fun main(args: Array<String>) {
         exitProcess(64)
     } else {
         repl()
-        memScoped {
-            val major = alloc<UIntVar>()
-            val minor = alloc<UIntVar>()
-            val patch = alloc<UIntVar>()
-
-            LLVMGetVersion(major.ptr, minor.ptr, patch.ptr)
-
-            println("LLVM Version ${major.value}.${minor.value}.${patch.value}")
-        }
+        // memScoped {
+        //     val major = alloc<UIntVar>()
+        //     val minor = alloc<UIntVar>()
+        //     val patch = alloc<UIntVar>()
+        //
+        //     LLVMGetVersion(major.ptr, minor.ptr, patch.ptr)
+        //
+        //     println("LLVM Version ${major.value}.${minor.value}.${patch.value}")
+        // }
     }
 }

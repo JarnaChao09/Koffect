@@ -6,10 +6,10 @@ import parser.Parser
 
 public val printTypes: List<String> = listOf(
     "Any",
-    // "Int",
-    // "Double",
-    // "Boolean",
-    // "String",
+    "Int",
+    "Double",
+    "Boolean",
+    "String",
     // "Unit",
     // "Nothing?",
 )
@@ -827,26 +827,40 @@ public fun repl() {
     //     main();
     // """.trimIndent()
 
+    // val srcString = """
+    //     class Context(val backing: Int) {
+    //         fun Int.contextualFunction() {
+    //             println(backing);
+    //         }
+    //     }
+    //
+    //     context(Context)
+    //     fun func() {
+    //         10.contextualFunction();
+    //     }
+    //
+    //     fun withContext(c: Context, block: context(Context) () -> Unit) {
+    //         block(c);
+    //     }
+    //
+    //     fun main() {
+    //         withContext(Context(10)) {
+    //             func();
+    //         };
+    //     }
+    // """.trimIndent()
+
     val srcString = """
-        class Context(val backing: Int) {
-            fun Int.contextualFunction() {
-                println(backing);
-            }
+        fun test(foo: Int): Int {
+            return foo;
         }
-        
-        context(Context)
-        fun func() {
-            10.contextualFunction();
-        }
-        
-        fun withContext(c: Context, block: context(Context) () -> Unit) {
-            block(c);
+        fun test(foo: Int, bar: Int): Int {
+            return foo + bar;
         }
         
         fun main() {
-            withContext(Context(10)) {
-                func();
-            };
+            println(test(5));
+            println(test(3, 4));
         }
     """.trimIndent()
 

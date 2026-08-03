@@ -67,6 +67,11 @@ kotlin {
         nativeMain.dependencies {
 
         }
+        all {
+            compilerOptions {
+                freeCompilerArgs.add("-Xcontext-parameters")
+            }
+        }
     }
 }
 
