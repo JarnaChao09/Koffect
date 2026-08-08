@@ -61,6 +61,8 @@ public class LLVMCodeGenerator(moduleName: String) {
     private val context: Context = threadSafeContext.context
     private val module: Module = threadSafeContext.context.newModule(moduleName)
 
+    private var function: Function? = null
+
     private var env: LLVMEnvironment = LLVMEnvironment(null)
 
     private var returnEmitted: Boolean = false
@@ -106,11 +108,16 @@ public class LLVMCodeGenerator(moduleName: String) {
         return ThreadSafeModule(this.module, this.threadSafeContext)
     }
 
-    private fun generateStatements(ast: List<TypedStatement>, builder: Builder, block: BasicBlock) {
+    private fun generateStatements(ast: List<TypedStatement>, builder: Builder, block: BasicBlock): BasicBlock {
+        var currentBlock = block
+
         ast.forEach {
-            when (it) {
+            builder.positionAtEnd(currentBlock)
+            currentBlock = when (it) {
                 is TypedClassDeclaration -> TODO()
                 is TypedFunctionDeclaration -> {
+                    val previousFunction = function
+
                     val parameterTypes = it.parameters.map { p -> p.type.toLLVMType() }
                     module.function(
                         name = it.name.lexeme,
@@ -118,6 +125,7 @@ public class LLVMCodeGenerator(moduleName: String) {
                         returnType = it.returnType.toLLVMType(),
                         vararg = false,
                     ) { type ->
+                        function = this@function
                         env.addFunction(
                             it.mangledName,
                             type to this@function,
@@ -138,26 +146,80 @@ public class LLVMCodeGenerator(moduleName: String) {
                             val previousReturnEmitted = returnEmitted
                             returnEmitted = false
 
-                            generateStatements(it.body, builder, b)
+                            val b1 = generateStatements(it.body, builder, b)
 
                             if (!returnEmitted) {
-                                builder.positionAtEnd(b)
+                                builder.positionAtEnd(b1)
                                 builder.ret()
                             }
 
                             returnEmitted = previousReturnEmitted
                         }
                     }
+                    function = previousFunction
+
+                    currentBlock
                 }
                 is TypedDeleteStatement -> {
                     // do nothing
                     // note: delete statements (currently only allowed for functions) should not be in the generated
                     // bytecode to maintain the zero runtime size cost of deleting functions
+
+                    currentBlock
                 }
                 is TypedExpressionStatement -> {
-                    dfs(it.expression, builder, block)
+                    val (_, newBlock) = dfs(it.expression, builder, currentBlock)
+
+                    newBlock
                 }
-                is TypedIfStatement -> TODO()
+                is TypedIfStatement -> {
+                    val currentFunction = function ?: error("if statements can only be in function bodies (should be unreachable)")
+
+                    val (cond, condBlock) = dfs(it.condition, builder, currentBlock)
+
+                    builder.positionAtEnd(condBlock)
+
+                    var thenBranchBlock = currentFunction.basicBlocks.append("if_then") {}
+                    var elseBranchBlock = currentFunction.basicBlocks.append("if_else") {}
+
+                    builder.cond(cond, thenBranchBlock, elseBranchBlock)
+
+                    val previousReturnEmitted = returnEmitted
+
+                    returnEmitted = false
+                    thenBranchBlock = generateStatements(it.trueBranch, builder, thenBranchBlock)
+
+                    val thenBranchReturned = returnEmitted
+
+                    returnEmitted = false
+                    elseBranchBlock = generateStatements(it.falseBranch, builder, elseBranchBlock)
+
+                    val elseBranchReturned = returnEmitted
+
+                    returnEmitted = previousReturnEmitted
+
+                    if (thenBranchReturned && elseBranchReturned) {
+                        returnEmitted = true
+
+                        elseBranchBlock
+                    } else if (thenBranchReturned && it.falseBranch.isEmpty()) {
+                        elseBranchBlock
+                    } else {
+                        val endBlock = currentFunction.basicBlocks.append("if_end") {}
+
+                        if (!thenBranchReturned) {
+                            builder.positionAtEnd(thenBranchBlock)
+                            builder.br(endBlock)
+                        }
+
+                        if (!elseBranchReturned) {
+                            builder.positionAtEnd(elseBranchBlock)
+                            builder.br(endBlock)
+                        }
+
+                        endBlock
+                    }
+                }
                 is TypedReturnExpressionStatement -> {
                     TODO()
                     // builder.positionAtEnd(block)
@@ -171,22 +233,42 @@ public class LLVMCodeGenerator(moduleName: String) {
                 is TypedReturnStatement -> {
                     returnEmitted = true
 
-                    builder.positionAtEnd(block)
-
                     it.value?.let { returnValue ->
-                        val (retValue, newBlock) = dfs(returnValue, builder, block)
+                        val (retValue, newBlock) = dfs(returnValue, builder, currentBlock)
 
                         builder.positionAtEnd(newBlock)
 
                         builder.ret(retValue)
+
+                        newBlock
                     } ?: run {
                         builder.ret()
+
+                        currentBlock
                     }
                 }
-                is TypedVariableStatement -> TODO()
+                is TypedVariableStatement -> {
+                    val variableName = it.name.lexeme
+                    val variableType = it.type?.toLLVMType() ?: error("type of ${it.name.lexeme} is null (should be unreachable)")
+                    val location = builder.alloca(variableType, variableName)
+
+                    env.addVariable(variableName, location, variableType, false)
+
+                    it.initializer?.let { initializer ->
+                        val (value, newBlock) = dfs(initializer, builder, block)
+
+                        builder.positionAtEnd(newBlock)
+
+                        builder.store(value, location)
+
+                        newBlock
+                    } ?: currentBlock
+                }
                 is TypedWhileStatement -> TODO()
             }
         }
+
+        return currentBlock
     }
 
     private fun dfs(root: TypedExpression, builder: Builder, block: BasicBlock): Pair<Value, BasicBlock> {
@@ -196,9 +278,11 @@ public class LLVMCodeGenerator(moduleName: String) {
                 val (lhs, b1) = dfs(root.left, builder, block)
                 val (rhs, b2) = dfs(root.right, builder, b1)
 
+                val type = root.left.type // NOTE: currently assume both types match
+
                 val value = when (root.operator.type) {
                     TokenType.PLUS -> {
-                        when (val type = root.type) {
+                        when (type) {
                             is VariableType -> {
                                 when (type.name) {
                                     "Double", "Int" -> {
@@ -215,7 +299,7 @@ public class LLVMCodeGenerator(moduleName: String) {
                         }
                     }
                     TokenType.MINUS -> {
-                        when (val type = root.type) {
+                        when (type) {
                             is VariableType -> {
                                 when (type.name) {
                                     "Double", "Int" -> {
@@ -232,7 +316,7 @@ public class LLVMCodeGenerator(moduleName: String) {
                         }
                     }
                     TokenType.STAR -> {
-                        when (val type = root.type) {
+                        when (type) {
                             is VariableType -> {
                                 when (type.name) {
                                     "Double" -> {
@@ -252,7 +336,7 @@ public class LLVMCodeGenerator(moduleName: String) {
                         }
                     }
                     TokenType.SLASH -> {
-                        when (val type = root.type) {
+                        when (type) {
                             is VariableType -> {
                                 when (type.name) {
                                     "Double" -> {
@@ -272,7 +356,7 @@ public class LLVMCodeGenerator(moduleName: String) {
                         }
                     }
                     TokenType.MOD -> {
-                        when (val type = root.type) {
+                        when (type) {
                             is VariableType -> {
                                 when (type.name) {
                                     "Double" -> {
@@ -292,7 +376,7 @@ public class LLVMCodeGenerator(moduleName: String) {
                         }
                     }
                     TokenType.EQUALS -> {
-                        when (val type = root.type) {
+                        when (type) {
                             is VariableType -> {
                                 when (type.name) {
                                     "Double" -> {
@@ -312,7 +396,7 @@ public class LLVMCodeGenerator(moduleName: String) {
                         }
                     }
                     TokenType.NOT_EQ -> {
-                        when (val type = root.type) {
+                        when (type) {
                             is VariableType -> {
                                 when (type.name) {
                                     "Double" -> {
@@ -332,7 +416,7 @@ public class LLVMCodeGenerator(moduleName: String) {
                         }
                     }
                     TokenType.GE -> {
-                        when (val type = root.type) {
+                        when (type) {
                             is VariableType -> {
                                 when (type.name) {
                                     "Double" -> {
@@ -352,7 +436,7 @@ public class LLVMCodeGenerator(moduleName: String) {
                         }
                     }
                     TokenType.LE -> {
-                        when (val type = root.type) {
+                        when (type) {
                             is VariableType -> {
                                 when (type.name) {
                                     "Double" -> {
@@ -372,7 +456,7 @@ public class LLVMCodeGenerator(moduleName: String) {
                         }
                     }
                     TokenType.GT -> {
-                        when (val type = root.type) {
+                        when (type) {
                             is VariableType -> {
                                 when (type.name) {
                                     "Double" -> {
@@ -392,7 +476,7 @@ public class LLVMCodeGenerator(moduleName: String) {
                         }
                     }
                     TokenType.LT -> {
-                        when (val type = root.type) {
+                        when (type) {
                             is VariableType -> {
                                 when (type.name) {
                                     "Double" -> {
@@ -448,7 +532,7 @@ public class LLVMCodeGenerator(moduleName: String) {
                     is ClassType -> TODO("lookup of classes not supported")
                     is FunctionType -> {
                         val function = env.getFunction(name)
-                        function?.second?.llvmRef ?: error("no function $name found (should be unreachable")
+                        function?.second?.llvmRef ?: error("no function $name found (should be unreachable)")
                     }
                     is LambdaType -> TODO("lookup of lambdas not supported")
                     is VariableType -> {
@@ -493,6 +577,7 @@ public class LLVMCodeGenerator(moduleName: String) {
             is LambdaType -> TODO()
             is VariableType -> {
                 when (type.name) {
+                    "Boolean" -> context.int1
                     "Int" -> context.int32
                     "Unit" -> context.void
                     else -> TODO()

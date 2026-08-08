@@ -4,7 +4,9 @@ import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.toCValues
 import llvm.LLVMBuildAdd
 import llvm.LLVMBuildAlloca
+import llvm.LLVMBuildBr
 import llvm.LLVMBuildCall2
+import llvm.LLVMBuildCondBr
 import llvm.LLVMBuildExactSDiv
 import llvm.LLVMBuildExactUDiv
 import llvm.LLVMBuildExtractValue
@@ -122,6 +124,14 @@ public class Builder internal constructor(private val ref: LLVMBuilderRef?) {
 
     public fun select(cond: Value, thenValue: Value, elseValue: Value, name: String = ""): Value {
         return LLVMBuildSelect(this.ref, cond, thenValue, elseValue, name)
+    }
+
+    public fun br(destBlock: BasicBlock): Value {
+        return LLVMBuildBr(this.ref, destBlock.llvmRef)
+    }
+
+    public fun cond(cond: Value, thenBlock: BasicBlock, elseBlock: BasicBlock): Value {
+        return LLVMBuildCondBr(this.ref, cond, thenBlock.llvmRef, elseBlock.llvmRef)
     }
 
     public fun globalStringPointer(str: String, name: String = ""): Value {

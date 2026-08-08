@@ -1,6 +1,8 @@
 import analysis.ast.TypedStatement
 import codegen.LLVMCodeGenerator
+import kotlinx.cinterop.ByteVar
 import kotlinx.cinterop.CFunction
+import kotlinx.cinterop.CPointerVar
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.alloc
 import kotlinx.cinterop.invoke
@@ -23,6 +25,8 @@ import llvm.LLVMOrcLLJITGetMainJITDylib
 import llvm.LLVMOrcLLJITLookup
 import llvm.LLVMOrcLLJITRefVar
 import llvm.LLVMPrintModuleToString
+import llvm.LLVMVerifierFailureAction
+import llvm.LLVMVerifyModule
 import llvm4k.Function
 import llvm4k.ThreadSafeModule
 
@@ -118,6 +122,21 @@ public actual fun execute(typedTree: List<TypedStatement>) {
             }
         }
 
+        llvm.nativeFunction(
+            "println",
+            parameterTypes = emptyList(),
+            returnType = "Unit".let { it.toLLVMType() to it },
+        ) {
+            basicBlocks.append {
+                val (printfFunctionType, printfFunction) = llvm.getNativeFunction("printf")
+                    ?: error("printf was not found (???)")
+
+                call(printfFunctionType, printfFunction.llvmRef, arrayOf(globalStringPointer("\n")))
+
+                ret()
+            }
+        }
+
         val module = llvm.generate(typedTree)
 
         val output = LLVMPrintModuleToString(module.module.llvmRef)
@@ -147,6 +166,10 @@ private fun handleLLVMError(error: LLVMErrorRef?) {
 @OptIn(ExperimentalForeignApi::class)
 private fun runOrcJITForModule(module: ThreadSafeModule) {
     memScoped {
+        val verifyError = alloc<CPointerVar<ByteVar>>()
+        LLVMVerifyModule(module.module.llvmRef, LLVMVerifierFailureAction.LLVMAbortProcessAction, verifyError.ptr)
+        LLVMDisposeMessage(verifyError.value)
+
         val jit = alloc<LLVMOrcLLJITRefVar>()
 
         val error = alloc<LLVMErrorRefVar>()

@@ -850,17 +850,75 @@ public fun repl() {
     //     }
     // """.trimIndent()
 
+    // val srcString = """
+    //     fun test(foo: Int): Int {
+    //         return foo;
+    //     }
+    //     fun test(foo: Int, bar: Int): Int {
+    //         return foo + bar;
+    //     }
+    //
+    //     fun main() {
+    //         println(test(5));
+    //         println(test(3, 4));
+    //     }
+    // """.trimIndent()
+
     val srcString = """
-        fun test(foo: Int): Int {
-            return foo;
+        fun even(num: Int): Boolean {
+            val m: Int = num % 2;
+            return m == 0;
         }
-        fun test(foo: Int, bar: Int): Int {
-            return foo + bar;
+        
+        fun isEvenv1(num: Int): Int {
+            if (even(num)) {
+                return 100;
+            } else {
+                return 50;
+            }
+        }
+        
+        fun isEvenv2(num: Int): Int {
+            if (even(num)) {
+               return 100;
+            }
+            return 50;
+        }
+        
+        fun isEvenv3(num: Int) {
+            if (even(num)) {
+                println(100);
+            } else {
+                println(50);
+            }
+        }
+        
+        fun isEvenv4(num: Int) {
+            if (even(num)) {
+                println(200);
+            }
+            
+            println(500);
         }
         
         fun main() {
-            println(test(5));
-            println(test(3, 4));
+            println(isEvenv1(3));
+            println(isEvenv1(4));
+            
+            println();
+            
+            println(isEvenv2(3));
+            println(isEvenv2(4));
+            
+            println();
+            
+            isEvenv3(3);
+            isEvenv3(4);
+            
+            println();
+            
+            isEvenv4(3);
+            isEvenv4(4);
         }
     """.trimIndent()
 
