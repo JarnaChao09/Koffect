@@ -864,61 +864,83 @@ public fun repl() {
     //     }
     // """.trimIndent()
 
+    // val srcString = """
+    //     fun even(num: Int): Boolean {
+    //         val m: Int = num % 2;
+    //         return m == 0;
+    //     }
+    //
+    //     fun isEvenv1(num: Int): Int {
+    //         if (even(num)) {
+    //             return 100;
+    //         } else {
+    //             return 50;
+    //         }
+    //     }
+    //
+    //     fun isEvenv2(num: Int): Int {
+    //         if (even(num)) {
+    //            return 100;
+    //         }
+    //         return 50;
+    //     }
+    //
+    //     fun isEvenv3(num: Int) {
+    //         if (even(num)) {
+    //             println(100);
+    //         } else {
+    //             println(50);
+    //         }
+    //     }
+    //
+    //     fun isEvenv4(num: Int) {
+    //         if (even(num)) {
+    //             println(200);
+    //         }
+    //
+    //         println(500);
+    //     }
+    //
+    //     fun main() {
+    //         println(isEvenv1(3));
+    //         println(isEvenv1(4));
+    //
+    //         println();
+    //
+    //         println(isEvenv2(3));
+    //         println(isEvenv2(4));
+    //
+    //         println();
+    //
+    //         isEvenv3(3);
+    //         isEvenv3(4);
+    //
+    //         println();
+    //
+    //         isEvenv4(3);
+    //         isEvenv4(4);
+    //     }
+    // """.trimIndent()
+
     val srcString = """
-        fun even(num: Int): Boolean {
-            val m: Int = num % 2;
-            return m == 0;
-        }
-        
-        fun isEvenv1(num: Int): Int {
-            if (even(num)) {
-                return 100;
-            } else {
-                return 50;
-            }
-        }
-        
-        fun isEvenv2(num: Int): Int {
-            if (even(num)) {
-               return 100;
-            }
-            return 50;
-        }
-        
-        fun isEvenv3(num: Int) {
-            if (even(num)) {
-                println(100);
-            } else {
-                println(50);
-            }
-        }
-        
-        fun isEvenv4(num: Int) {
-            if (even(num)) {
-                println(200);
-            }
-            
-            println(500);
-        }
-        
         fun main() {
-            println(isEvenv1(3));
-            println(isEvenv1(4));
+            var a: Int = 0;
+            var b: Int = 1;
             
-            println();
+            val n: Int = 12;
+            var i: Int = 0;
             
-            println(isEvenv2(3));
-            println(isEvenv2(4));
+            while (i < n) {
+                val tmp: Int = a + b;
+                a = b;
+                b = tmp;
+                i = i + 1;
+            }
             
-            println();
-            
-            isEvenv3(3);
-            isEvenv3(4);
-            
-            println();
-            
-            isEvenv4(3);
-            isEvenv4(4);
+            print("fib(");
+            print(n);
+            print(")=");
+            println(a);
         }
     """.trimIndent()
 

@@ -264,7 +264,28 @@ public class LLVMCodeGenerator(moduleName: String) {
                         newBlock
                     } ?: currentBlock
                 }
-                is TypedWhileStatement -> TODO()
+                is TypedWhileStatement -> {
+                    val currentFunction = function ?: error("if statements can only be in function bodies (should be unreachable)")
+
+                    val condBlock = currentFunction.basicBlocks.append("while_cond") {}
+                    var bodyBlock = currentFunction.basicBlocks.append("while_body") {}
+                    val endBlock = currentFunction.basicBlocks.append("while_end") {}
+
+                    builder.br(condBlock)
+
+                    val (cond, condBlock2) = dfs(it.condition, builder, condBlock)
+
+                    builder.positionAtEnd(condBlock2)
+
+                    builder.cond(cond, bodyBlock, endBlock)
+
+                    bodyBlock = generateStatements(it.body, builder, bodyBlock)
+
+                    builder.positionAtEnd(bodyBlock)
+                    builder.br(condBlock)
+
+                    endBlock
+                }
             }
         }
 
@@ -272,8 +293,21 @@ public class LLVMCodeGenerator(moduleName: String) {
     }
 
     private fun dfs(root: TypedExpression, builder: Builder, block: BasicBlock): Pair<Value, BasicBlock> {
+        builder.positionAtEnd(block)
         return when (root) {
-            is TypedAssign -> TODO()
+            is TypedAssign -> {
+                val name = root.name.lexeme
+                val (value, newBlock) = dfs(root.expression, builder, block)
+                val (dest, _, param) = env.getVariable(name) ?: error("No variable found for $name")
+
+                if (param) {
+                    error("unable to assign to $name as it is a function parameter")
+                }
+
+                builder.positionAtEnd(newBlock)
+
+                builder.store(value, dest) to newBlock
+            }
             is TypedBinary -> {
                 val (lhs, b1) = dfs(root.left, builder, block)
                 val (rhs, b2) = dfs(root.right, builder, b1)
@@ -562,7 +596,9 @@ public class LLVMCodeGenerator(moduleName: String) {
                 context.int32.constInt(root.value) to block
             }
             TypedNullLiteral -> TODO()
-            is TypedStringLiteral -> TODO()
+            is TypedStringLiteral -> {
+                builder.globalStringPointer(root.value) to block
+            }
             is TypedLogical -> TODO()
             is TypedSet -> TODO()
             is TypedThis -> TODO()
@@ -580,6 +616,7 @@ public class LLVMCodeGenerator(moduleName: String) {
                     "Boolean" -> context.int1
                     "Int" -> context.int32
                     "Unit" -> context.void
+                    "String" -> context.int8.pointer
                     else -> TODO()
                 }
             }
