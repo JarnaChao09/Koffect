@@ -2,6 +2,7 @@ package llvm4k
 
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.toCValues
+import llvm.LLVMAddIncoming
 import llvm.LLVMBuildAdd
 import llvm.LLVMBuildAlloca
 import llvm.LLVMBuildBr
@@ -19,6 +20,7 @@ import llvm.LLVMBuildGlobalStringPtr
 import llvm.LLVMBuildICmp
 import llvm.LLVMBuildLoad2
 import llvm.LLVMBuildMul
+import llvm.LLVMBuildPhi
 import llvm.LLVMBuildRet
 import llvm.LLVMBuildSDiv
 import llvm.LLVMBuildSRem
@@ -132,6 +134,17 @@ public class Builder internal constructor(private val ref: LLVMBuilderRef?) {
 
     public fun cond(cond: Value, thenBlock: BasicBlock, elseBlock: BasicBlock): Value {
         return LLVMBuildCondBr(this.ref, cond, thenBlock.llvmRef, elseBlock.llvmRef)
+    }
+
+    public fun phi(type: Type, incomingBlocks: Array<BasicBlock>, incomingValues: Array<Value>, name: String = ""): Value {
+        val phiNode = LLVMBuildPhi(this.ref, type.llvmRef, name)
+        LLVMAddIncoming(
+            phiNode,
+            incomingValues.toCValues(),
+            incomingBlocks.map { it.llvmRef }.toCValues(),
+            incomingBlocks.size.toUInt()
+        )
+        return phiNode
     }
 
     public fun globalStringPointer(str: String, name: String = ""): Value {

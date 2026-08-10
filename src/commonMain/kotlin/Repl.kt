@@ -922,25 +922,49 @@ public fun repl() {
     //     }
     // """.trimIndent()
 
+    // val srcString = """
+    //     fun main() {
+    //         var a: Int = 0;
+    //         var b: Int = 1;
+    //
+    //         val n: Int = 12;
+    //         var i: Int = 0;
+    //
+    //         while (i < n) {
+    //             val tmp: Int = a + b;
+    //             a = b;
+    //             b = tmp;
+    //             i = i + 1;
+    //         }
+    //
+    //         print("fib(");
+    //         print(n);
+    //         print(")=");
+    //         println(a);
+    //     }
+    // """.trimIndent()
+
     val srcString = """
+        fun truth(): Boolean {
+            println("the truth");
+            return true;
+        }
+        
+        fun lie(): Boolean {
+            println("the lie");
+            return false;
+        }
+        
         fun main() {
-            var a: Int = 0;
-            var b: Int = 1;
-            
-            val n: Int = 12;
-            var i: Int = 0;
-            
-            while (i < n) {
-                val tmp: Int = a + b;
-                a = b;
-                b = tmp;
-                i = i + 1;
-            }
-            
-            print("fib(");
-            print(n);
-            print(")=");
-            println(a);
+            println(truth() && truth());
+            println(truth() && lie());
+            println(lie() && truth());
+            println(lie() && lie());
+            println();
+            println(truth() || truth());
+            println(truth() || lie());
+            println(lie() || truth());
+            println(lie() || lie());
         }
     """.trimIndent()
 

@@ -557,7 +557,7 @@ public class LLVMCodeGenerator(moduleName: String) {
                     args = arguments,
                 )
 
-                value to b1
+                value to currentBlock
             }
             is TypedContextVariable -> TODO()
             is TypedVariable -> {
@@ -590,8 +590,12 @@ public class LLVMCodeGenerator(moduleName: String) {
             is TypedIfExpression -> TODO()
             is TypedInlineCall -> TODO()
             is TypedLambda -> TODO()
-            is TypedBooleanLiteral -> TODO()
-            is TypedDoubleLiteral -> TODO()
+            is TypedBooleanLiteral -> {
+                context.int1.constInt(if (root.value) 1 else 0) to block
+            }
+            is TypedDoubleLiteral -> {
+                context.double.constDouble(root.value) to block
+            }
             is TypedIntLiteral -> {
                 context.int32.constInt(root.value) to block
             }
@@ -599,7 +603,57 @@ public class LLVMCodeGenerator(moduleName: String) {
             is TypedStringLiteral -> {
                 builder.globalStringPointer(root.value) to block
             }
-            is TypedLogical -> TODO()
+            is TypedLogical -> {
+                val currentFunction = function ?: error("if statements can only be in function bodies (should be unreachable)")
+
+                val (lhs, lhsBlock) = dfs(root.left, builder, block)
+
+                builder.positionAtEnd(lhsBlock)
+
+                when (root.operator.type) {
+                    TokenType.AND -> {
+                        val rhsBlock = currentFunction.basicBlocks.append("and_rhs") {}
+                        val andBlock = currentFunction.basicBlocks.append("and_end") {}
+
+                        builder.cond(lhs, rhsBlock, andBlock)
+
+                        val (rhs, rhsBlock2) = dfs(root.right, builder, rhsBlock)
+
+                        builder.positionAtEnd(rhsBlock2)
+                        builder.br(andBlock)
+
+                        builder.positionAtEnd(andBlock)
+                        val phiAnd = builder.phi(
+                            context.int1,
+                            arrayOf(block, rhsBlock),
+                            arrayOf(context.int1.constInt(0), rhs)
+                        )
+
+                        phiAnd to andBlock
+                    }
+                    TokenType.OR -> {
+                        val rhsBlock = currentFunction.basicBlocks.append("or_rhs") {}
+                        val orBlock = currentFunction.basicBlocks.append("or_end") {}
+
+                        builder.cond(lhs, orBlock, rhsBlock)
+
+                        val (rhs, rhsBlock2) = dfs(root.right, builder, rhsBlock)
+
+                        builder.positionAtEnd(rhsBlock2)
+                        builder.br(orBlock)
+
+                        builder.positionAtEnd(orBlock)
+                        val phiOr = builder.phi(
+                            context.int1,
+                            arrayOf(block, rhsBlock),
+                            arrayOf(context.int1.constInt(1), rhs),
+                        )
+
+                        phiOr to orBlock
+                    }
+                    else -> error("invalid logical operator found (should be unreachable)")
+                }
+            }
             is TypedSet -> TODO()
             is TypedThis -> TODO()
             is TypedUnary -> TODO()

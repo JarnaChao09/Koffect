@@ -3,6 +3,7 @@ package llvm4k
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.toCValues
 import llvm.LLVMConstInt
+import llvm.LLVMConstReal
 import llvm.LLVMFunctionType
 import llvm.LLVMPointerTypeInContext
 import llvm.LLVMTypeRef
@@ -26,6 +27,10 @@ public class Type internal constructor(private val ref: LLVMTypeRef?, private va
 
     public fun constInt(value: ULong): Value {
         return LLVMConstInt(this.ref, value, 0)
+    }
+
+    public fun constDouble(value: Double): Value {
+        return LLVMConstReal(this.ref, value)
     }
 
     public val pointer: Type
