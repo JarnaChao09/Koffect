@@ -944,27 +944,39 @@ public fun repl() {
     //     }
     // """.trimIndent()
 
+    // val srcString = """
+    //     fun truth(): Boolean {
+    //         println("the truth");
+    //         return true;
+    //     }
+    //
+    //     fun lie(): Boolean {
+    //         println("the lie");
+    //         return false;
+    //     }
+    //
+    //     fun main() {
+    //         println(truth() && truth());
+    //         println(truth() && lie());
+    //         println(lie() && truth());
+    //         println(lie() && lie());
+    //         println();
+    //         println(truth() || truth());
+    //         println(truth() || lie());
+    //         println(lie() || truth());
+    //         println(lie() || lie());
+    //     }
+    // """.trimIndent()
+
     val srcString = """
-        fun truth(): Boolean {
-            println("the truth");
-            return true;
-        }
-        
-        fun lie(): Boolean {
-            println("the lie");
-            return false;
+        context(Int, Double)
+        fun add(other: Int): Int {
+            val d: Double = this@Double;
+            return this@Int + other;
         }
         
         fun main() {
-            println(truth() && truth());
-            println(truth() && lie());
-            println(lie() && truth());
-            println(lie() && lie());
-            println();
-            println(truth() || truth());
-            println(truth() || lie());
-            println(lie() || truth());
-            println(lie() || lie());
+            println("hello world");
         }
     """.trimIndent()
 

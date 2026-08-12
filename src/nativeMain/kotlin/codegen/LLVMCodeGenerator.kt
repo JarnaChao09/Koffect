@@ -118,10 +118,11 @@ public class LLVMCodeGenerator(moduleName: String) {
                 is TypedFunctionDeclaration -> {
                     val previousFunction = function
 
+                    val contextTypes = it.contexts.map { c -> c.toLLVMType() }
                     val parameterTypes = it.parameters.map { p -> p.type.toLLVMType() }
                     module.function(
                         name = it.name.lexeme,
-                        parameterTypes = parameterTypes,
+                        parameterTypes = contextTypes + parameterTypes,
                         returnType = it.returnType.toLLVMType(),
                         vararg = false,
                     ) { type ->
@@ -133,11 +134,16 @@ public class LLVMCodeGenerator(moduleName: String) {
 
                         scope {
                             val b = basicBlocks.append { _ ->
+                                it.contexts.forEachIndexed { i, type ->
+                                    val contextType = contextTypes[i]
+
+                                    env.addContext(type, parameters[i], contextType)
+                                }
                                 it.parameters.forEachIndexed { i, p ->
                                     val parameterName = p.name.lexeme
                                     val parameterType = parameterTypes[i]
 
-                                    env.addVariable(parameterName, parameters[i], parameterType, true)
+                                    env.addVariable(parameterName, parameters[i + it.contexts.size], parameterType, true)
                                 }
                             }
 
@@ -559,7 +565,13 @@ public class LLVMCodeGenerator(moduleName: String) {
 
                 value to currentBlock
             }
-            is TypedContextVariable -> TODO()
+            is TypedContextVariable -> {
+                val (cValue, _) = env.getContext(root.type) ?: error("context ${root.type} not in scope (should be unreachable)")
+
+                // NOTE: currently contexts can only be introduced as parameters to a function, so no loads are needed
+                //       currently when accessing them
+                cValue to block
+            }
             is TypedVariable -> {
                 val name = root.mangledName
                 val value = when (val type = root.type) {
@@ -668,6 +680,7 @@ public class LLVMCodeGenerator(moduleName: String) {
             is VariableType -> {
                 when (type.name) {
                     "Boolean" -> context.int1
+                    "Double" -> context.double
                     "Int" -> context.int32
                     "Unit" -> context.void
                     "String" -> context.int8.pointer
@@ -702,6 +715,7 @@ public class LLVMCodeGenerator(moduleName: String) {
 @OptIn(ExperimentalForeignApi::class)
 private class LLVMEnvironment(val enclosing: LLVMEnvironment?) {
     private val variables: MutableMap<String, Triple<Value, Type, Boolean>> = mutableMapOf()
+    private val contexts: MutableMap<analysis.ast.Type, Pair<Value, Type>> = mutableMapOf()
     private val functions: MutableMap<String, Pair<Type, Function>> = mutableMapOf()
 
     fun addVariable(name: String, value: Value, type: Type, parameter: Boolean) {
@@ -714,6 +728,19 @@ private class LLVMEnvironment(val enclosing: LLVMEnvironment?) {
     fun getVariable(name: String): Triple<Value, Type, Boolean>? {
         return this.variables.getOrElse(name) {
             this.enclosing?.getVariable(name)
+        }
+    }
+
+    fun addContext(astType: analysis.ast.Type, value: Value, type: Type) {
+        if (contexts.containsKey(astType)) {
+            error("duplicate context of type $astType exists in scope")
+        }
+        contexts[astType] = value to type
+    }
+
+    fun getContext(astType: analysis.ast.Type): Pair<Value, Type>? {
+        return this.contexts.getOrElse(astType) {
+            this.enclosing?.getContext(astType)
         }
     }
 
