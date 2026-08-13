@@ -968,15 +968,44 @@ public fun repl() {
     //     }
     // """.trimIndent()
 
+    // val srcString = """
+    //     fun run(block: () -> Unit) {
+    //         block();
+    //     }
+    //
+    //     fun main() {
+    //         val r: () -> Unit = {
+    //             println("from lambda literal");
+    //         };
+    //         run {
+    //             println("Hello world");
+    //         };
+    //         r();
+    //     }
+    // """.trimIndent()
+
     val srcString = """
-        context(Int, Double)
-        fun add(other: Int): Int {
-            val d: Double = this@Double;
-            return this@Int + other;
+        fun foo() {
+            println("contextless foo");
+        }
+        
+        context(Int)
+        fun foo() {
+            print("context(Int) [");
+            print(this@Int);
+            println("] foo");
+        }
+        
+        fun withInt(c: Int, block: context(Int) () -> Unit) {
+            block(c);
         }
         
         fun main() {
-            println("hello world");
+            foo();
+            withInt(10) {
+                foo();
+                foo@();
+            };
         }
     """.trimIndent()
 

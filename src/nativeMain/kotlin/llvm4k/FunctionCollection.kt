@@ -17,6 +17,14 @@ public class FunctionCollection internal constructor(private val mod: Module) {
         }
     }
 
+    public fun add(name: String, functionType: Type): Pair<Type, Function> {
+        val function = LLVMAddFunction(this.mod.llvmRef, name, functionType.llvmRef)
+
+        return (functionType to Function(function)).also {
+            this.functions[name] = it
+        }
+    }
+
     public operator fun get(name: String): Pair<Type, Function> {
         return this.functions[name]!!
     }

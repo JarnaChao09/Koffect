@@ -24,6 +24,16 @@ public class Module internal constructor(private val ref: LLVMModuleRef?, public
         }
     }
 
+    public fun function(
+        name: String,
+        functionType: Type,
+        block: Function.(Type) -> Unit = {}
+    ): Pair<Type, Function> {
+        return this.functions.add(name, functionType).apply {
+            second.block(first)
+        }
+    }
+
     public companion object
 }
 

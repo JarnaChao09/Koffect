@@ -62,6 +62,7 @@ public class LLVMCodeGenerator(moduleName: String) {
     private val module: Module = threadSafeContext.context.newModule(moduleName)
 
     private var function: Function? = null
+    private var functionName: String? = null
 
     private var env: LLVMEnvironment = LLVMEnvironment(null)
 
@@ -117,16 +118,18 @@ public class LLVMCodeGenerator(moduleName: String) {
                 is TypedClassDeclaration -> TODO()
                 is TypedFunctionDeclaration -> {
                     val previousFunction = function
+                    val previousFunctionName = functionName
 
-                    val contextTypes = it.contexts.map { c -> c.toLLVMType() }
-                    val parameterTypes = it.parameters.map { p -> p.type.toLLVMType() }
+                    val contextTypes = it.contexts.map { c -> c.toLLVMType(true) }
+                    val parameterTypes = it.parameters.map { p -> p.type.toLLVMType(true) }
                     module.function(
                         name = it.name.lexeme,
                         parameterTypes = contextTypes + parameterTypes,
-                        returnType = it.returnType.toLLVMType(),
+                        returnType = it.returnType.toLLVMType(true),
                         vararg = false,
                     ) { type ->
                         function = this@function
+                        functionName = it.name.lexeme
                         env.addFunction(
                             it.mangledName,
                             type to this@function,
@@ -163,6 +166,7 @@ public class LLVMCodeGenerator(moduleName: String) {
                         }
                     }
                     function = previousFunction
+                    functionName = previousFunctionName
 
                     currentBlock
                 }
@@ -227,14 +231,21 @@ public class LLVMCodeGenerator(moduleName: String) {
                     }
                 }
                 is TypedReturnExpressionStatement -> {
-                    TODO()
-                    // builder.positionAtEnd(block)
-                    //
-                    // val (retValue, newBlock) = dfs(it.returnExpression, builder, block)
-                    //
-                    // builder.positionAtEnd(newBlock)
-                    //
-                    // builder.ret(retValue)
+                    returnEmitted = true
+
+                    val returnType = it.returnExpression.type
+
+                    val (value, nextBlock) = dfs(it.returnExpression, builder, currentBlock)
+
+                    builder.positionAtEnd(nextBlock)
+
+                    if (returnType is VariableType && returnType.mangledName == "Unit") {
+                        builder.ret()
+                    } else {
+                        builder.ret(value)
+                    }
+
+                    nextBlock
                 }
                 is TypedReturnStatement -> {
                     returnEmitted = true
@@ -255,7 +266,7 @@ public class LLVMCodeGenerator(moduleName: String) {
                 }
                 is TypedVariableStatement -> {
                     val variableName = it.name.lexeme
-                    val variableType = it.type?.toLLVMType() ?: error("type of ${it.name.lexeme} is null (should be unreachable)")
+                    val variableType = it.type?.toLLVMType(true) ?: error("type of ${it.name.lexeme} is null (should be unreachable)")
                     val location = builder.alloca(variableType, variableName)
 
                     env.addVariable(variableName, location, variableType, false)
@@ -546,7 +557,7 @@ public class LLVMCodeGenerator(moduleName: String) {
                 val argumentTypes = mutableListOf<Type>()
                 val arguments = Array(root.arguments.size) {
                     val argument = root.arguments[it]
-                    argumentTypes.add(argument.type.toLLVMType())
+                    argumentTypes.add(argument.type.toLLVMType(true))
                     val (value, b) = dfs(argument, builder, currentBlock)
 
                     currentBlock = b
@@ -557,7 +568,7 @@ public class LLVMCodeGenerator(moduleName: String) {
                     functionType = Type.Function(
                         context,
                         argumentTypes,
-                        root.type.toLLVMType()
+                        root.type.toLLVMType(true)
                     ),
                     function = func,
                     args = arguments,
@@ -580,7 +591,16 @@ public class LLVMCodeGenerator(moduleName: String) {
                         val function = env.getFunction(name)
                         function?.second?.llvmRef ?: error("no function $name found (should be unreachable)")
                     }
-                    is LambdaType -> TODO("lookup of lambdas not supported")
+                    is LambdaType -> {
+                        val variable = env.getVariable(name)
+                        variable?.let { (value, type, parameter) ->
+                            if (parameter) {
+                                value
+                            } else {
+                                builder.load(type, value, name)
+                            }
+                        } ?: error("No lambda variable found for $name")
+                    }
                     is VariableType -> {
                         val variable = env.getVariable(name)
                         variable?.let { (value, type, parameter) ->
@@ -595,13 +615,87 @@ public class LLVMCodeGenerator(moduleName: String) {
 
                 value to block
             }
-            is TypedGet -> TODO()
+            is TypedGet -> {
+                val instance = root.instance
+
+                when (instance.type) {
+                    is ClassType -> TODO()
+                    is FunctionType -> TODO()
+                    is LambdaType -> {
+                        if (root.name.lexeme == "invoke") {
+                            dfs(instance, builder, block)
+                        } else {
+                            TODO()
+                        }
+                    }
+                    is VariableType -> TODO()
+                }
+            }
             is TypedGrouping -> {
                 dfs(root.expression, builder, block)
             }
             is TypedIfExpression -> TODO()
             is TypedInlineCall -> TODO()
-            is TypedLambda -> TODO()
+            is TypedLambda -> {
+                require(root.captures.isEmpty()) {
+                    "closures currently not supported on LLVM backend"
+                }
+
+                val previousFunction = function
+                val previousFunctionName = functionName
+
+                val contextTypes = root.contexts.map { it.toLLVMType(true) }
+                val parameterTypes = root.parameters.map { it.type.toLLVMType(true) }
+
+                val lambdaType = root.type.toLLVMType(false)
+
+                val lambdaName = "${functionName}_lambda_${root.contexts.size + root.parameters.size}"
+
+                val (lambdaLLVMType, lambdaLLVMValue) = module.function(
+                    name = "lambda",
+                    functionType = lambdaType,
+                ) { type ->
+                    function = this@function
+                    functionName = lambdaName
+
+                    scope {
+                        val b = basicBlocks.append { _ ->
+                            root.contexts.forEachIndexed { i, type ->
+                                val contextType = contextTypes[i]
+
+                                env.addContext(type, parameters[i], contextType)
+                            }
+                            root.parameters.forEachIndexed { i, p ->
+                                val parameterName = p.name.lexeme
+                                val parameterType = parameterTypes[i]
+
+                                env.addVariable(parameterName, parameters[i + root.contexts.size], parameterType, true)
+                            }
+                        }
+
+                        builder.positionAtEnd(b)
+
+                        val previousReturnEmitted = returnEmitted
+                        returnEmitted = false
+
+                        val b1 = generateStatements(root.body, builder, b)
+
+                        if (!returnEmitted) {
+                            builder.positionAtEnd(b1)
+                            builder.ret()
+                        }
+
+                        returnEmitted = previousReturnEmitted
+                    }
+                }
+
+                function = previousFunction
+                functionName = previousFunctionName
+
+                builder.positionAtEnd(block)
+
+                lambdaLLVMValue.llvmRef to block
+            }
             is TypedBooleanLiteral -> {
                 context.int1.constInt(if (root.value) 1 else 0) to block
             }
@@ -672,11 +766,24 @@ public class LLVMCodeGenerator(moduleName: String) {
         }
     }
 
-    private fun analysis.ast.Type.toLLVMType(): Type {
+    private fun analysis.ast.Type.toLLVMType(convertFunctionToPointer: Boolean): Type {
         return when (val type = this) {
             is ClassType -> TODO()
             is FunctionType -> TODO()
-            is LambdaType -> TODO()
+            is LambdaType -> {
+                Type.Function(
+                    context,
+                    parameterTypes = type.contextTypes.map { it.toLLVMType(true) } + type.parameterTypes.map { it.toLLVMType(true) },
+                    returnType = type.returnType.toLLVMType(true),
+                    vararg = false,
+                ).let {
+                    if (convertFunctionToPointer) {
+                        it.pointer
+                    } else {
+                        it
+                    }
+                }
+            }
             is VariableType -> {
                 when (type.name) {
                     "Boolean" -> context.int1
