@@ -170,10 +170,23 @@ public class Lexer(private val source: String, private val keywords: Map<String,
             this.advance()
         }
 
-        return this.createToken(
-            TokenType.NUMBER,
-            literal = this.source.substring(this.start..<this.current).conversion()
-        )
+        return when (this.peek()) {
+            'l', 'L' -> {
+                conversion = String::toLong
+                this.createToken(
+                    TokenType.NUMBER,
+                    literal = this.source.substring(this.start..<this.current).conversion()
+                ).also {
+                    this.advance()
+                }
+            }
+            else -> {
+                this.createToken(
+                    TokenType.NUMBER,
+                    literal = this.source.substring(this.start..<this.current).conversion()
+                )
+            }
+        }
     }
 
     private fun createIdentifier(): Token {

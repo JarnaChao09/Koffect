@@ -7,6 +7,7 @@ import parser.Parser
 public val printTypes: List<String> = listOf(
     "Any",
     "Int",
+    "Long",
     "Double",
     "Boolean",
     "String",
@@ -41,11 +42,11 @@ public fun repl() {
             emptyList<String>() returns "Double"
         }
 
-        function("clock") {
-            emptyList<String>() returns "Double"
+        function("currentTime") {
+            emptyList<String>() returns "Long"
         }
 
-        for (type in listOf("Int", "Double")) {
+        for (type in listOf("Int", "Long", "Double")) {
             type {
                 for (functionName in listOf("plus", "minus", "times", "div", "mod")) {
                     function(functionName) {
@@ -65,7 +66,7 @@ public fun repl() {
                     }
                 }
 
-                for ((functionName, returnType) in listOf("toInt" to "Int", "toDouble" to "Double")) {
+                for ((functionName, returnType) in listOf("toInt" to "Int", "toLong" to "Long", "toDouble" to "Double")) {
                     function(functionName) {
                         emptyList<String>() returns returnType
                     }
@@ -984,28 +985,76 @@ public fun repl() {
     //     }
     // """.trimIndent()
 
+    // val srcString = """
+    //     fun foo() {
+    //         println("contextless foo");
+    //     }
+    //
+    //     context(Int)
+    //     fun foo() {
+    //         print("context(Int) [");
+    //         print(this@Int);
+    //         println("] foo");
+    //     }
+    //
+    //     fun withInt(c: Int, block: context(Int) () -> Unit) {
+    //         block(c);
+    //     }
+    //
+    //     fun main() {
+    //         foo();
+    //         withInt(10) {
+    //             foo();
+    //             foo@();
+    //         };
+    //     }
+    // """.trimIndent()
+
     val srcString = """
-        fun foo() {
-            println("contextless foo");
+        fun fibIter(n: Int): Long {
+            var a: Long = 0L;
+            var b: Long = 1L;
+            
+            var i: Int = 0;
+            
+            while (i < n) {
+                val tmp: Long = a + b;
+                a = b;
+                b = tmp;
+                i = i + 1;
+            }
+            
+            return a;
         }
         
-        context(Int)
-        fun foo() {
-            print("context(Int) [");
-            print(this@Int);
-            println("] foo");
+        fun fibRec(n: Int): Long {
+            if (n == 0) {
+                return 0L;
+            } else if (n == 1) {
+                return 1L;
+            } else {
+                return fibRec(n - 1) + fibRec(n - 2);
+            }
         }
         
-        fun withInt(c: Int, block: context(Int) () -> Unit) {
-            block(c);
+        fun measureTime(block: () -> Unit): Long {
+            val t1: Long = currentTime();
+            block();
+            val t2: Long = currentTime();
+            
+            return t2 - t1;
         }
         
         fun main() {
-            foo();
-            withInt(10) {
-                foo();
-                foo@();
+            val iter: Long = measureTime {
+                val fib: Long = fibIter(50);
             };
+            val recur: Long = measureTime {
+                val fib: Long = fibRec(50);
+            };
+            
+            println(iter);
+            println(recur);
         }
     """.trimIndent()
 

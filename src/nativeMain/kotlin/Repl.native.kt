@@ -38,6 +38,7 @@ public actual fun execute(typedTree: List<TypedStatement>) {
 
         fun String.toLLVMType() = when (this) {
             "Int" -> llvm.type { int32 }
+            "Long" -> llvm.type { int64 }
             "Double" -> llvm.type { double }
             "Boolean" -> llvm.type { int1 }
             "String" -> llvm.type { int8.pointer }
@@ -51,6 +52,11 @@ public actual fun execute(typedTree: List<TypedStatement>) {
             parameterTypes = listOf(llvm.type { int8.pointer }),
             returnType = llvm.type { int32 },
             vararg = true
+        )
+        llvm.nativeFunction(
+            name = "clock",
+            parameterTypes = emptyList(),
+            returnType = llvm.type { int64 },
         )
 
         context(function: Function)
@@ -66,6 +72,12 @@ public actual fun execute(typedTree: List<TypedStatement>) {
                 val args = when (this@generatePrint) {
                     "Int" -> {
                         val output = globalStringPointer("%d$newline")
+
+                        arrayOf(output, input)
+                    }
+
+                    "Long" -> {
+                        val output = globalStringPointer("%ld$newline")
 
                         arrayOf(output, input)
                     }
@@ -134,6 +146,21 @@ public actual fun execute(typedTree: List<TypedStatement>) {
                 call(printfFunctionType, printfFunction.llvmRef, arrayOf(globalStringPointer("\n")))
 
                 ret()
+            }
+        }
+
+        llvm.nativeFunction(
+            "currentTime",
+            parameterTypes = emptyList(),
+            returnType = "Long".let { it.toLLVMType() to it },
+        ) {
+            basicBlocks.append {
+                val (timeFunctionType, timeFunction) = llvm.getNativeFunction("clock")
+                    ?: error("time was not found (???)")
+
+                val timeValue = call(timeFunctionType, timeFunction.llvmRef, arrayOf())
+
+                ret(timeValue)
             }
         }
 

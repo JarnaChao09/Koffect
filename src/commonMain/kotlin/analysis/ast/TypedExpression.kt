@@ -16,6 +16,7 @@ public sealed interface TypedLiteral<T> : TypedExpression {
 public inline fun <T> TypedLiteral(literal: Literal<T>): TypedLiteral<T> = when(literal) {
     is NullLiteral -> TypedNullLiteral
     is IntLiteral -> TypedIntLiteral(literal.value)
+    is LongLiteral -> TypedLongLiteral(literal.value)
     is DoubleLiteral -> TypedDoubleLiteral(literal.value)
     is BooleanLiteral -> TypedBooleanLiteral(literal.value)
     is StringLiteral -> TypedStringLiteral(literal.value)
@@ -27,6 +28,15 @@ public data class TypedIntLiteral(override val value: Int) : TypedLiteral<Int> {
 
     override fun toString(): String {
         return "${this.value}<Int>"
+    }
+}
+
+public data class TypedLongLiteral(override val value: Long) : TypedLiteral<Long> {
+    override val type: Type
+        get() = VariableType("Long")
+
+    override fun toString(): String {
+        return "${this.value}<Long>"
     }
 }
 

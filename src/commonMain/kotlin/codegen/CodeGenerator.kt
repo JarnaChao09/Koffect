@@ -688,6 +688,9 @@ public class CodeGenerator {
                 this.currentChunk.write(Opcode.IntConstant.toInt(), this.line)
                 this.currentChunk.write(constant, this.line++)
             }
+            is TypedLongLiteral -> {
+                TODO()
+            }
             is TypedBooleanLiteral -> {
                 this.currentChunk.write(when (root.value) {
                     true -> Opcode.True

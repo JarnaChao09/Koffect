@@ -67,10 +67,10 @@ public data class FunctionType(
         public val contextTypes: List<Type>,
         public val parameterTypes: List<Type>,
         public val returnType: Type,
-        public val isDeleted: Boolean,
-        public val deletionReason: TypedExpression?,
-        public val inlinedBody: List<TypedStatement>?, // if null, then the overload was not marked inline
-        public val inlinedParameterNames: List<TypedParameter>?, // if null, then the overload was not marked inline
+        public var isDeleted: Boolean,
+        public var deletionReason: TypedExpression?,
+        public var inlinedBody: List<TypedStatement>?, // if null, then the overload was not marked inline
+        public var inlinedParameterNames: List<TypedParameter>?, // if null, then the overload was not marked inline
     ) {
         public val arity: Int = this.parameterTypes.size
 

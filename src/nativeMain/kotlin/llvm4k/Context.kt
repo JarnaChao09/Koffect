@@ -8,6 +8,7 @@ import llvm.LLVMCreateBuilderInContext
 import llvm.LLVMDoubleTypeInContext
 import llvm.LLVMInt1TypeInContext
 import llvm.LLVMInt32TypeInContext
+import llvm.LLVMInt64TypeInContext
 import llvm.LLVMInt8TypeInContext
 import llvm.LLVMModuleCreateWithNameInContext
 import llvm.LLVMOrcCreateNewThreadSafeContextFromLLVMContext
@@ -29,6 +30,9 @@ public class Context internal constructor(private val ref: LLVMContextRef?) {
 
     public val int32: Type
         get() = Type(LLVMInt32TypeInContext(this.ref), this)
+
+    public val int64: Type
+        get() = Type(LLVMInt64TypeInContext(this.ref), this)
 
     public val double: Type
         get() = Type(LLVMDoubleTypeInContext(this.ref), this)

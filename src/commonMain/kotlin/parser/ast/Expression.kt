@@ -12,6 +12,7 @@ public sealed interface Literal<T> : Expression {
 public inline fun <T : Any> Literal(literal: T?): Literal<T> = when(literal) {
     null -> NullLiteral
     is Int -> IntLiteral(literal)
+    is Long -> LongLiteral(literal)
     is Double -> DoubleLiteral(literal)
     is Boolean -> BooleanLiteral(literal)
     is String -> StringLiteral(literal)
@@ -19,6 +20,8 @@ public inline fun <T : Any> Literal(literal: T?): Literal<T> = when(literal) {
 } as Literal<T>
 
 public data class IntLiteral(override val value: Int) : Literal<Int>
+
+public data class LongLiteral(override val value: Long) : Literal<Long>
 
 public data class DoubleLiteral(override val value: Double) : Literal<Double>
 

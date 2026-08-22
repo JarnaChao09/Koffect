@@ -22,6 +22,7 @@ import analysis.ast.TypedInlineCall
 import analysis.ast.TypedIntLiteral
 import analysis.ast.TypedLambda
 import analysis.ast.TypedLogical
+import analysis.ast.TypedLongLiteral
 import analysis.ast.TypedNullLiteral
 import analysis.ast.TypedReturnExpressionStatement
 import analysis.ast.TypedReturnStatement
@@ -336,7 +337,7 @@ public class LLVMCodeGenerator(moduleName: String) {
                         when (type) {
                             is VariableType -> {
                                 when (type.name) {
-                                    "Double", "Int" -> {
+                                    "Double", "Int", "Long" -> {
                                         builder.add(lhs, rhs)
                                     }
                                     else -> {
@@ -353,7 +354,7 @@ public class LLVMCodeGenerator(moduleName: String) {
                         when (type) {
                             is VariableType -> {
                                 when (type.name) {
-                                    "Double", "Int" -> {
+                                    "Double", "Int", "Long" -> {
                                         builder.sub(lhs, rhs)
                                     }
                                     else -> {
@@ -373,7 +374,7 @@ public class LLVMCodeGenerator(moduleName: String) {
                                     "Double" -> {
                                         builder.fmul(lhs, rhs)
                                     }
-                                    "Int" -> {
+                                    "Int", "Long" -> {
                                         builder.mul(lhs, rhs)
                                     }
                                     else -> {
@@ -393,7 +394,7 @@ public class LLVMCodeGenerator(moduleName: String) {
                                     "Double" -> {
                                         builder.fdiv(lhs, rhs)
                                     }
-                                    "Int" -> {
+                                    "Int", "Long" -> {
                                         builder.sdiv(lhs, rhs)
                                     }
                                     else -> {
@@ -413,7 +414,7 @@ public class LLVMCodeGenerator(moduleName: String) {
                                     "Double" -> {
                                         builder.frem(lhs, rhs)
                                     }
-                                    "Int" -> {
+                                    "Int", "Long" -> {
                                         builder.srem(lhs, rhs)
                                     }
                                     else -> {
@@ -433,7 +434,7 @@ public class LLVMCodeGenerator(moduleName: String) {
                                     "Double" -> {
                                         builder.fcmp(LLVMRealPredicate.LLVMRealOEQ, lhs, rhs)
                                     }
-                                    "Int" -> {
+                                    "Int", "Long" -> {
                                         builder.icmp(LLVMIntPredicate.LLVMIntEQ, lhs, rhs)
                                     }
                                     else -> {
@@ -453,7 +454,7 @@ public class LLVMCodeGenerator(moduleName: String) {
                                     "Double" -> {
                                         builder.fcmp(LLVMRealPredicate.LLVMRealONE, lhs, rhs)
                                     }
-                                    "Int" -> {
+                                    "Int", "Long" -> {
                                         builder.icmp(LLVMIntPredicate.LLVMIntNE, lhs, rhs)
                                     }
                                     else -> {
@@ -473,7 +474,7 @@ public class LLVMCodeGenerator(moduleName: String) {
                                     "Double" -> {
                                         builder.fcmp(LLVMRealPredicate.LLVMRealOGE, lhs, rhs)
                                     }
-                                    "Int" -> {
+                                    "Int", "Long" -> {
                                         builder.icmp(LLVMIntPredicate.LLVMIntSGE, lhs, rhs)
                                     }
                                     else -> {
@@ -493,7 +494,7 @@ public class LLVMCodeGenerator(moduleName: String) {
                                     "Double" -> {
                                         builder.fcmp(LLVMRealPredicate.LLVMRealOLE, lhs, rhs)
                                     }
-                                    "Int" -> {
+                                    "Int", "Long" -> {
                                         builder.icmp(LLVMIntPredicate.LLVMIntSLE, lhs, rhs)
                                     }
                                     else -> {
@@ -513,7 +514,7 @@ public class LLVMCodeGenerator(moduleName: String) {
                                     "Double" -> {
                                         builder.fcmp(LLVMRealPredicate.LLVMRealOGT, lhs, rhs)
                                     }
-                                    "Int" -> {
+                                    "Int", "Long" -> {
                                         builder.icmp(LLVMIntPredicate.LLVMIntSGT, lhs, rhs)
                                     }
                                     else -> {
@@ -533,7 +534,7 @@ public class LLVMCodeGenerator(moduleName: String) {
                                     "Double" -> {
                                         builder.fcmp(LLVMRealPredicate.LLVMRealOLT, lhs, rhs)
                                     }
-                                    "Int" -> {
+                                    "Int", "Long" -> {
                                         builder.icmp(LLVMIntPredicate.LLVMIntSLT, lhs, rhs)
                                     }
                                     else -> {
@@ -705,6 +706,9 @@ public class LLVMCodeGenerator(moduleName: String) {
             is TypedIntLiteral -> {
                 context.int32.constInt(root.value) to block
             }
+            is TypedLongLiteral -> {
+                context.int64.constInt(root.value) to block
+            }
             TypedNullLiteral -> TODO()
             is TypedStringLiteral -> {
                 builder.globalStringPointer(root.value) to block
@@ -789,6 +793,7 @@ public class LLVMCodeGenerator(moduleName: String) {
                     "Boolean" -> context.int1
                     "Double" -> context.double
                     "Int" -> context.int32
+                    "Long" -> context.int64
                     "Unit" -> context.void
                     "String" -> context.int8.pointer
                     else -> TODO()

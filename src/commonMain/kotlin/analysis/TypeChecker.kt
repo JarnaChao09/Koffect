@@ -271,6 +271,13 @@ public class TypeChecker(public var environment: Environment) {
                     val contextTypes = it.contexts.map(parser.ast.Type::toType)
                     val parameterTypes = typedParameters.map(TypedParameter::type)
 
+                    val overload = oldFunctionType.addOverload(
+                        receiverType,
+                        contextTypes,
+                        parameterTypes,
+                        returnType,
+                    )
+
                     this.environment = Environment(this.environment, receiverType)
 
                     contextTypes.forEach {
@@ -323,16 +330,12 @@ public class TypeChecker(public var environment: Environment) {
                         null
                     }
 
-                    val overload = oldFunctionType.addOverload(
-                        receiverType,
-                        contextTypes,
-                        parameterTypes,
-                        returnType,
-                        isDeleted = containsDelete,
-                        deletionReason = deletionReason,
-                        inlinedBody = typedBody.takeIf { _ -> it.inline },
-                        inlinedParameterNames = typedParameters.takeIf { _ -> it.inline },
-                    )
+                    overload.apply {
+                        this.isDeleted = containsDelete
+                        this.deletionReason = deletionReason
+                        this.inlinedBody = typedBody.takeIf { _ -> it.inline }
+                        this.inlinedParameterNames = typedParameters.takeIf { _ -> it.inline }
+                    }
                     if (this.scope == Scope.CLASS_LEVEL) {
                         this.currentClass!!.addFunction(
                             it.name.lexeme,
@@ -375,9 +378,9 @@ public class TypeChecker(public var environment: Environment) {
 
                     initializerType?.let { initType ->
                         if (initType is ClassType && initType.mangledName != type.mangledName) {
-                            error("Variable initializer does not match declared type, found class $initType but expected $type")
+                            error("Variable initializer ${it.name.lexeme} does not match declared type, found class $initType but expected $type")
                         } else if (initType !is ClassType && initType != type) {
-                            error("Variable initializer does not match declared type, found $initType but expected $type")
+                            error("Variable initializer ${it.name.lexeme} does not match declared type, found $initType but expected $type")
                         }
                     }
 
@@ -775,14 +778,16 @@ public class TypeChecker(public var environment: Environment) {
                             else -> error("Currently only support calling function types from TypedVariable AST")
                         }
 
-                        if (foundOverload.inlinedBody != null && foundOverload.inlinedParameterNames != null) {
+                        val inlinedBody = foundOverload.inlinedBody
+                        val inlinedParameterNames = foundOverload.inlinedParameterNames
+                        if (inlinedBody != null && inlinedParameterNames != null) {
                             TypedInlineCall(
                                 callee,
                                 this.paren,
                                 foundArgs,
                                 foundOverload.returnType,
-                                foundOverload.inlinedBody,
-                                foundOverload.inlinedParameterNames,
+                                inlinedBody,
+                                inlinedParameterNames,
                                 foundOverload.contextTypes.map { it to false },
                             )
                         } else {
@@ -976,7 +981,7 @@ public class TypeChecker(public var environment: Environment) {
 
                 TypedIfExpression(typedCondition, typedTrueBranch, typedFalseBranch, trueType)
             }
-            is BooleanLiteral, is DoubleLiteral, is IntLiteral, NullLiteral, is StringLiteral -> TypedLiteral(this as Literal<*>)
+            is BooleanLiteral, is DoubleLiteral, is IntLiteral, is LongLiteral, NullLiteral, is StringLiteral -> TypedLiteral(this as Literal<*>)
             is Lambda -> {
                 val inline = if (expectedType == null) {
                     false
