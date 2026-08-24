@@ -1,6 +1,9 @@
 package llvm4k
 
 import kotlinx.cinterop.ExperimentalForeignApi
+import llvm.LLVMAddAlias2
+import llvm.LLVMGetPointerAddressSpace
+import llvm.LLVMGetUndef
 import llvm.LLVMModuleRef
 import llvm.LLVMOrcCreateNewThreadSafeModule
 import llvm.LLVMOrcThreadSafeModuleRef
@@ -11,6 +14,8 @@ public class Module internal constructor(private val ref: LLVMModuleRef?, public
         get() = this.ref
 
     public val functions: FunctionCollection by lazy { FunctionCollection(this) }
+
+    public val globals: GlobalCollection by lazy { GlobalCollection(this) }
 
     public fun function(
         name: String,

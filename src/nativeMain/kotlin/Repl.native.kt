@@ -48,6 +48,11 @@ public actual fun execute(typedTree: List<TypedStatement>) {
         }
 
         llvm.nativeFunction(
+            name = "malloc",
+            parameterTypes = listOf(llvm.type { int64 }),
+            returnType = llvm.type { void.pointer },
+        )
+        llvm.nativeFunction(
             name = "printf",
             parameterTypes = listOf(llvm.type { int8.pointer }),
             returnType = llvm.type { int32 },

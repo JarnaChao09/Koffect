@@ -2,6 +2,7 @@ package llvm4k
 
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.toCValues
+import llvm.LLVMAddAlias2
 import llvm.LLVMAddIncoming
 import llvm.LLVMBuildAdd
 import llvm.LLVMBuildAlloca
@@ -18,9 +19,13 @@ import llvm.LLVMBuildFRem
 import llvm.LLVMBuildGEP2
 import llvm.LLVMBuildGlobalStringPtr
 import llvm.LLVMBuildICmp
+import llvm.LLVMBuildInBoundsGEP2
 import llvm.LLVMBuildLoad2
+import llvm.LLVMBuildMemSet
 import llvm.LLVMBuildMul
 import llvm.LLVMBuildPhi
+import llvm.LLVMBuildPointerCast
+import llvm.LLVMBuildPtrToInt
 import llvm.LLVMBuildRet
 import llvm.LLVMBuildSDiv
 import llvm.LLVMBuildSRem
@@ -147,6 +152,14 @@ public class Builder internal constructor(private val ref: LLVMBuilderRef?) {
         return phiNode
     }
 
+    public fun ptr2int(value: Value, type: Type, name: String = ""): Value {
+        return LLVMBuildPtrToInt(this.ref, value, type.llvmRef, name)
+    }
+
+    public fun memset(ptr: Value, value: Value, length: Value): Value {
+        return LLVMBuildMemSet(this.ref, ptr, value, length, 0U)
+    }
+
     public fun globalStringPointer(str: String, name: String = ""): Value {
         return LLVMBuildGlobalStringPtr(this.ref, str, name)
     }
@@ -157,6 +170,10 @@ public class Builder internal constructor(private val ref: LLVMBuilderRef?) {
 
     public fun gep(type: Type, pointer: Value, indices: Array<Value>, name: String = ""): Value {
         return LLVMBuildGEP2(this.ref, type.llvmRef, pointer, indices.toCValues(), indices.size.toUInt(), name)
+    }
+
+    public fun gepInbounds(type: Type, pointer: Value, indices: Array<Value>, name: String = ""): Value {
+        return LLVMBuildInBoundsGEP2(this.ref, type.llvmRef, pointer, indices.toCValues(), indices.size.toUInt(), name)
     }
 
     public fun ret(): Value {

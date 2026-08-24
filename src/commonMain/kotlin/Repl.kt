@@ -1010,51 +1010,66 @@ public fun repl() {
     //     }
     // """.trimIndent()
 
+    // val srcString = """
+    //     fun fibIter(n: Int): Long {
+    //         var a: Long = 0L;
+    //         var b: Long = 1L;
+    //
+    //         var i: Int = 0;
+    //
+    //         while (i < n) {
+    //             val tmp: Long = a + b;
+    //             a = b;
+    //             b = tmp;
+    //             i = i + 1;
+    //         }
+    //
+    //         return a;
+    //     }
+    //
+    //     fun fibRec(n: Int): Long {
+    //         if (n == 0) {
+    //             return 0L;
+    //         } else if (n == 1) {
+    //             return 1L;
+    //         } else {
+    //             return fibRec(n - 1) + fibRec(n - 2);
+    //         }
+    //     }
+    //
+    //     fun measureTime(block: () -> Unit): Long {
+    //         val t1: Long = clock();
+    //         block();
+    //         val t2: Long = clock();
+    //
+    //         return t2 - t1;
+    //     }
+    //
+    //     fun main() {
+    //         val iter: Long = measureTime {
+    //             val fib: Long = fibIter(30);
+    //         };
+    //         val recur: Long = measureTime {
+    //             val fib: Long = fibRec(30);
+    //         };
+    //
+    //         println(iter);
+    //         println(recur);
+    //     }
+    // """.trimIndent()
+
     val srcString = """
-        fun fibIter(n: Int): Long {
-            var a: Long = 0L;
-            var b: Long = 1L;
-            
-            var i: Int = 0;
-            
-            while (i < n) {
-                val tmp: Long = a + b;
-                a = b;
-                b = tmp;
-                i = i + 1;
-            }
-            
-            return a;
+        class Box(val value: Int) {
         }
         
-        fun fibRec(n: Int): Long {
-            if (n == 0) {
-                return 0L;
-            } else if (n == 1) {
-                return 1L;
-            } else {
-                return fibRec(n - 1) + fibRec(n - 2);
-            }
-        }
-        
-        fun measureTime(block: () -> Unit): Long {
-            val t1: Long = clock();
-            block();
-            val t2: Long = clock();
-            
-            return t2 - t1;
+        fun test(box: Box) {
+            print("Box(");
+            print(box.value);
+            println(")");
         }
         
         fun main() {
-            val iter: Long = measureTime {
-                val fib: Long = fibIter(30);
-            };
-            val recur: Long = measureTime {
-                val fib: Long = fibRec(30);
-            };
-            
-            println(iter);
-            println(recur);
+            test(Box(5));
         }
     """.trimIndent()
 

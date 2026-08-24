@@ -116,7 +116,114 @@ public class LLVMCodeGenerator(moduleName: String) {
         ast.forEach {
             builder.positionAtEnd(currentBlock)
             currentBlock = when (it) {
-                is TypedClassDeclaration -> TODO()
+                is TypedClassDeclaration -> {
+                    val elementTypes =
+                        it.primaryConstructor?.let { primary ->
+                            primary.parameters.filterIndexed { i, _ ->
+                                primary.parameterTypes[i] != TypedClassDeclaration.FieldType.NONE
+                            }.map { parameter ->
+                                parameter.type.toLLVMType(true)
+                            }
+                        }.orEmpty() +
+                        it.fields.map { field ->
+                            field.type?.toLLVMType(true) ?: error("field ${field.name.lexeme} has an unknown type")
+                        }
+
+                    val structType = context.struct(
+                        elementTypes = elementTypes.toTypedArray(),
+                        name = it.name.lexeme
+                    )
+
+                    env.addType(
+                        it.name.lexeme,
+                        structType
+                    )
+
+                    val (allocType, allocFunction) = module.function(
+                        "${it.name.lexeme}_allocate",
+                        parameterTypes = emptyList(),
+                        returnType = structType.pointer,
+                        vararg = false,
+                    ) { _ ->
+                        basicBlocks.append {
+                            val (mallocType, mallocFunction) = env.getFunction("malloc") ?: error("unable to find malloc (???)")
+
+                            // note: ptr2int gep trick to get size found from: https://nondot.org/sabre/LLVMNotes/SizeOf-OffsetOf-VariableSizedStructs.txt
+
+                            val ptr = call(
+                                mallocType,
+                                mallocFunction.llvmRef,
+                                arrayOf(
+                                    ptr2int(
+                                        gep(
+                                            structType,
+                                            context.void.pointer.constNull(),
+                                            arrayOf(context.int32.constInt(1)),
+                                        ),
+                                        context.int64
+                                    )
+                                )
+                            )
+
+                            memset(
+                                ptr,
+                                context.int8.constInt(0),
+                                ptr2int(
+                                    gep(
+                                        structType,
+                                        context.void.pointer.constNull(),
+                                        arrayOf(context.int32.constInt(1)),
+                                    ),
+                                    context.int64
+                                ),
+                            )
+
+                            ret(ptr)
+                        }
+                    }
+
+                    it.primaryConstructor?.let { primary ->
+                        val previousFunction = function
+                        val previousFunctionName = functionName
+
+                        val primaryConstructorName = "${it.name.lexeme}_primary"
+
+                        val parameterTypes = primary.parameters.map { typedParameter -> typedParameter.type.toLLVMType(true) }
+                        module.function(
+                            primaryConstructorName,
+                            parameterTypes = parameterTypes,
+                            returnType = structType.pointer,
+                        ) { functionType ->
+                            function = this@function
+                            functionName = primaryConstructorName
+                            env.addFunction(
+                                "${it.name.lexeme}/${primary.overloadSuffix(it.name.lexeme)}",
+                                functionType to this@function
+                            )
+
+                            basicBlocks.append { function ->
+                                val allocated = call(allocType, allocFunction.llvmRef, emptyArray())
+
+                                function.parameters.forEachIndexed { i, parameter ->
+                                    val field = gepInbounds(
+                                        structType,
+                                        allocated,
+                                        arrayOf(context.int32.constInt(0), context.int32.constInt(i))
+                                    )
+
+                                    store(parameter, field)
+                                }
+
+                                ret(allocated)
+                            }
+                        }
+
+                        function = previousFunction
+                        functionName = previousFunctionName
+                    }
+
+                    currentBlock
+                }
                 is TypedFunctionDeclaration -> {
                     val previousFunction = function
                     val previousFunctionName = functionName
@@ -587,7 +694,11 @@ public class LLVMCodeGenerator(moduleName: String) {
             is TypedVariable -> {
                 val name = root.mangledName
                 val value = when (val type = root.type) {
-                    is ClassType -> TODO("lookup of classes not supported")
+                    is ClassType -> {
+                        // NOTE: name (mangledName) should be the name of the constructor we want
+                        val function = env.getFunction(name)
+                        function?.second?.llvmRef ?: error("no constructor for type ${type.name} ($name) found (should be unreachable)")
+                    }
                     is FunctionType -> {
                         val function = env.getFunction(name)
                         function?.second?.llvmRef ?: error("no function $name found (should be unreachable)")
@@ -629,7 +740,27 @@ public class LLVMCodeGenerator(moduleName: String) {
                             TODO()
                         }
                     }
-                    is VariableType -> TODO()
+                    is VariableType -> {
+                        if (root.type is VariableType) {
+                            val (inst, newBlock) = dfs(instance, builder, block)
+
+                            builder.positionAtEnd(newBlock)
+
+                            // todo: assuming that this was a property get as the instance type is currently not being
+                            //       merged with existing class types. hopefully, root.slot will always be the correct
+                            //       gep index value
+                            builder.load(
+                                root.type.toLLVMType(false),
+                                builder.gep(
+                                    instance.type.toLLVMType(false),
+                                    pointer = inst,
+                                    indices = arrayOf(context.int32.constInt(0), context.int32.constInt(root.slot)),
+                                )
+                            ) to newBlock
+                        } else {
+                            TODO()
+                        }
+                    }
                 }
             }
             is TypedGrouping -> {
@@ -770,9 +901,17 @@ public class LLVMCodeGenerator(moduleName: String) {
         }
     }
 
-    private fun analysis.ast.Type.toLLVMType(convertFunctionToPointer: Boolean): Type {
+    private fun analysis.ast.Type.toLLVMType(convertToPointer: Boolean): Type {
         return when (val type = this) {
-            is ClassType -> TODO()
+            is ClassType -> {
+                env.getType(type.name)?.let {
+                    if (convertToPointer) {
+                        it.pointer
+                    } else {
+                        it
+                    }
+                } ?: error("unknown type ${type.name}")
+            }
             is FunctionType -> TODO()
             is LambdaType -> {
                 Type.Function(
@@ -781,7 +920,7 @@ public class LLVMCodeGenerator(moduleName: String) {
                     returnType = type.returnType.toLLVMType(true),
                     vararg = false,
                 ).let {
-                    if (convertFunctionToPointer) {
+                    if (convertToPointer) {
                         it.pointer
                     } else {
                         it
@@ -796,7 +935,15 @@ public class LLVMCodeGenerator(moduleName: String) {
                     "Long" -> context.int64
                     "Unit" -> context.void
                     "String" -> context.int8.pointer
-                    else -> TODO()
+                    else -> {
+                        env.getType(type.name)?.let {
+                            if (convertToPointer) {
+                                it.pointer
+                            } else {
+                                it
+                            }
+                        } ?: error("unknown type ${type.name}")
+                    }
                 }
             }
         }
@@ -829,6 +976,7 @@ private class LLVMEnvironment(val enclosing: LLVMEnvironment?) {
     private val variables: MutableMap<String, Triple<Value, Type, Boolean>> = mutableMapOf()
     private val contexts: MutableMap<analysis.ast.Type, Pair<Value, Type>> = mutableMapOf()
     private val functions: MutableMap<String, Pair<Type, Function>> = mutableMapOf()
+    private val types: MutableMap<String, Type> = mutableMapOf()
 
     fun addVariable(name: String, value: Value, type: Type, parameter: Boolean) {
         if (variables.containsKey(name)) {
@@ -866,6 +1014,19 @@ private class LLVMEnvironment(val enclosing: LLVMEnvironment?) {
     fun getFunction(name: String): Pair<Type, Function>? {
         return this.functions.getOrElse(name) {
             this.enclosing?.getFunction(name)
+        }
+    }
+
+    fun addType(name: String, type: Type) {
+        if (types.containsKey(name)) {
+            error("duplicate type $name exists in scope")
+        }
+        types[name] = type
+    }
+
+    fun getType(name: String): Type? {
+        return this.types.getOrElse(name) {
+            this.enclosing?.getType(name)
         }
     }
 }

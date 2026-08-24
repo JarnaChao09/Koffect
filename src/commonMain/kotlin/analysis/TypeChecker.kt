@@ -791,7 +791,13 @@ public class TypeChecker(public var environment: Environment) {
                                 foundOverload.contextTypes.map { it to false },
                             )
                         } else {
-                            TypedCall(callee, this.paren, foundArgs, foundOverload.returnType, method)
+                            TypedCall(
+                                callee,
+                                this.paren,
+                                foundArgs,
+                                foundOverload.returnType,
+                                method,
+                            )
                         }
                     }
                     is ClassType -> {
@@ -854,8 +860,23 @@ public class TypeChecker(public var environment: Environment) {
                                 found.first()
                             }
 
+                            val callee = when (typedCallee) {
+                                is TypedVariable -> {
+                                    typedCallee.copy(
+                                        mangledName = "${typedCallee.name.lexeme}/${foundOverload.overloadSuffix()}",
+                                    )
+                                }
+                                else -> error("constructor calls must be directly accessed (for now)")
+                            }
+
                             // note: constructors cannot be inline
-                            TypedCall(typedCallee, this.paren, foundArgs, foundOverload.returnType, false)
+                            TypedCall(
+                                callee,
+                                this.paren,
+                                foundArgs,
+                                foundOverload.returnType,
+                                methodInvocation = false,
+                            )
                         } ?: error("class $calleeType does not have a constructor (should be unreachable)")
                     }
                 }

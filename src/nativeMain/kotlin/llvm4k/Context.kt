@@ -14,6 +14,8 @@ import llvm.LLVMModuleCreateWithNameInContext
 import llvm.LLVMOrcCreateNewThreadSafeContextFromLLVMContext
 import llvm.LLVMOrcDisposeThreadSafeContext
 import llvm.LLVMOrcThreadSafeContextRef
+import llvm.LLVMStructCreateNamed
+import llvm.LLVMStructSetBody
 import llvm.LLVMStructTypeInContext
 import llvm.LLVMVoidTypeInContext
 
@@ -42,12 +44,23 @@ public class Context internal constructor(private val ref: LLVMContextRef?) {
 
     public fun struct(elementTypes: Array<Type>, name: String? = null, packed: Boolean = false): Type {
         return Type(
-            LLVMStructTypeInContext(
-                this.ref,
-                elementTypes.map(Type::llvmRef).toCValues(),
-                elementTypes.size.toUInt(),
-                if (packed) 1 else 0
-            ),
+            if (name != null) {
+                LLVMStructCreateNamed(this.ref, name).also {
+                    LLVMStructSetBody(
+                        StructTy = it,
+                        ElementTypes = elementTypes.map(Type::llvmRef).toCValues(),
+                        ElementCount = elementTypes.size.toUInt(),
+                        Packed = if (packed) 1 else 0
+                    )
+                }
+            } else {
+                LLVMStructTypeInContext(
+                    this.ref,
+                    elementTypes.map(Type::llvmRef).toCValues(),
+                    elementTypes.size.toUInt(),
+                    if (packed) 1 else 0
+                )
+            },
             this
         )
     }

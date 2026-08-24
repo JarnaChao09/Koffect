@@ -20,6 +20,48 @@ private fun createDemoModule(): ThreadSafeModule = threadSafeContext(Context()) 
         )
         function("printf", listOf(context.int8.pointer), context.int32, vararg = true)
 
+        // val structType = llvm.type {
+        //     struct(
+        //         arrayOf(
+        //             int32, // x
+        //             int32, // y
+        //             int32, // sum
+        //             int32, // prod
+        //         )
+        //     )
+        // }
+        // llvm.nativeFunction("test", listOf(llvm.type { int32 }, llvm.type { int32 }), structType) {
+        //     basicBlocks.append("entry") {
+        //         val firstArg = it.parameters[0]
+        //         val secondArg = it.parameters[1]
+        //
+        //         val ret = alloca(structType)
+        //
+        //         val x = gep(structType, ret, arrayOf(llvm.type { int32 }.constInt(0), llvm.type { int32 }.constInt(0)))
+        //
+        //         store(firstArg, x)
+        //
+        //         val y = gep(structType, ret, arrayOf(llvm.type { int32 }.constInt(0), llvm.type { int32 }.constInt(1)))
+        //
+        //         store(secondArg, y)
+        //
+        //         val addResult = add(firstArg, secondArg)
+        //
+        //         val addField = gep(structType, ret, arrayOf(llvm.type { int32 }.constInt(0), llvm.type { int32 }.constInt(2)))
+        //
+        //         store(addResult, addField)
+        //
+        //         val prodResult = mul(firstArg, secondArg)
+        //
+        //         val prodField = gep(structType, ret, arrayOf(llvm.type { int32 }.constInt(0), llvm.type { int32 }.constInt(3)))
+        //
+        //         store(prodResult, prodField)
+        //
+        //         val retValue = load(structType, ret)
+        //
+        //         ret(retValue)
+        //     }
+        // }
         function("sum_and_prod", listOf(context.int32, context.int32), structType) {
             basicBlocks.append("entry") {
                 val firstArg = it.parameters[0]

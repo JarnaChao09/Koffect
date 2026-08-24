@@ -25,6 +25,10 @@ public data class TypedClassDeclaration(
         val parameters: List<TypedParameter>,
         val parameterTypes: List<FieldType>,
     ) {
+        public fun overloadSuffix(className: String): String {
+            return "/${this.parameters.joinToString("|") { it.type.mangledName }}/${className}"
+        }
+
         override fun toString(): String {
             return buildString {
                 append("(")
