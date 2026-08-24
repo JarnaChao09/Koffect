@@ -56,7 +56,7 @@ public actual fun execute(typedTree: List<TypedStatement>) {
         llvm.nativeFunction(
             name = "clock",
             parameterTypes = emptyList(),
-            returnType = llvm.type { int64 },
+            returnType = "Long".let { it.toLLVMType() to it },
         )
 
         context(function: Function)
@@ -146,21 +146,6 @@ public actual fun execute(typedTree: List<TypedStatement>) {
                 call(printfFunctionType, printfFunction.llvmRef, arrayOf(globalStringPointer("\n")))
 
                 ret()
-            }
-        }
-
-        llvm.nativeFunction(
-            "currentTime",
-            parameterTypes = emptyList(),
-            returnType = "Long".let { it.toLLVMType() to it },
-        ) {
-            basicBlocks.append {
-                val (timeFunctionType, timeFunction) = llvm.getNativeFunction("clock")
-                    ?: error("time was not found (???)")
-
-                val timeValue = call(timeFunctionType, timeFunction.llvmRef, arrayOf())
-
-                ret(timeValue)
             }
         }
 

@@ -42,7 +42,7 @@ public fun repl() {
             emptyList<String>() returns "Double"
         }
 
-        function("currentTime") {
+        function("clock") {
             emptyList<String>() returns "Long"
         }
 
@@ -1038,19 +1038,19 @@ public fun repl() {
         }
         
         fun measureTime(block: () -> Unit): Long {
-            val t1: Long = currentTime();
+            val t1: Long = clock();
             block();
-            val t2: Long = currentTime();
+            val t2: Long = clock();
             
             return t2 - t1;
         }
         
         fun main() {
             val iter: Long = measureTime {
-                val fib: Long = fibIter(50);
+                val fib: Long = fibIter(30);
             };
             val recur: Long = measureTime {
-                val fib: Long = fibRec(50);
+                val fib: Long = fibRec(30);
             };
             
             println(iter);
