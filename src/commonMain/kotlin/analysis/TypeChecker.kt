@@ -62,8 +62,8 @@ public class TypeChecker(public var environment: Environment) {
                             }
                         )
                     }
-                    fun ClassDeclaration.SecondaryConstructor.toTypedConstructor(): TypedSecondaryConstructor {
-                        this@TypeChecker.environment = Environment(this@TypeChecker.environment, null)
+                    fun ClassDeclaration.SecondaryConstructor.toTypedConstructor(classType: Type): TypedSecondaryConstructor {
+                        this@TypeChecker.environment = Environment(this@TypeChecker.environment, classType)
 
                         val typedParameters = this.parameters.map { param ->
                             val tp = param.toTypedParameter()
@@ -89,6 +89,14 @@ public class TypeChecker(public var environment: Environment) {
                     val previousScope = this.scope
                     this.scope = Scope.CLASS_LEVEL
 
+                    val currentClassType = ClassType(
+                        it.name.lexeme,
+                        null, // todo: superclasses
+                        emptyList(), // todo: interfaces
+                        mutableMapOf(),
+                        mutableMapOf(),
+                    )
+
                     // todo: superclasses
                     val superClassType = it.superClass?.let { superClass ->
                         VariableType(superClass.lexeme)
@@ -99,19 +107,32 @@ public class TypeChecker(public var environment: Environment) {
                         VariableType(i.lexeme)
                     }
 
-                    val primaryConstructor = it.primaryConstructor?.toTypedConstructor()
-
-                    val secondaryConstructors = it.secondaryConstructors.map(ClassDeclaration.SecondaryConstructor::toTypedConstructor)
-
-                    val currentClassType = ClassType(
-                        it.name.lexeme,
-                        null, // todo: superclasses
-                        emptyList(), // todo: interfaces
-                        mutableMapOf(),
-                        mutableMapOf(),
-                    )
                     val previousCurrentClass = this.currentClass
                     this.currentClass = currentClassType
+
+                    this.environment.addClass(it.name.lexeme, currentClassType)
+                    this.environment.addVariable(
+                        it.name.lexeme,
+                        currentClassType,
+                        // classConstructorFunctionType,
+                    )
+
+                    val primaryConstructor = it.primaryConstructor?.toTypedConstructor()
+
+                    primaryConstructor?.let { pc ->
+                        pc.parameterTypes.forEachIndexed { index, type ->
+                            val currParam = pc.parameters[index]
+                            when (type) {
+                                FieldType.VAL, FieldType.VAR -> {
+                                    // this.environment.addVariable(currParam.name.lexeme, currParam.type)
+                                    this.currentClass?.addProperty(currParam.name.lexeme, currParam.type)
+                                }
+                                FieldType.NONE -> {}
+                            }
+                        }
+                    }
+
+                    val secondaryConstructors = it.secondaryConstructors.map { sc -> sc.toTypedConstructor(currentClassType) }
 
                     // val classType = VariableType(it.name.lexeme)
                     val classConstructorFunctionType = FunctionType(it.name.lexeme).apply {
@@ -139,28 +160,9 @@ public class TypeChecker(public var environment: Environment) {
                         }
                     }
 
-                    this.environment.addClass(it.name.lexeme, currentClassType)
-                    this.environment.addVariable(
-                        it.name.lexeme,
-                        currentClassType,
-                        // classConstructorFunctionType,
-                    )
                     currentClassType.addFunction("constructor", classConstructorFunctionType)
 
                     this.environment = Environment(this.environment, currentClassType)
-
-                    primaryConstructor?.let { pc ->
-                        pc.parameterTypes.forEachIndexed { index, type ->
-                            val currParam = pc.parameters[index]
-                            when (type) {
-                                FieldType.VAL, FieldType.VAR -> {
-                                    // this.environment.addVariable(currParam.name.lexeme, currParam.type)
-                                    this.currentClass?.addProperty(currParam.name.lexeme, currParam.type)
-                                }
-                                FieldType.NONE -> {}
-                            }
-                        }
-                    }
 
                     secondaryConstructors.forEach { sc ->
                         val parameterTypes = sc.parameters.map(TypedParameter::type)

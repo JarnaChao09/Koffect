@@ -49,6 +49,14 @@ public data class TypedClassDeclaration(
     }
 
     public data class TypedSecondaryConstructor(val parameters: List<TypedParameter>, val delegatedArguments: List<TypedExpression>, val body: List<TypedStatement>) {
+        public fun overloadSuffix(className: String): String {
+            return "/${this.parameters.joinToString("|") { it.type.mangledName }}/${className}"
+        }
+
+        public fun delegatedSuffix(className: String): String {
+            return "/${this.delegatedArguments.joinToString("|") { it.type.mangledName }}/${className}"
+        }
+
         override fun toString(): String {
             return "constructor(${this.parameters.joinToString(", ")}) : this(${this.delegatedArguments.joinToString(", ")}) {\n${this.body.joinToString("\n").prependIndent()}\n}"
         }

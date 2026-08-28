@@ -1080,25 +1080,50 @@ public fun repl() {
     //     }
     // """.trimIndent()
 
+    // val srcString = """
+    //     class Box(var value: Int) {}
+    //
+    //     fun Box.print() {
+    //         print("Box(");
+    //         print(this.value);
+    //         println(")");
+    //     }
+    //
+    //     fun Box.mutate(value: Int) {
+    //         this.value = value;
+    //     }
+    //
+    //     fun main() {
+    //         val b: Box = Box(5);
+    //
+    //         b.print();
+    //         b.mutate(42);
+    //         b.print();
+    //     }
+    // """.trimIndent()
+
     val srcString = """
-        class Box(var value: Int) {}
-        
-        fun Box.print() {
-            print("Box(");
-            print(this.value);
-            println(")");
+        class Add(val left: Int, val right: Int) {
+            constructor(combined: Int) : this(combined / 2, combined / 2) {
+                print(this.left);
+                print(" + ");
+                print(this.right);
+                print(" = ");
+                println(combined);
+            }
         }
         
-        fun Box.mutate(value: Int) {
-            this.value = value;
+        fun Add.prettyPrint() {
+            print(this.left);
+            print(" + ");
+            println(this.right);
         }
-        
+
         fun main() {
-            val b: Box = Box(5);
-            
-            b.print();
-            b.mutate(42);
-            b.print();
+            val a1: Add = Add(10, 20);
+            val a2: Add = Add(30);
+            a1.prettyPrint();
+            a2.prettyPrint();
         }
     """.trimIndent()
 

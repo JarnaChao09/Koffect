@@ -222,6 +222,63 @@ public class LLVMCodeGenerator(moduleName: String) {
                         functionName = previousFunctionName
                     }
 
+                    it.secondaryConstructors.forEach { secondary ->
+                        val previousFunction = function
+                        val previousFunctionName = functionName
+
+                        val currentSecondaryConstructorName = "${it.name.lexeme}_secondary"
+
+                        val parameterTypes = secondary.parameters.map { typedParameter -> typedParameter.type.toLLVMType(true) }
+                        module.function(
+                            currentSecondaryConstructorName,
+                            parameterTypes = parameterTypes,
+                            returnType = structType.pointer,
+                        ) { functionType ->
+                            function = this@function
+                            functionName = currentSecondaryConstructorName
+                            env.addFunction(
+                                "${it.name.lexeme}/${secondary.overloadSuffix(it.name.lexeme)}",
+                                functionType to this@function
+                            )
+
+                            scope {
+                                secondary.parameters.forEachIndexed { i, p ->
+                                    val parameterName = p.name.lexeme
+                                    val parameterType = parameterTypes[i]
+
+                                    env.addVariable(parameterName, parameters[i], parameterType, true)
+                                }
+
+                                var currentBlockCtor = basicBlocks.append {}
+
+                                val (delegatedConstructorType, delegatedConstructorFunction) = env.getFunction(
+                                    "${it.name.lexeme}/${secondary.delegatedSuffix(it.name.lexeme)}"
+                                ) ?: error("TODO: delegated constructor not defined yet (toposort?)")
+
+                                val arr = Array<Value>(secondary.delegatedArguments.size) { null }
+
+                                secondary.delegatedArguments.forEachIndexed { i, arg ->
+                                    builder.positionAtEnd(currentBlockCtor)
+                                    val (argValue, argBlock) = dfs(arg, builder, currentBlockCtor)
+                                    arr[i] = argValue
+                                    currentBlockCtor = argBlock
+                                }
+
+                                val ret =
+                                    builder.call(delegatedConstructorType, delegatedConstructorFunction.llvmRef, arr)
+
+                                env.addVariable("this", ret, structType.pointer, true)
+
+                                generateStatements(secondary.body, builder, currentBlockCtor)
+
+                                builder.ret(ret)
+                            }
+                        }
+
+                        function = previousFunction
+                        functionName = previousFunctionName
+                    }
+
                     currentBlock
                 }
                 is TypedFunctionDeclaration -> {
@@ -752,7 +809,20 @@ public class LLVMCodeGenerator(moduleName: String) {
                 val instance = root.instance
 
                 when (instance.type) {
-                    is ClassType -> TODO("class type get not implemented")
+                    is ClassType -> {
+                        val (inst, newBlock) = dfs(instance, builder, block)
+
+                        builder.positionAtEnd(newBlock)
+
+                        builder.load(
+                            root.type.toLLVMType(false),
+                            builder.gep(
+                                instance.type.toLLVMType(false),
+                                pointer = inst,
+                                indices = arrayOf(context.int32.constInt(0), context.int32.constInt(root.slot)),
+                            )
+                        ) to newBlock
+                    }
                     is FunctionType -> TODO("function type get not implemented")
                     is LambdaType -> {
                         if (root.name.lexeme == "invoke") {
