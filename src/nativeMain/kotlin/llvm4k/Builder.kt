@@ -15,6 +15,7 @@ import llvm.LLVMBuildExtractValue
 import llvm.LLVMBuildFCmp
 import llvm.LLVMBuildFDiv
 import llvm.LLVMBuildFMul
+import llvm.LLVMBuildFNeg
 import llvm.LLVMBuildFRem
 import llvm.LLVMBuildGEP2
 import llvm.LLVMBuildGlobalStringPtr
@@ -23,6 +24,8 @@ import llvm.LLVMBuildInBoundsGEP2
 import llvm.LLVMBuildLoad2
 import llvm.LLVMBuildMemSet
 import llvm.LLVMBuildMul
+import llvm.LLVMBuildNeg
+import llvm.LLVMBuildNot
 import llvm.LLVMBuildPhi
 import llvm.LLVMBuildPointerCast
 import llvm.LLVMBuildPtrToInt
@@ -108,6 +111,18 @@ public class Builder internal constructor(private val ref: LLVMBuilderRef?) {
 
     public fun frem(left: Value, right: Value, name: String = ""): Value {
         return LLVMBuildFRem(this.ref, left, right, name)
+    }
+
+    public fun neg(value: Value, name: String = ""): Value {
+        return LLVMBuildNeg(this.ref, value, name)
+    }
+
+    public fun fneg(value: Value, name: String = ""): Value {
+        return LLVMBuildFNeg(this.ref, value, name)
+    }
+
+    public fun not(value: Value, name: String = ""): Value {
+        return LLVMBuildNot(this.ref, value, name)
     }
 
     public fun icmp(predicate: LLVMIntPredicate, left: Value, right: Value, name: String = ""): Value {

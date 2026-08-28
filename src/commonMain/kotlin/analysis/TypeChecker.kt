@@ -647,7 +647,7 @@ public class TypeChecker(public var environment: Environment) {
                          *
                          * this means that resolution can not end early (line 490)
                          */
-                        val found = mutableMapOf<Int, MutableList<Pair<Overload, List<TypedExpression>>>>()
+                        val found = mutableMapOf<Int, MutableList<Pair<Overload, MutableList<TypedExpression>>>>()
                         val typedArgumentsCache = mutableMapOf<Int, TypedExpression>()
                         loop@ for (functionOverload in calleeType.overloads) {
                             // todo: update to language version 2.2
@@ -719,7 +719,7 @@ public class TypeChecker(public var environment: Environment) {
 
                             found.getOrPut(numOfContexts) {
                                 mutableListOf()
-                            }.add(functionOverload to args.toList())
+                            }.add(functionOverload to args)
                         }
 
                         if (found.isEmpty()) {
@@ -769,11 +769,22 @@ public class TypeChecker(public var environment: Environment) {
                                 ) to false
                             }
                             is TypedGet -> {
-                                typedCallee.copy(
-                                    name = typedCallee.name.copy(
-                                        lexeme = "${typedCallee.name.lexeme}/${foundOverload.overloadSuffix()}"
-                                    )
-                                ) to true
+                                if (typedCallee.slot == -1) { // note: extension
+                                    // adding instance to the beginning of args
+                                    foundArgs.add(0, typedCallee.instance)
+                                    TypedVariable(
+                                        name = typedCallee.name.copy(
+                                            lexeme = "${typedCallee.name.lexeme}/${foundOverload.overloadSuffix()}",
+                                        ),
+                                        type = typedCallee.type,
+                                    ) to false
+                                } else {
+                                    typedCallee.copy(
+                                        name = typedCallee.name.copy(
+                                            lexeme = "${typedCallee.name.lexeme}/${foundOverload.overloadSuffix()}"
+                                        )
+                                    ) to true
+                                }
                             }
                             else -> error("Currently only support calling function types from TypedVariable AST")
                         }
@@ -951,7 +962,7 @@ public class TypeChecker(public var environment: Environment) {
 
                 TypedGet(instance, this.name, slot, getType)
             }
-            is parser.ast.Set -> {
+            is Set -> {
                 val typedInstance = this.instance.toTypedExpression()
                 val typedExpression = this.expression.toTypedExpression()
 

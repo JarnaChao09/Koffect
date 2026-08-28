@@ -228,11 +228,19 @@ public class LLVMCodeGenerator(moduleName: String) {
                     val previousFunction = function
                     val previousFunctionName = functionName
 
+                    val receiverType = it.receiver?.toLLVMType(true)
                     val contextTypes = it.contexts.map { c -> c.toLLVMType(true) }
                     val parameterTypes = it.parameters.map { p -> p.type.toLLVMType(true) }
+
+                    val finalParameterTypes = (receiverType?.let { rt ->
+                        listOf(rt)
+                    } ?: emptyList()) + contextTypes + parameterTypes
+
+                    val offset = if (receiverType != null) 1 else 0
+
                     module.function(
                         name = it.name.lexeme,
-                        parameterTypes = contextTypes + parameterTypes,
+                        parameterTypes = finalParameterTypes,
                         returnType = it.returnType.toLLVMType(true),
                         vararg = false,
                     ) { type ->
@@ -245,16 +253,29 @@ public class LLVMCodeGenerator(moduleName: String) {
 
                         scope {
                             val b = basicBlocks.append { _ ->
+                                receiverType?.let { receiver ->
+                                    env.addVariable(
+                                        "this",
+                                        parameters[0], // note: this will always be the first parameter
+                                        receiver,
+                                        true
+                                    )
+                                }
                                 it.contexts.forEachIndexed { i, type ->
                                     val contextType = contextTypes[i]
 
-                                    env.addContext(type, parameters[i], contextType)
+                                    env.addContext(type, parameters[i + offset], contextType)
                                 }
                                 it.parameters.forEachIndexed { i, p ->
                                     val parameterName = p.name.lexeme
                                     val parameterType = parameterTypes[i]
 
-                                    env.addVariable(parameterName, parameters[i + it.contexts.size], parameterType, true)
+                                    env.addVariable(
+                                        parameterName,
+                                        parameters[i + it.contexts.size + offset],
+                                        parameterType,
+                                        true
+                                    )
                                 }
                             }
 
@@ -731,13 +752,13 @@ public class LLVMCodeGenerator(moduleName: String) {
                 val instance = root.instance
 
                 when (instance.type) {
-                    is ClassType -> TODO()
-                    is FunctionType -> TODO()
+                    is ClassType -> TODO("class type get not implemented")
+                    is FunctionType -> TODO("function type get not implemented")
                     is LambdaType -> {
                         if (root.name.lexeme == "invoke") {
                             dfs(instance, builder, block)
                         } else {
-                            TODO()
+                            TODO("lambda type get (for non-invoke) not implemented")
                         }
                     }
                     is VariableType -> {
@@ -758,7 +779,7 @@ public class LLVMCodeGenerator(moduleName: String) {
                                 )
                             ) to newBlock
                         } else {
-                            TODO()
+                            TODO("variable type get is not implemented")
                         }
                     }
                 }
@@ -840,7 +861,10 @@ public class LLVMCodeGenerator(moduleName: String) {
             is TypedLongLiteral -> {
                 context.int64.constInt(root.value) to block
             }
-            TypedNullLiteral -> TODO()
+            TypedNullLiteral -> {
+                // TODO: what is different between const null and const null pointer?
+                context.void.pointer.constNull() to block
+            }
             is TypedStringLiteral -> {
                 builder.globalStringPointer(root.value) to block
             }
@@ -910,8 +934,57 @@ public class LLVMCodeGenerator(moduleName: String) {
                     )
                 ) to nextBlock
             }
-            is TypedThis -> TODO()
-            is TypedUnary -> TODO()
+            is TypedThis -> {
+                val (thisValue, _, thisParameter) = env.getVariable("this") ?: error("accessing this inside a scope without unqualified this (should be unreachable)")
+
+                require(thisParameter) {
+                    "this is not a parameter somehow (should be unreachable)"
+                }
+
+                thisValue to block
+            }
+            is TypedUnary -> {
+                val (expr, exprBlock) = dfs(root.expression, builder, block)
+
+                builder.positionAtEnd(exprBlock)
+
+                when (root.operator.type) {
+                    TokenType.PLUS -> {
+                        // note: since we have passed type checking, the types here should be fine
+                        expr
+                    }
+                    TokenType.MINUS -> {
+                        when (val type = root.type) {
+                            is VariableType -> {
+                                when (type.name) {
+                                    "Double" -> {
+                                        builder.fneg(expr)
+                                    }
+                                    "Int", "Long" -> {
+                                        builder.neg(expr)
+                                    }
+                                    else -> error("invalid unary operator type (should be unreachable)")
+                                }
+                            }
+                            else -> error("invalid unary operator type (should be unreachable)")
+                        }
+                    }
+                    TokenType.NOT -> {
+                        when (val type = root.type) {
+                            is VariableType -> {
+                                when (type.name) {
+                                    "Boolean" -> {
+                                        builder.not(expr)
+                                    }
+                                    else -> error("invalid unary operator type (should be unreachable)")
+                                }
+                            }
+                            else -> error("invalid unary operator type (should be unreachable)")
+                        }
+                    }
+                    else -> error("invalid unary operator (should be unreachable)")
+                } to exprBlock
+            }
         }
     }
 

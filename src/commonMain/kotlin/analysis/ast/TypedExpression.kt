@@ -131,7 +131,7 @@ public data class TypedSet(val instance: TypedExpression, val name: Token, val e
         get() = VariableType("Unit")
 
     override fun toString(): String {
-        return "${this.instance}.${this.name.lexeme}"
+        return "${this.instance}.${this.name.lexeme} = ${this.expression}"
     }
 }
 
