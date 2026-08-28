@@ -7,6 +7,7 @@ import llvm.LLVMConstNull
 import llvm.LLVMConstReal
 import llvm.LLVMFunctionType
 import llvm.LLVMPointerTypeInContext
+import llvm.LLVMSizeOf
 import llvm.LLVMTypeRef
 
 @OptIn(ExperimentalForeignApi::class)
@@ -40,6 +41,10 @@ public class Type internal constructor(private val ref: LLVMTypeRef?, private va
 
     public val pointer: Type
         get() = Type(LLVMPointerTypeInContext(context.llvmRef, 0U), context)
+
+    // note: built in size utilizes ptr2int gep trick to get size found from: https://nondot.org/sabre/LLVMNotes/SizeOf-OffsetOf-VariableSizedStructs.txt
+    public val size: Value
+        get() = LLVMSizeOf(this.ref)
 
     public companion object {
         public fun Function(context: Context, parameterTypes: List<Type>, returnType: Type, vararg: Boolean = false): Type {

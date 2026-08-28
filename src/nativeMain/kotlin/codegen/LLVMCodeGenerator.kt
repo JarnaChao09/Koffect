@@ -148,34 +148,18 @@ public class LLVMCodeGenerator(moduleName: String) {
                         basicBlocks.append {
                             val (mallocType, mallocFunction) = env.getFunction("malloc") ?: error("unable to find malloc (???)")
 
-                            // note: ptr2int gep trick to get size found from: https://nondot.org/sabre/LLVMNotes/SizeOf-OffsetOf-VariableSizedStructs.txt
-
                             val ptr = call(
                                 mallocType,
                                 mallocFunction.llvmRef,
                                 arrayOf(
-                                    ptr2int(
-                                        gep(
-                                            structType,
-                                            context.void.pointer.constNull(),
-                                            arrayOf(context.int32.constInt(1)),
-                                        ),
-                                        context.int64
-                                    )
+                                    structType.size
                                 )
                             )
 
                             memset(
                                 ptr,
                                 context.int8.constInt(0),
-                                ptr2int(
-                                    gep(
-                                        structType,
-                                        context.void.pointer.constNull(),
-                                        arrayOf(context.int32.constInt(1)),
-                                    ),
-                                    context.int64
-                                ),
+                                structType.size,
                             )
 
                             ret(ptr)
