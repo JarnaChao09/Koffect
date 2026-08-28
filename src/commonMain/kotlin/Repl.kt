@@ -1059,17 +1059,24 @@ public fun repl() {
     // """.trimIndent()
 
     val srcString = """
-        class Box(val value: Int) {
-        }
+        class Box(val value: Int) {}
         
-        fun test(box: Box) {
+        fun printBox(box: Box) {
             print("Box(");
             print(box.value);
             println(")");
         }
         
+        fun mutateBox(box: Box, value: Int) {
+            box.value = value;
+        }
+        
         fun main() {
-            test(Box(5));
+            val b: Box = Box(5);
+            
+            printBox(b);
+            mutateBox(b, 42);
+            printBox(b);
         }
     """.trimIndent()
 

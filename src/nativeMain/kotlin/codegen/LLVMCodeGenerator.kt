@@ -895,7 +895,21 @@ public class LLVMCodeGenerator(moduleName: String) {
                     else -> error("invalid logical operator found (should be unreachable)")
                 }
             }
-            is TypedSet -> TODO()
+            is TypedSet -> {
+                val (inst, instBlock) = dfs(root.instance, builder, block)
+                val (expr, nextBlock) = dfs(root.expression, builder, instBlock)
+
+                builder.positionAtEnd(nextBlock)
+
+                builder.store(
+                    expr,
+                    builder.gep(
+                        root.instance.type.toLLVMType(false),
+                        pointer = inst,
+                        indices = arrayOf(context.int32.constInt(0), context.int32.constInt(root.slot)),
+                    )
+                ) to nextBlock
+            }
             is TypedThis -> TODO()
             is TypedUnary -> TODO()
         }
