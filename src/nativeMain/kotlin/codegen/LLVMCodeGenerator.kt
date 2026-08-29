@@ -166,50 +166,78 @@ public class LLVMCodeGenerator(moduleName: String) {
                         }
                     }
 
-                    it.primaryConstructor?.let { primary ->
-                        val previousFunction = function
-                        val previousFunctionName = functionName
+                    val primary = it.primaryConstructor
+                    val primaryConstructorName = "${it.name.lexeme}_primary"
 
-                        val primaryConstructorName = "${it.name.lexeme}_primary"
+                    val primaryParametersFields = primary
+                        ?.parameters
+                        ?.mapIndexedNotNull { i, typedParameter ->
+                            typedParameter
+                                .takeIf {
+                                    primary.parameterTypes[i] != TypedClassDeclaration.FieldType.NONE
+                                }
+                                ?.let { tp -> tp to i }
+                        }
+                        .orEmpty()
 
-                        val parameterTypes = primary.parameters.map { typedParameter -> typedParameter.type.toLLVMType(true) }
-                        module.function(
-                            primaryConstructorName,
-                            parameterTypes = parameterTypes,
-                            returnType = structType.pointer,
-                        ) { functionType ->
-                            function = this@function
-                            functionName = primaryConstructorName
+                    // note: generate a no args only if there are also no secondary constructors
+                    // todo: double check that this semantic is matched inside type checker
+                    module.function(
+                        primaryConstructorName,
+                        parameterTypes = primary
+                            ?.parameters
+                            ?.map { typedParameter ->
+                                typedParameter.type.toLLVMType(true)
+                            }
+                            .orEmpty(),
+                        returnType = structType.pointer,
+                    ) { functionType ->
+                        function(this@function, primaryConstructorName) {
                             env.addFunction(
-                                "${it.name.lexeme}/${primary.overloadSuffix(it.name.lexeme)}",
+                                "${it.name.lexeme}/${primary?.overloadSuffix(it.name.lexeme) ?: "//${it.name.lexeme}"}",
                                 functionType to this@function
                             )
 
-                            basicBlocks.append { function ->
-                                val allocated = call(allocType, allocFunction.llvmRef, emptyArray())
+                            var primaryConstructorBlock = basicBlocks.append {}
+                            builder.positionAtEnd(primaryConstructorBlock)
 
-                                function.parameters.forEachIndexed { i, parameter ->
-                                    val field = gepInbounds(
-                                        structType,
-                                        allocated,
-                                        arrayOf(context.int32.constInt(0), context.int32.constInt(i))
-                                    )
+                            val allocated = builder.call(
+                                allocType,
+                                allocFunction.llvmRef,
+                                emptyArray()
+                            )
 
-                                    store(parameter, field)
-                                }
+                            primaryParametersFields.forEachIndexed { index, (_, i) ->
+                                val field = builder.gepInbounds(
+                                    structType,
+                                    allocated,
+                                    arrayOf(context.int32.constInt(0), context.int32.constInt(index))
+                                )
 
-                                ret(allocated)
+                                builder.store(parameters[i], field)
                             }
-                        }
 
-                        function = previousFunction
-                        functionName = previousFunctionName
+                            val offset = primaryParametersFields.size
+                            it.fields.forEachIndexed { index, field ->
+                                val (fieldValue, nextBlock) = field.initializer?.let { initializer ->
+                                    dfs(initializer, builder, primaryConstructorBlock)
+                                } ?: error("field ${field.name.lexeme} must have an initializer (currently)")
+                                primaryConstructorBlock = nextBlock
+
+                                val field = builder.gepInbounds(
+                                    structType,
+                                    allocated,
+                                    arrayOf(context.int32.constInt(0), context.int32.constInt(index + offset))
+                                )
+
+                                builder.store(fieldValue, field)
+                            }
+
+                            builder.ret(allocated)
+                        }
                     }
 
                     it.secondaryConstructors.forEach { secondary ->
-                        val previousFunction = function
-                        val previousFunctionName = functionName
-
                         val currentSecondaryConstructorName = "${it.name.lexeme}_secondary"
 
                         val parameterTypes = secondary.parameters.map { typedParameter -> typedParameter.type.toLLVMType(true) }
@@ -218,57 +246,55 @@ public class LLVMCodeGenerator(moduleName: String) {
                             parameterTypes = parameterTypes,
                             returnType = structType.pointer,
                         ) { functionType ->
-                            function = this@function
-                            functionName = currentSecondaryConstructorName
-                            env.addFunction(
-                                "${it.name.lexeme}/${secondary.overloadSuffix(it.name.lexeme)}",
-                                functionType to this@function
-                            )
+                            function(this@function, currentSecondaryConstructorName) {
+                                env.addFunction(
+                                    "${it.name.lexeme}/${secondary.overloadSuffix(it.name.lexeme)}",
+                                    functionType to this@function
+                                )
 
-                            scope {
-                                secondary.parameters.forEachIndexed { i, p ->
-                                    val parameterName = p.name.lexeme
-                                    val parameterType = parameterTypes[i]
+                                scope {
+                                    secondary.parameters.forEachIndexed { i, p ->
+                                        val parameterName = p.name.lexeme
+                                        val parameterType = parameterTypes[i]
 
-                                    env.addVariable(parameterName, parameters[i], parameterType, true)
+                                        env.addVariable(parameterName, parameters[i], parameterType, true)
+                                    }
+
+                                    var currentBlockCtor = basicBlocks.append {}
+
+                                    val (delegatedConstructorType, delegatedConstructorFunction) = env.getFunction(
+                                        "${it.name.lexeme}/${secondary.delegatedSuffix(it.name.lexeme)}"
+                                    ) ?: error("TODO: delegated constructor not defined yet (toposort?)")
+
+                                    val arr = Array<Value>(secondary.delegatedArguments.size) { null }
+
+                                    secondary.delegatedArguments.forEachIndexed { i, arg ->
+                                        builder.positionAtEnd(currentBlockCtor)
+                                        val (argValue, argBlock) = dfs(arg, builder, currentBlockCtor)
+                                        arr[i] = argValue
+                                        currentBlockCtor = argBlock
+                                    }
+
+                                    val ret =
+                                        builder.call(
+                                            delegatedConstructorType,
+                                            delegatedConstructorFunction.llvmRef,
+                                            arr
+                                        )
+
+                                    env.addVariable("this", ret, structType.pointer, true)
+
+                                    generateStatements(secondary.body, builder, currentBlockCtor)
+
+                                    builder.ret(ret)
                                 }
-
-                                var currentBlockCtor = basicBlocks.append {}
-
-                                val (delegatedConstructorType, delegatedConstructorFunction) = env.getFunction(
-                                    "${it.name.lexeme}/${secondary.delegatedSuffix(it.name.lexeme)}"
-                                ) ?: error("TODO: delegated constructor not defined yet (toposort?)")
-
-                                val arr = Array<Value>(secondary.delegatedArguments.size) { null }
-
-                                secondary.delegatedArguments.forEachIndexed { i, arg ->
-                                    builder.positionAtEnd(currentBlockCtor)
-                                    val (argValue, argBlock) = dfs(arg, builder, currentBlockCtor)
-                                    arr[i] = argValue
-                                    currentBlockCtor = argBlock
-                                }
-
-                                val ret =
-                                    builder.call(delegatedConstructorType, delegatedConstructorFunction.llvmRef, arr)
-
-                                env.addVariable("this", ret, structType.pointer, true)
-
-                                generateStatements(secondary.body, builder, currentBlockCtor)
-
-                                builder.ret(ret)
                             }
                         }
-
-                        function = previousFunction
-                        functionName = previousFunctionName
                     }
 
                     currentBlock
                 }
                 is TypedFunctionDeclaration -> {
-                    val previousFunction = function
-                    val previousFunctionName = functionName
-
                     val receiverType = it.receiver?.toLLVMType(true)
                     val contextTypes = it.contexts.map { c -> c.toLLVMType(true) }
                     val parameterTypes = it.parameters.map { p -> p.type.toLLVMType(true) }
@@ -285,58 +311,56 @@ public class LLVMCodeGenerator(moduleName: String) {
                         returnType = it.returnType.toLLVMType(true),
                         vararg = false,
                     ) { type ->
-                        function = this@function
-                        functionName = it.name.lexeme
-                        env.addFunction(
-                            it.mangledName,
-                            type to this@function,
-                        )
+                        function(this@function, it.name.lexeme) {
+                            env.addFunction(
+                                it.mangledName,
+                                type to this@function,
+                            )
 
-                        scope {
-                            val b = basicBlocks.append { _ ->
-                                receiverType?.let { receiver ->
-                                    env.addVariable(
-                                        "this",
-                                        parameters[0], // note: this will always be the first parameter
-                                        receiver,
-                                        true
-                                    )
-                                }
-                                it.contexts.forEachIndexed { i, type ->
-                                    val contextType = contextTypes[i]
+                            scope {
+                                val b = basicBlocks.append { _ ->
+                                    receiverType?.let { receiver ->
+                                        env.addVariable(
+                                            "this",
+                                            parameters[0], // note: this will always be the first parameter
+                                            receiver,
+                                            true
+                                        )
+                                    }
+                                    it.contexts.forEachIndexed { i, type ->
+                                        val contextType = contextTypes[i]
 
-                                    env.addContext(type, parameters[i + offset], contextType)
-                                }
-                                it.parameters.forEachIndexed { i, p ->
-                                    val parameterName = p.name.lexeme
-                                    val parameterType = parameterTypes[i]
+                                        env.addContext(type, parameters[i + offset], contextType)
+                                    }
+                                    it.parameters.forEachIndexed { i, p ->
+                                        val parameterName = p.name.lexeme
+                                        val parameterType = parameterTypes[i]
 
-                                    env.addVariable(
-                                        parameterName,
-                                        parameters[i + it.contexts.size + offset],
-                                        parameterType,
-                                        true
-                                    )
+                                        env.addVariable(
+                                            parameterName,
+                                            parameters[i + it.contexts.size + offset],
+                                            parameterType,
+                                            true
+                                        )
+                                    }
                                 }
+
+                                builder.positionAtEnd(b)
+
+                                val previousReturnEmitted = returnEmitted
+                                returnEmitted = false
+
+                                val b1 = generateStatements(it.body, builder, b)
+
+                                if (!returnEmitted) {
+                                    builder.positionAtEnd(b1)
+                                    builder.ret()
+                                }
+
+                                returnEmitted = previousReturnEmitted
                             }
-
-                            builder.positionAtEnd(b)
-
-                            val previousReturnEmitted = returnEmitted
-                            returnEmitted = false
-
-                            val b1 = generateStatements(it.body, builder, b)
-
-                            if (!returnEmitted) {
-                                builder.positionAtEnd(b1)
-                                builder.ret()
-                            }
-
-                            returnEmitted = previousReturnEmitted
                         }
                     }
-                    function = previousFunction
-                    functionName = previousFunctionName
 
                     currentBlock
                 }
@@ -848,9 +872,6 @@ public class LLVMCodeGenerator(moduleName: String) {
                     "closures currently not supported on LLVM backend"
                 }
 
-                val previousFunction = function
-                val previousFunctionName = functionName
-
                 val contextTypes = root.contexts.map { it.toLLVMType(true) }
                 val parameterTypes = root.parameters.map { it.type.toLLVMType(true) }
 
@@ -862,42 +883,43 @@ public class LLVMCodeGenerator(moduleName: String) {
                     name = "lambda",
                     functionType = lambdaType,
                 ) { type ->
-                    function = this@function
-                    functionName = lambdaName
+                    function(this@function, lambdaName) {
+                        scope {
+                            val b = basicBlocks.append { _ ->
+                                root.contexts.forEachIndexed { i, type ->
+                                    val contextType = contextTypes[i]
 
-                    scope {
-                        val b = basicBlocks.append { _ ->
-                            root.contexts.forEachIndexed { i, type ->
-                                val contextType = contextTypes[i]
+                                    env.addContext(type, parameters[i], contextType)
+                                }
+                                root.parameters.forEachIndexed { i, p ->
+                                    val parameterName = p.name.lexeme
+                                    val parameterType = parameterTypes[i]
 
-                                env.addContext(type, parameters[i], contextType)
+                                    env.addVariable(
+                                        parameterName,
+                                        parameters[i + root.contexts.size],
+                                        parameterType,
+                                        true
+                                    )
+                                }
                             }
-                            root.parameters.forEachIndexed { i, p ->
-                                val parameterName = p.name.lexeme
-                                val parameterType = parameterTypes[i]
 
-                                env.addVariable(parameterName, parameters[i + root.contexts.size], parameterType, true)
+                            builder.positionAtEnd(b)
+
+                            val previousReturnEmitted = returnEmitted
+                            returnEmitted = false
+
+                            val b1 = generateStatements(root.body, builder, b)
+
+                            if (!returnEmitted) {
+                                builder.positionAtEnd(b1)
+                                builder.ret()
                             }
+
+                            returnEmitted = previousReturnEmitted
                         }
-
-                        builder.positionAtEnd(b)
-
-                        val previousReturnEmitted = returnEmitted
-                        returnEmitted = false
-
-                        val b1 = generateStatements(root.body, builder, b)
-
-                        if (!returnEmitted) {
-                            builder.positionAtEnd(b1)
-                            builder.ret()
-                        }
-
-                        returnEmitted = previousReturnEmitted
                     }
                 }
-
-                function = previousFunction
-                functionName = previousFunctionName
 
                 builder.positionAtEnd(block)
 
@@ -1090,13 +1112,26 @@ public class LLVMCodeGenerator(moduleName: String) {
         }
     }
 
-    private fun scope(block: () -> Unit) {
+    private inline fun scope(block: () -> Unit) {
         val previousEnv = env
         env = LLVMEnvironment(env)
 
         block()
 
         env = previousEnv
+    }
+
+    private inline fun function(newFunction: Function, newFunctionName: String, block: () -> Unit) {
+        val previousFunction = function
+        val previousFunctionName = functionName
+
+        function = newFunction
+        functionName = newFunctionName
+
+        block()
+
+        function = previousFunction
+        functionName = previousFunctionName
     }
 
     private fun generateMangledName(name: String, parameterTypes: List<String>, returnType: String): String {
