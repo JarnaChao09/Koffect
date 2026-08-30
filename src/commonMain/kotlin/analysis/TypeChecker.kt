@@ -964,7 +964,7 @@ public class TypeChecker(public var environment: Environment) {
 
                 TypedGet(instance, this.name, slot, getType)
             }
-            is Set -> {
+            is parser.ast.Set -> {
                 val typedInstance = this.instance.toTypedExpression()
                 val typedExpression = this.expression.toTypedExpression()
 

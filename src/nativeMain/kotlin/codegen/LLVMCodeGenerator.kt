@@ -292,6 +292,81 @@ public class LLVMCodeGenerator(moduleName: String) {
                         }
                     }
 
+                    val className = it.name.lexeme
+                    it.methods.forEach { method ->
+                        val receiverType = method.receiver?.toLLVMType(true)
+                        val contextTypes = method.contexts.map { c -> c.toLLVMType(true) }
+                        val parameterTypes = method.parameters.map { p -> p.type.toLLVMType(true) }
+
+                        val finalParameterTypes = buildList {
+                            add(structType.pointer)
+
+                            receiverType?.let { rt ->
+                                add(rt)
+                            }
+                            addAll(contextTypes)
+                            addAll(parameterTypes)
+                        }
+
+                        val offset = if (receiverType != null) 2 else 1
+                        val methodName = "${it.name.lexeme}#${method.name.lexeme}"
+
+                        module.function(
+                            name = methodName,
+                            parameterTypes = finalParameterTypes,
+                            returnType = method.returnType.toLLVMType(true),
+                        ) { methodType ->
+                            function(this@function, methodName) {
+                                env.addTypeMethod(
+                                    className,
+                                    methodType to this@function
+                                )
+
+                                scope {
+                                    val b = basicBlocks.append { _ ->
+                                        env.addVariable(
+                                            "this",
+                                            parameters[0],
+                                            structType.pointer,
+                                            true,
+                                        )
+                                        // todo: receiver type
+                                        method.contexts.forEachIndexed { i, type ->
+                                            val contextType = contextTypes[i]
+
+                                            env.addContext(type, parameters[offset + i], contextType)
+                                        }
+                                        method.parameters.forEachIndexed { i, p ->
+                                            val parameterName = p.name.lexeme
+                                            val parameterType = parameterTypes[i]
+
+                                            env.addVariable(
+                                                parameterName,
+                                                parameters[offset + method.contexts.size + i],
+                                                parameterType,
+                                                true,
+                                            )
+                                        }
+                                    }
+
+                                    builder.positionAtEnd(b)
+
+                                    val previousReturnEmitted = returnEmitted
+                                    returnEmitted = false
+
+                                    val b1 = generateStatements(method.body, builder, b)
+
+                                    if (!returnEmitted) {
+                                        builder.positionAtEnd(b1)
+                                        builder.ret()
+                                    }
+
+                                    returnEmitted = previousReturnEmitted
+                                }
+                            }
+                        }
+                    }
+
                     currentBlock
                 }
                 is TypedFunctionDeclaration -> {
@@ -746,29 +821,64 @@ public class LLVMCodeGenerator(moduleName: String) {
                 value to b2
             }
             is TypedCall -> {
-                val (func, b1) = dfs(root.callee, builder, block)
-                var currentBlock = b1
-                val argumentTypes = mutableListOf<Type>()
-                val arguments = Array(root.arguments.size) {
-                    val argument = root.arguments[it]
-                    argumentTypes.add(argument.type.toLLVMType(true))
-                    val (value, b) = dfs(argument, builder, currentBlock)
+                if (root.callee is TypedGet && root.callee.slot != -1) { // note: calling a method
+                    val typedGet = root.callee
+                    val instance = root.callee.instance
+                    val instanceType = instance.type
 
-                    currentBlock = b
+                    val (funcType, funcVal) = env.getTypeMethod(
+                        instanceType.mangledName,
+                        // NOTE: calling a method, - 1 accounting for the "constructor method"
+                        typedGet.slot - 1
+                    ) ?: error("method ${typedGet.name.lexeme} not found on $instanceType")
 
-                    value
+                    var currentBlock = block
+                    val argumentTypes = mutableListOf<Type>()
+                    val arguments = Array(root.arguments.size + 1) {
+                        val (value, b) = if (it == 0) {
+                            argumentTypes.add(instanceType.toLLVMType(true))
+                            dfs(instance, builder, currentBlock)
+                        } else {
+                            val argument = root.arguments[it + 1]
+                            argumentTypes.add(argument.type.toLLVMType(true))
+                            dfs(argument, builder, currentBlock)
+                        }
+
+                        currentBlock = b
+
+                        value
+                    }
+
+                    builder.call(
+                        funcType,
+                        funcVal.llvmRef,
+                        arguments
+                    ) to currentBlock
+                } else {
+                    val (func, b1) = dfs(root.callee, builder, block)
+                    var currentBlock = b1
+                    val argumentTypes = mutableListOf<Type>()
+                    val arguments = Array(root.arguments.size) {
+                        val argument = root.arguments[it]
+                        argumentTypes.add(argument.type.toLLVMType(true))
+                        val (value, b) = dfs(argument, builder, currentBlock)
+
+                        currentBlock = b
+
+                        value
+                    }
+                    val value = builder.call(
+                        functionType = Type.Function(
+                            context,
+                            argumentTypes,
+                            root.type.toLLVMType(true)
+                        ),
+                        function = func,
+                        args = arguments,
+                    )
+
+                    value to currentBlock
                 }
-                val value = builder.call(
-                    functionType = Type.Function(
-                        context,
-                        argumentTypes,
-                        root.type.toLLVMType(true)
-                    ),
-                    function = func,
-                    args = arguments,
-                )
-
-                value to currentBlock
             }
             is TypedContextVariable -> {
                 val (cValue, _) = env.getContext(root.type) ?: error("context ${root.type} not in scope (should be unreachable)")
@@ -1153,6 +1263,7 @@ private class LLVMEnvironment(val enclosing: LLVMEnvironment?) {
     private val contexts: MutableMap<analysis.ast.Type, Pair<Value, Type>> = mutableMapOf()
     private val functions: MutableMap<String, Pair<Type, Function>> = mutableMapOf()
     private val types: MutableMap<String, Type> = mutableMapOf()
+    private val methods: MutableMap<String, MutableList<Pair<Type, Function>>> = mutableMapOf()
 
     fun addVariable(name: String, value: Value, type: Type, parameter: Boolean) {
         if (variables.containsKey(name)) {
@@ -1204,5 +1315,15 @@ private class LLVMEnvironment(val enclosing: LLVMEnvironment?) {
         return this.types.getOrElse(name) {
             this.enclosing?.getType(name)
         }
+    }
+
+    fun addTypeMethod(className: String, method: Pair<Type, Function>) {
+        this.methods.getOrPut(className) {
+            mutableListOf()
+        }.add(method)
+    }
+
+    fun getTypeMethod(className: String, slot: Int): Pair<Type, Function>? {
+        return this.methods[className]?.getOrNull(slot) ?: this.enclosing?.getTypeMethod(className, slot)
     }
 }

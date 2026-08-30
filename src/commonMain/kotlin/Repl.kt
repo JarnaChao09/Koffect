@@ -1143,19 +1143,33 @@ public fun repl() {
     //     }
     // """.trimIndent()
 
+    // val srcString = """
+    //     class Foo(val a: Int, b: Int, val c: Int) {
+    //         var test: Int = -1;
+    //     }
+    //
+    //     fun Foo.print() { print("Foo a="); print(this.a); print(", c="); print(this.c); print(", test="); println(this.test); }
+    //
+    //     fun main() {
+    //         val f: Foo = Foo(3, 4, 5);
+    //
+    //         f.print();
+    //         f.test = 100;
+    //         f.print();
+    //     }
+    // """.trimIndent()
+
     val srcString = """
-        class Foo(val a: Int, b: Int, val c: Int) {
-            var test: Int = -1;
+        class Foo(val bar: Int) {
+            fun baz() {
+                println(this.bar);
+            }
         }
-
-        fun Foo.print() { print("Foo a="); print(this.a); print(", c="); print(this.c); print(", test="); println(this.test); }
-
+        
         fun main() {
-            val f: Foo = Foo(3, 4, 5);
-
-            f.print();
-            f.test = 100;
-            f.print();
+            val foo: Foo = Foo(42);
+            
+            foo.baz();
         }
     """.trimIndent()
 
