@@ -68,6 +68,7 @@ public class LLVMCodeGenerator(moduleName: String) {
     private var env: LLVMEnvironment = LLVMEnvironment(null)
 
     private var returnEmitted: Boolean = false
+    private var phiLabels: MutableList<Pair<Value, BasicBlock>>? = null
 
     public fun nativeFunction(
         name: String,
@@ -500,18 +501,23 @@ public class LLVMCodeGenerator(moduleName: String) {
                     }
                 }
                 is TypedReturnExpressionStatement -> {
-                    returnEmitted = true
-
                     val returnType = it.returnExpression.type
 
                     val (value, nextBlock) = dfs(it.returnExpression, builder, currentBlock)
 
                     builder.positionAtEnd(nextBlock)
 
-                    if (returnType is VariableType && returnType.mangledName == "Unit") {
-                        builder.ret()
+                    val p = phiLabels
+                    if (p != null) {
+                        p.add(value to nextBlock)
                     } else {
-                        builder.ret(value)
+                        returnEmitted = true
+
+                        if (returnType is VariableType && returnType.mangledName == "Unit") {
+                            builder.ret()
+                        } else {
+                            builder.ret(value)
+                        }
                     }
 
                     nextBlock
@@ -975,7 +981,46 @@ public class LLVMCodeGenerator(moduleName: String) {
             is TypedGrouping -> {
                 dfs(root.expression, builder, block)
             }
-            is TypedIfExpression -> TODO()
+            is TypedIfExpression -> {
+                val currentFunction = function ?: error("top level if expressions currently not supported")
+                val (cond, condBlock) = dfs(root.condition, builder, block)
+
+                builder.positionAtEnd(condBlock)
+
+                var thenBranchBlock = currentFunction.basicBlocks.append("if_then") {}
+                var elseBranchBlock = currentFunction.basicBlocks.append("if_else") {}
+                val endBlock = currentFunction.basicBlocks.append("if_end") {}
+
+                builder.cond(cond, thenBranchBlock, elseBranchBlock)
+
+                phiLabels = mutableListOf()
+
+                scope {
+                    thenBranchBlock = generateStatements(root.trueBranch, builder, thenBranchBlock)
+
+                    builder.positionAtEnd(thenBranchBlock)
+                    builder.br(endBlock)
+                }
+
+                scope {
+                    elseBranchBlock = generateStatements(root.falseBranch, builder, elseBranchBlock)
+
+                    builder.positionAtEnd(elseBranchBlock)
+                    builder.br(endBlock)
+                }
+
+                phiLabels!!.let { labels ->
+                    builder.positionAtEnd(endBlock)
+                    val phiValues = Array(labels.size) {
+                        labels[it].first
+                    }
+                    val phiBlocks = Array(labels.size) {
+                        labels[it].second
+                    }
+
+                    builder.phi(root.type.toLLVMType(true), phiBlocks, phiValues)
+                } to endBlock
+            }
             is TypedInlineCall -> TODO()
             is TypedLambda -> {
                 require(root.captures.isEmpty()) {

@@ -1159,17 +1159,32 @@ public fun repl() {
     //     }
     // """.trimIndent()
 
+    // val srcString = """
+    //     class Foo(val bar: Int) {
+    //         fun baz() {
+    //             println(this.bar);
+    //         }
+    //     }
+    //
+    //     fun main() {
+    //         val foo: Foo = Foo(42);
+    //
+    //         foo.baz();
+    //     }
+    // """.trimIndent()
+
     val srcString = """
-        class Foo(val bar: Int) {
-            fun baz() {
-                println(this.bar);
-            }
-        }
-        
         fun main() {
-            val foo: Foo = Foo(42);
+            val c: Boolean = false;
+            val a: Int = if (c) {
+                println("true");
+                100; 
+            } else {
+                println("false");
+                200; 
+            };
             
-            foo.baz();
+            println(a);
         }
     """.trimIndent()
 
