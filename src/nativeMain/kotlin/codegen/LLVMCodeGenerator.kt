@@ -325,13 +325,10 @@ public class LLVMCodeGenerator(moduleName: String) {
 
                                 scope {
                                     val b = basicBlocks.append { _ ->
-                                        env.addVariable(
-                                            "this",
-                                            parameters[0],
-                                            structType.pointer,
-                                            true,
-                                        )
-                                        // todo: receiver type
+                                        env.addReceiver(it.type, structType.pointer to parameters[0])
+                                        if (receiverType != null) {
+                                            env.addReceiver(method.receiver, receiverType to parameters[1])
+                                        }
                                         method.contexts.forEachIndexed { i, type ->
                                             val contextType = contextTypes[i]
 
@@ -845,7 +842,7 @@ public class LLVMCodeGenerator(moduleName: String) {
                             argumentTypes.add(instanceType.toLLVMType(true))
                             dfs(instance, builder, currentBlock)
                         } else {
-                            val argument = root.arguments[it + 1]
+                            val argument = root.arguments[it - 1]
                             argumentTypes.add(argument.type.toLLVMType(true))
                             dfs(argument, builder, currentBlock)
                         }
@@ -973,7 +970,7 @@ public class LLVMCodeGenerator(moduleName: String) {
                                 )
                             ) to newBlock
                         } else {
-                            TODO("variable type get is not implemented")
+                            TODO("variable type get is not implemented for $root")
                         }
                     }
                 }
@@ -1166,11 +1163,7 @@ public class LLVMCodeGenerator(moduleName: String) {
                 ) to nextBlock
             }
             is TypedThis -> {
-                val (thisValue, _, thisParameter) = env.getVariable("this") ?: error("accessing this inside a scope without unqualified this (should be unreachable)")
-
-                require(thisParameter) {
-                    "this is not a parameter somehow (should be unreachable)"
-                }
+                val (_, thisValue) = env.getReceiver(root.type) ?: error("unknown receiver type ${root.type}")
 
                 thisValue to block
             }
@@ -1305,6 +1298,7 @@ public class LLVMCodeGenerator(moduleName: String) {
 @OptIn(ExperimentalForeignApi::class)
 private class LLVMEnvironment(val enclosing: LLVMEnvironment?) {
     private val variables: MutableMap<String, Triple<Value, Type, Boolean>> = mutableMapOf()
+    private val receivers: MutableMap<analysis.ast.Type, Pair<Type, Value>> = mutableMapOf()
     private val contexts: MutableMap<analysis.ast.Type, Pair<Value, Type>> = mutableMapOf()
     private val functions: MutableMap<String, Pair<Type, Function>> = mutableMapOf()
     private val types: MutableMap<String, Type> = mutableMapOf()
@@ -1320,6 +1314,19 @@ private class LLVMEnvironment(val enclosing: LLVMEnvironment?) {
     fun getVariable(name: String): Triple<Value, Type, Boolean>? {
         return this.variables.getOrElse(name) {
             this.enclosing?.getVariable(name)
+        }
+    }
+
+    fun addReceiver(type: analysis.ast.Type, value: Pair<Type, Value>) {
+        if (receivers.containsKey(type)) {
+            error("duplicate receiver of type $type exists in scope")
+        }
+        receivers[type] = value
+    }
+
+    fun getReceiver(type: analysis.ast.Type): Pair<Type, Value>? {
+        return this.receivers.getOrElse(type) {
+            this.enclosing?.getReceiver(type)
         }
     }
 

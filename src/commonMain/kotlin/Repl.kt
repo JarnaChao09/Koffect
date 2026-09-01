@@ -1173,18 +1173,41 @@ public fun repl() {
     //     }
     // """.trimIndent()
 
+    // val srcString = """
+    //     fun main() {
+    //         val c: Boolean = false;
+    //         val a: Int = if (c) {
+    //             println("true");
+    //             100;
+    //         } else {
+    //             println("false");
+    //             200;
+    //         };
+    //
+    //         println(a);
+    //     }
+    // """.trimIndent()
+
     val srcString = """
+        class Context(val backing: Int) {
+            fun Int.contextualFunction(other: Int) {
+                println(backing + this + other);
+            }
+        }
+
+        fun withContext(c: Context, block: context(Context) () -> Unit) {
+            block(c);
+        }
+
+        context(Context)
+        fun func() {
+            9.contextualFunction(8);
+        }
+
         fun main() {
-            val c: Boolean = false;
-            val a: Int = if (c) {
-                println("true");
-                100; 
-            } else {
-                println("false");
-                200; 
+            withContext(Context(10)) {
+                func();
             };
-            
-            println(a);
         }
     """.trimIndent()
 

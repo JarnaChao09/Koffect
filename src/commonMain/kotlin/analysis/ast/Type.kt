@@ -111,7 +111,8 @@ public data class FunctionType(
 }
 
 // TODO: figure out how to remove the hashcode depending on the mutable properties inside ClassType (see TypeChecker)
-public data class ClassType(
+// TODO: figure out why storing this inside a map and calling containsKey on it causes a segfault
+public class ClassType(
     public val name: String,
     public val superclass: ClassType?,
     public val interfaces: List<InterfaceType>,

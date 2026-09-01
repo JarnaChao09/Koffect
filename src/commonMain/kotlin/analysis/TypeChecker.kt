@@ -6,6 +6,7 @@ import analysis.ast.Type
 import analysis.ast.TypedClassDeclaration.*
 import lexer.TokenType
 import parser.ast.*
+import utils.Quad
 
 // public typealias Environment = Map<String, Set<Type>>
 
@@ -599,6 +600,7 @@ public class TypeChecker(public var environment: Environment) {
                                     this.paren.copy(type = TokenType.IDENTIFIER, "invoke"),
                                     -1,
                                     calleeType,
+                                    null
                                 ),
                                 this.paren,
                                 finalTypedArguments,
@@ -771,7 +773,10 @@ public class TypeChecker(public var environment: Environment) {
                                 ) to false
                             }
                             is TypedGet -> {
-                                if (typedCallee.slot == -1) { // note: extension
+                                if (typedCallee.callInstance != null) {
+                                    foundArgs.add(0, typedCallee.callInstance)
+                                    typedCallee to true
+                                } else if (typedCallee.slot == -1) { // note: extension
                                     // adding instance to the beginning of args
                                     foundArgs.add(0, typedCallee.instance)
                                     TypedVariable(
@@ -910,8 +915,10 @@ public class TypeChecker(public var environment: Environment) {
                 val classRef = this@TypeChecker.environment.getClass(receiverName) ?: error("Unknown class '$receiverName'")
 
                 // todo: new ast node for getting a function?
-                val (instance, getType, slot) = classRef.properties[this.name.lexeme]?.let { (_, type, slot) -> Triple(typedInstance, type, slot) }
-                    ?: classRef.functions[this.name.lexeme]?.let { Triple(typedInstance, it.functionType, it.slot) }
+                val (instance, getType, slot, calledInstance) = classRef.properties[this.name.lexeme]?.let { (_, type, slot) ->
+                    Quad(typedInstance, type, slot, null)
+                }
+                    ?: classRef.functions[this.name.lexeme]?.let { Quad(typedInstance, it.functionType, it.slot, null) }
                     ?: run {
                         val funcType = this@TypeChecker
                             .environment
@@ -926,13 +933,26 @@ public class TypeChecker(public var environment: Environment) {
                                 }
 
                                 c.functions[this.name.lexeme]?.let { func ->
-                                    cvar to func
+                                    val filteredOverloads = func.functionType.overloads.filter {
+                                        it.receiverType != null && it.receiverType == typedInstance.type
+                                    }
+
+                                    if (filteredOverloads.isNotEmpty()) {
+                                        cvar to func.copy(
+                                            name = func.name,
+                                            functionType = func.functionType.copy(
+                                                mutableOverloads = filteredOverloads.toMutableSet()
+                                            )
+                                        )
+                                    } else {
+                                        null
+                                    }
                                 }
                             }
                             .maxByOrNull { (cvar, _) -> cvar.depth }
                         // todo: current workaround for not re-opening class definitions in the environment for extensions
-                        val (functionType, instance) = funcType?.let { (cvar, function) ->
-                            function.functionType to cvar
+                        val (functionType, instance, slot, calledInstance) = funcType?.let { (cvar, function) ->
+                            Quad(function.functionType, cvar, function.slot, typedInstance)
                         } ?: when (val type = this@TypeChecker.environment.getVariable(this.name.lexeme)?.first) {
                             is ClassType -> error("Extension receiver lookup currently cannot handle class types")
                             is FunctionType -> {
@@ -945,24 +965,24 @@ public class TypeChecker(public var environment: Environment) {
                                     filteredOverloads.toMutableSet(),
                                 )
 
-                                filteredFunctionType to typedInstance
+                                Quad(filteredFunctionType, typedInstance, -1, null)
                             }
                             is LambdaType -> {
                                 if (type.receiverType != typedInstance.type) {
                                     error("Incorrect receiver types: ${type.receiverType} vs ${typedInstance.type}")
                                 }
 
-                                type to typedInstance
+                                Quad(type, typedInstance, -1, null)
                             }
                             is VariableType -> error("Extension receiver lookup currently cannot handle variable types")
                             null -> error("Cannot find function ${this.name.lexeme} with receiver $receiverName")
                         }
 
-                        Triple(instance, functionType, -1)
+                        Quad(instance, functionType, slot, calledInstance)
                     }
                     // ?: error("Unknown property ${this.name.lexeme} on class '$receiverName'")
 
-                TypedGet(instance, this.name, slot, getType)
+                TypedGet(instance, this.name, slot, getType, calledInstance)
             }
             is parser.ast.Set -> {
                 val typedInstance = this.instance.toTypedExpression()
@@ -1278,6 +1298,7 @@ public class TypeChecker(public var environment: Environment) {
                                 name = this.name,
                                 slot = foundSlot,
                                 type = foundType,
+                                null,
                             )
                         } else {
                             null
@@ -1292,7 +1313,8 @@ public class TypeChecker(public var environment: Environment) {
                             ),
                             name = this.name,
                             slot = property.slot,
-                            type = property.type
+                            type = property.type,
+                            null,
                         )
                     } else if (property == null && function != null) {
                         TypedGet(
@@ -1304,7 +1326,8 @@ public class TypeChecker(public var environment: Environment) {
                             ),
                             name = this.name,
                             slot = -1, // TODO: function slots
-                            type = function.functionType
+                            type = function.functionType,
+                            null,
                         )
                     } else { // property != null && function != null
                         error("shadowing of a class property and function found")
