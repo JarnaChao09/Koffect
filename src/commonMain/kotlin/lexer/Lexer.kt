@@ -11,6 +11,7 @@ private val defaultKeywords: Map<String, TokenType> = mapOf(
     "for" to TokenType.FOR,
     "while" to TokenType.WHILE,
     "context" to TokenType.CONTEXT,
+    "operator" to TokenType.OPERATOR,
     "delete" to TokenType.DELETE,
     "suspend" to TokenType.SUSPEND,
     "inline" to TokenType.INLINE,

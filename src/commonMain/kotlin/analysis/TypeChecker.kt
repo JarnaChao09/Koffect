@@ -96,6 +96,7 @@ public class TypeChecker(public var environment: Environment) {
                         emptyList(), // todo: interfaces
                         mutableMapOf(),
                         mutableMapOf(),
+                        false,
                     )
 
                     // todo: superclasses
@@ -179,6 +180,7 @@ public class TypeChecker(public var environment: Environment) {
                             argumentTypes,
                             currentClassType,
                             false,
+                            false,
                             null,
                             null,
                             null,
@@ -249,6 +251,10 @@ public class TypeChecker(public var environment: Environment) {
                     val returnType = it.returnType.toType()
                     val receiverType = it.receiver?.toType()
 
+                    if (this.scope != Scope.CLASS_LEVEL && it.operator && receiverType == null) {
+                        error("top level operator must specify a receiver type")
+                    }
+
                     var oldFunctionType = if (this.scope == Scope.CLASS_LEVEL) {
                         val currentClass = this.currentClass ?: error("inside a class scope but current class is null (should be unreachable)")
                         currentClass.functions[name]?.functionType
@@ -279,6 +285,7 @@ public class TypeChecker(public var environment: Environment) {
                         contextTypes,
                         parameterTypes,
                         returnType,
+                        it.operator,
                     )
 
                     this.environment = Environment(this.environment, receiverType)
@@ -308,7 +315,7 @@ public class TypeChecker(public var environment: Environment) {
                         }
 
                         for (type in returns) {
-                            if (type != returnType) {
+                            if (type.mangledName != returnType.mangledName) {
                                 error("Expected function $name to return $returnType but found $type instead")
                             }
                         }
@@ -346,6 +353,7 @@ public class TypeChecker(public var environment: Environment) {
                             contextTypes,
                             parameterTypes,
                             returnType,
+                            it.operator,
                             isDeleted = containsDelete,
                             deletionReason = deletionReason,
                             inlinedBody = typedBody.takeIf { _ -> it.inline },
@@ -481,7 +489,7 @@ public class TypeChecker(public var environment: Environment) {
 
                 for (functionOverload in functionReference.functionType.overloads) {
                     // todo: update to check for operator status once operator distinction is added
-                    if (functionOverload.arity != 1) {
+                    if (functionOverload.arity != 1 || !functionOverload.isOperator) {
                         continue
                     }
 
@@ -492,10 +500,26 @@ public class TypeChecker(public var environment: Environment) {
                 }
 
                 if (returnType == null) {
-                    error("Unable to find function definition on type $leftTypeName for $function with parameter $rightTypeName. Known candidates are: ${functionReference.functionType}")
+                    error("Unable to find operator function definition on type $leftTypeName for $function with parameter $rightTypeName. Known candidates are: ${functionReference.functionType}")
                 }
 
-                TypedBinary(leftTypedExpression, this.operator, rightTypedExpression, returnType)
+                if (receiverReference.isPrimitive) {
+                    TypedBinary(leftTypedExpression, this.operator, rightTypedExpression, returnType)
+                } else {
+                    TypedCall(
+                        callee = TypedGet(
+                            instance = leftTypedExpression,
+                            name = this.operator.copy(lexeme = function),
+                            slot = functionReference.slot,
+                            type = functionReference.functionType,
+                            callInstance = null,
+                        ),
+                        paren = this.operator,
+                        arguments = listOf(rightTypedExpression),
+                        type = returnType,
+                        methodInvocation = true
+                    )
+                }
             }
             is Call -> {
                 val typedCallee = this.callee.toTypedExpression()
@@ -984,7 +1008,7 @@ public class TypeChecker(public var environment: Environment) {
 
                 TypedGet(instance, this.name, slot, getType, calledInstance)
             }
-            is parser.ast.Set -> {
+            is Set -> {
                 val typedInstance = this.instance.toTypedExpression()
                 val typedExpression = this.expression.toTypedExpression()
 

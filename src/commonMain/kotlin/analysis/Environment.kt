@@ -103,12 +103,12 @@ public class EnvironmentBuilder {
         this.variables[variable] = VariableType(type)
     }
 
-    public fun function(function: String, contexts: List<String> = emptyList(), block: FunctionBuilder.() -> Unit) {
+    public fun function(function: String, contexts: List<String> = emptyList(), operator: Boolean = false, block: FunctionBuilder.() -> Unit) {
         require(function !in this.variables) {
             "Function with name '$function' already exists. All overloads for a function must be in the same block"
         }
 
-        val builder = FunctionBuilder(function, contexts = contexts.map { VariableType(it) })
+        val builder = FunctionBuilder(function, contexts = contexts.map { VariableType(it) }, operator)
         builder.block()
         this.variables[function] = builder.build()
     }
@@ -132,12 +132,24 @@ public class EnvironmentBuilder {
 }
 
 @EnvironmentDSL
-public class FunctionBuilder(private val function: String, private val contexts: List<Type>) {
+public class FunctionBuilder(private val function: String, private val contexts: List<Type>, private val operator: Boolean) {
     private val overloads: MutableSet<FunctionType.Overload> = mutableSetOf()
 
     public infix fun List<String>.returns(returnType: String) {
         // todo: assuming all are variable types for now, double check if this assumption holds true
-        this@FunctionBuilder.overloads += FunctionType.Overload(null, contexts, this.map { VariableType(it) }, VariableType(returnType), false, null, null, null)
+        this@FunctionBuilder.overloads += FunctionType.Overload(
+            null,
+            contexts,
+            this.map {
+                VariableType(it)
+            },
+            VariableType(returnType),
+            operator,
+            false,
+            null,
+            null,
+            null
+        )
     }
 
     public fun build(): FunctionType {
@@ -150,7 +162,7 @@ public class FunctionBuilder(private val function: String, private val contexts:
 }
 
 @EnvironmentDSL
-public class ClassBuilder(private val klass: String) {
+public class ClassBuilder(private val klass: String, private val isPrimitive: Boolean = true) {
     public var superClass: String? = null
     private val interfaces: MutableList<String> = mutableListOf() // todo: update once interfaces are added
     private val properties: MutableMap<String, ClassType.Property> = mutableMapOf()
@@ -164,12 +176,12 @@ public class ClassBuilder(private val klass: String) {
         this.properties[property] = ClassType.Property(property, VariableType(type), this.properties.size)
     }
 
-    public fun function(function: String, contexts: List<String> = emptyList(), block: FunctionBuilder.() -> Unit) {
+    public fun function(function: String, contexts: List<String> = emptyList(), operator: Boolean = false, block: FunctionBuilder.() -> Unit) {
         require(function !in this.functions) {
             "Function with name '$function' already exists. All overloads for a function must be in the same block"
         }
 
-        val builder = FunctionBuilder(function, contexts = contexts.map { VariableType(it) })
+        val builder = FunctionBuilder(function, contexts = contexts.map { VariableType(it) }, operator)
         builder.block()
         this.functions[function] = ClassType.Function(function, builder.build(), this.functions.size)
     }
@@ -183,6 +195,7 @@ public class ClassBuilder(private val klass: String) {
             emptyList(),
             this.properties,
             this.functions,
+            isPrimitive,
         )
     }
 }

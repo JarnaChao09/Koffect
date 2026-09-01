@@ -67,6 +67,7 @@ public data class FunctionType(
         public val contextTypes: List<Type>,
         public val parameterTypes: List<Type>,
         public val returnType: Type,
+        public val isOperator: Boolean,
         public var isDeleted: Boolean,
         public var deletionReason: TypedExpression?,
         public var inlinedBody: List<TypedStatement>?, // if null, then the overload was not marked inline
@@ -89,12 +90,23 @@ public data class FunctionType(
         contextTypes: List<Type>,
         parameterTypes: List<Type>,
         returnType: Type,
+        isOperator: Boolean = false,
         isDeleted: Boolean = false,
         deletionReason: TypedExpression? = null,
         inlinedBody: List<TypedStatement>? = null,
         inlinedParameterNames: List<TypedParameter>? = null,
     ): Overload {
-        return Overload(receiverType, contextTypes, parameterTypes, returnType, isDeleted, deletionReason, inlinedBody, inlinedParameterNames).also {
+        return Overload(
+            receiverType,
+            contextTypes,
+            parameterTypes,
+            returnType,
+            isOperator,
+            isDeleted,
+            deletionReason,
+            inlinedBody,
+            inlinedParameterNames
+        ).also {
             if (it in this.mutableOverloads) {
                 error("Overload for function ${this.name} with type $it already exists")
             }
@@ -118,6 +130,7 @@ public class ClassType(
     public val interfaces: List<InterfaceType>,
     private val mutableProperties: MutableMap<String, Property>,
     private val mutableFunctions: MutableMap<String, Function>,
+    public val isPrimitive: Boolean,
 ) : Type {
     public val properties: Map<String, Property>
         get() = this.mutableProperties
@@ -156,6 +169,7 @@ public class ClassType(
         contextTypes: List<Type>,
         parameterTypes: List<Type>,
         returnType: Type,
+        isOperator: Boolean = false,
         isDeleted: Boolean = false,
         deletionReason: TypedExpression? = null,
         inlinedBody: List<TypedStatement>? = null,
@@ -163,7 +177,16 @@ public class ClassType(
     ): Function {
         return if (this.mutableFunctions.containsKey(name)) {
             this.mutableFunctions[name]!!.also {
-                it.functionType.addOverload(receiverType, contextTypes, parameterTypes, returnType, isDeleted, deletionReason, inlinedBody)
+                it.functionType.addOverload(
+                    receiverType,
+                    contextTypes,
+                    parameterTypes,
+                    returnType,
+                    isOperator,
+                    isDeleted,
+                    deletionReason,
+                    inlinedBody
+                )
             }
         } else {
             Function(
@@ -176,6 +199,7 @@ public class ClassType(
                             contextTypes,
                             parameterTypes,
                             returnType,
+                            isOperator,
                             isDeleted,
                             deletionReason,
                             inlinedBody,

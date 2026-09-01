@@ -49,19 +49,19 @@ public fun repl() {
         for (type in listOf("Int", "Long", "Double")) {
             type {
                 for (functionName in listOf("plus", "minus", "times", "div", "mod")) {
-                    function(functionName) {
+                    function(functionName, operator = true) {
                         listOf(type) returns type
                     }
                 }
 
                 for (functionName in listOf("unaryPlus", "unaryMinus")) {
-                    function(functionName) {
+                    function(functionName, /* operator = true */) {
                         emptyList<String>() returns type
                     }
                 }
 
                 for (functionName in listOf("==", "!=", ">=", "<=", ">", "<")) {
-                    function(functionName) {
+                    function(functionName, operator = true) {
                         listOf(type) returns "Boolean"
                     }
                 }
@@ -1188,26 +1188,52 @@ public fun repl() {
     //     }
     // """.trimIndent()
 
+    // val srcString = """
+    //     class Context(val backing: Int) {
+    //         fun Int.contextualFunction(other: Int) {
+    //             println(backing + this + other);
+    //         }
+    //     }
+    //
+    //     fun withContext(c: Context, block: context(Context) () -> Unit) {
+    //         block(c);
+    //     }
+    //
+    //     context(Context)
+    //     fun func() {
+    //         9.contextualFunction(8);
+    //     }
+    //
+    //     fun main() {
+    //         withContext(Context(10)) {
+    //             func();
+    //         };
+    //     }
+    // """.trimIndent()
+
     val srcString = """
-        class Context(val backing: Int) {
-            fun Int.contextualFunction(other: Int) {
-                println(backing + this + other);
+        class Num(val num: Int) {
+            operator fun plus(other: Num): Num {
+                return Num(this.num + other.num);
+            }
+            
+            operator fun minus(other: Num): Num {
+                return Num(this.num - other.num);
+            }
+            
+            fun println() {
+                print("Num(");
+                print(num);
+                println(")");
             }
         }
-
-        fun withContext(c: Context, block: context(Context) () -> Unit) {
-            block(c);
-        }
-
-        context(Context)
-        fun func() {
-            9.contextualFunction(8);
-        }
-
+        
         fun main() {
-            withContext(Context(10)) {
-                func();
-            };
+            val n1: Num = Num(3);
+            val n2: Num = Num(4);
+            val n3: Num = Num(5);
+            
+            (n1 + n2 - n3).println();
         }
     """.trimIndent()
 

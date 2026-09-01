@@ -27,13 +27,21 @@ public class Parser(tokenSequence: Sequence<Token>) {
             }
             match(TokenType.CONTEXT) -> {
                 val contexts = this.contextDeclaration()
-                val inline = match(TokenType.INLINE)
+                val inline1 = match(TokenType.INLINE)
+                val operator = match(TokenType.OPERATOR)
+                val inline2 = match(TokenType.INLINE)
                 expect(TokenType.FUN, "Expected function declaration after context declaration")
-                this.functionDeclaration(contexts, inline = inline)
+                this.functionDeclaration(contexts, inline = inline1 || inline2, operator = operator)
             }
             match(TokenType.INLINE) -> {
-                expect(TokenType.FUN, "Expected function declaration after inline modifier")
-                this.functionDeclaration(emptyList(), inline = true)
+                val operator = match(TokenType.OPERATOR)
+                expect(TokenType.FUN, "Expected function declaration after modifier")
+                this.functionDeclaration(emptyList(), inline = true, operator = operator)
+            }
+            match(TokenType.OPERATOR) -> {
+                val inline = match(TokenType.INLINE)
+                expect(TokenType.FUN, "Expected function declaration after modifier")
+                this.functionDeclaration(emptyList(), inline = inline, operator = true)
             }
             match(TokenType.FUN) -> {
                 this.functionDeclaration(emptyList())
@@ -115,6 +123,10 @@ public class Parser(tokenSequence: Sequence<Token>) {
                     expect(TokenType.FUN, "Expected function declaration after context declaration")
                     methods += this.functionDeclaration(contexts)
                 }
+                match(TokenType.OPERATOR) -> {
+                    expect(TokenType.FUN, "Expected function declaration after context declaration")
+                    methods += this.functionDeclaration(emptyList(), operator = true)
+                }
                 match(TokenType.FUN) -> {
                     methods += this.functionDeclaration(emptyList())
                 }
@@ -156,6 +168,7 @@ public class Parser(tokenSequence: Sequence<Token>) {
 
                     secondaryConstructors.add(ClassDeclaration.SecondaryConstructor(parameters, delegatedConstructorArgs, body))
                 }
+                else -> error("unexpected token ${this.current}")
             }
         }
 
@@ -193,7 +206,7 @@ public class Parser(tokenSequence: Sequence<Token>) {
         return VariableStatement(type, name, typeAnnotation, initializer)
     }
 
-    private fun functionDeclaration(contexts: List<Type>, inline: Boolean = false): FunctionDeclaration {
+    private fun functionDeclaration(contexts: List<Type>, inline: Boolean = false, operator: Boolean = false): FunctionDeclaration {
         val (receiver, name) = run {
             val mark = this.tokens.mark()
             // note:
@@ -241,7 +254,7 @@ public class Parser(tokenSequence: Sequence<Token>) {
             else -> error("Expected a function body")
         }
 
-        return FunctionDeclaration(name, receiver, contexts, parameters, returnType, body, inline)
+        return FunctionDeclaration(name, receiver, contexts, parameters, returnType, body, inline, operator)
     }
 
     private fun parameterList(): List<Parameter> {
