@@ -250,7 +250,13 @@ public class Parser(tokenSequence: Sequence<Token>) {
 
                 this@Parser.expect(TokenType.RIGHT_BRACE, "Expect '}' after a block")
             }
-            match(TokenType.ASSIGN) -> listOf(this.statement())
+            match(TokenType.ASSIGN) -> listOf(this.statement().let {
+                if (it is ExpressionStatement) {
+                    ReturnStatement(this.previous, it.expression)
+                } else {
+                    it
+                }
+            })
             else -> error("Expected a function body")
         }
 
@@ -329,6 +335,7 @@ public class Parser(tokenSequence: Sequence<Token>) {
                     // println("restored to ${this.peek()}")
                 } else {
                     return lambdaTypeWithoutReceiver.copy(
+                        contextTypes = context,
                         receiverType = TConstructor(potentialReceiver.lexeme)
                     )
                 }

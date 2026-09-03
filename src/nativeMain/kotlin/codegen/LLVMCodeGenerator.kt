@@ -527,7 +527,11 @@ public class LLVMCodeGenerator(moduleName: String) {
 
                         builder.positionAtEnd(newBlock)
 
-                        builder.ret(retValue)
+                        if (returnValue.type.mangledName == "Unit") {
+                            builder.ret()
+                        } else {
+                            builder.ret(retValue)
+                        }
 
                         newBlock
                     } ?: run {
@@ -1024,8 +1028,11 @@ public class LLVMCodeGenerator(moduleName: String) {
                     "closures currently not supported on LLVM backend"
                 }
 
+                val receiverType = root.receiver?.toLLVMType(true)
                 val contextTypes = root.contexts.map { it.toLLVMType(true) }
                 val parameterTypes = root.parameters.map { it.type.toLLVMType(true) }
+
+                val offset = if (receiverType != null) 1 else 0
 
                 val lambdaType = root.type.toLLVMType(false)
 
@@ -1038,10 +1045,13 @@ public class LLVMCodeGenerator(moduleName: String) {
                     function(this@function, lambdaName) {
                         scope {
                             val b = basicBlocks.append { _ ->
+                                receiverType?.let { type ->
+                                    env.addReceiver(root.receiver, type to parameters[0])
+                                }
                                 root.contexts.forEachIndexed { i, type ->
                                     val contextType = contextTypes[i]
 
-                                    env.addContext(type, parameters[i], contextType)
+                                    env.addContext(type, parameters[i + offset], contextType)
                                 }
                                 root.parameters.forEachIndexed { i, p ->
                                     val parameterName = p.name.lexeme
@@ -1049,7 +1059,7 @@ public class LLVMCodeGenerator(moduleName: String) {
 
                                     env.addVariable(
                                         parameterName,
-                                        parameters[i + root.contexts.size],
+                                        parameters[i + root.contexts.size + offset],
                                         parameterType,
                                         true
                                     )
@@ -1227,7 +1237,10 @@ public class LLVMCodeGenerator(moduleName: String) {
             is LambdaType -> {
                 Type.Function(
                     context,
-                    parameterTypes = type.contextTypes.map { it.toLLVMType(true) } + type.parameterTypes.map { it.toLLVMType(true) },
+                    parameterTypes =
+                        type.receiverType?.let { listOf(it.toLLVMType(true)) }.orEmpty()
+                                + type.contextTypes.map { it.toLLVMType(true) }
+                                + type.parameterTypes.map { it.toLLVMType(true) },
                     returnType = type.returnType.toLLVMType(true),
                     vararg = false,
                 ).let {

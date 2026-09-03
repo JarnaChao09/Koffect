@@ -1211,29 +1211,46 @@ public fun repl() {
     //     }
     // """.trimIndent()
 
+    // val srcString = """
+    //     class Num(val num: Int) {
+    //         operator fun plus(other: Num): Num {
+    //             return Num(this.num + other.num);
+    //         }
+    //
+    //         operator fun minus(other: Num): Num {
+    //             return Num(this.num - other.num);
+    //         }
+    //
+    //         fun println() {
+    //             print("Num(");
+    //             print(num);
+    //             println(")");
+    //         }
+    //     }
+    //
+    //     fun main() {
+    //         val n1: Num = Num(3);
+    //         val n2: Num = Num(4);
+    //         val n3: Num = Num(5);
+    //
+    //         (n1 + n2 - n3).println();
+    //     }
+    // """.trimIndent()
+
     val srcString = """
         class Num(val num: Int) {
             operator fun plus(other: Num): Num {
                 return Num(this.num + other.num);
             }
-            
-            operator fun minus(other: Num): Num {
-                return Num(this.num - other.num);
-            }
-            
-            fun println() {
-                print("Num(");
-                print(num);
-                println(")");
-            }
         }
+        fun println(num: Num) { print("Num("); print(num.num); println(")"); }
+        class NumContext { operator fun Int.literal(): Num = Num(this); }
+        fun withContext(block: context(NumContext) () -> Unit) = block(NumContext());
         
         fun main() {
-            val n1: Num = Num(3);
-            val n2: Num = Num(4);
-            val n3: Num = Num(5);
-            
-            (n1 + n2 - n3).println();
+            withContext {
+                println(3 + 4);
+            };
         }
     """.trimIndent()
 

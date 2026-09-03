@@ -79,6 +79,10 @@ public class Environment(
     public fun getCurrentReceiver(): Type? {
         return this.receiver ?: this.enclosing?.getCurrentReceiver()
     }
+
+    public fun currentReceivers(): List<Pair<Type, Int>> {
+        return this.receiver?.let { listOf(it to depth) }.orEmpty() + this.enclosing?.currentReceivers().orEmpty()
+    }
 }
 
 public fun buildEnvironment(block: EnvironmentBuilder.() -> Unit): Environment {

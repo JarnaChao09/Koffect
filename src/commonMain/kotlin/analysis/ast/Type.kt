@@ -78,7 +78,7 @@ public data class FunctionType(
         public fun overloadSuffix(): String = "${this.contextTypes.joinToString("|") { it.mangledName }}/${this.parameterTypes.joinToString("|") { it.mangledName }}/${returnType.mangledName}"
 
         override fun toString(): String {
-            return "${if (this.contextTypes.isNotEmpty()) "context(${this.contextTypes.joinToString(", ")}) " else ""}(${this.parameterTypes.joinToString(separator = ", ")}) -> ${this.returnType}"
+            return "${if (this.contextTypes.isNotEmpty()) "context(${this.contextTypes.joinToString(", ")}) " else ""}${this.receiverType?.let { "$it." } ?: ""}(${this.parameterTypes.joinToString(separator = ", ")}) -> ${this.returnType}"
         }
     }
 

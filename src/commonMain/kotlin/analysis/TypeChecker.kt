@@ -4,6 +4,7 @@ import analysis.ast.*
 import analysis.ast.FunctionType.*
 import analysis.ast.Type
 import analysis.ast.TypedClassDeclaration.*
+import lexer.Token
 import lexer.TokenType
 import parser.ast.*
 import utils.Quad
@@ -570,9 +571,14 @@ public class TypeChecker(public var environment: Environment) {
                                         val typedArgument =
                                             this@toTypedExpression.arguments[argIndex++].toTypedExpression(type)
 
+                                        val initialTypeEq = type == typedArgument.type
+                                        val typeNameCheck = type.mangledName == typedArgument.type.mangledName
+                                        val typeEq = initialTypeEq || typeNameCheck
+                                        val isAny = type.mangledName == "Any"
+
                                         // check still required as expectedType is ignored (currently) by all other branches
                                         // except Lambda
-                                        if (type != typedArgument.type) {
+                                        if (!isAny && !typeEq) {
                                             error("Argument of type ${typedArgument.type} does not match expected context type of $type")
                                         } else {
                                             add(typedArgument)
@@ -602,6 +608,21 @@ public class TypeChecker(public var environment: Environment) {
                             }
                         }
 
+                        val (callee, args) = if (typedCallee is TypedGet) {
+                            TypedVariable(
+                                typedCallee.name,
+                                typedCallee.type,
+                            ) to listOf(typedCallee.instance) + finalTypedArguments
+                        } else {
+                            TypedGet(
+                                typedCallee,
+                                this.paren.copy(type = TokenType.IDENTIFIER, "invoke"),
+                                -1,
+                                calleeType,
+                                null
+                            ) to finalTypedArguments
+                        }
+
                         if (calleeType.inline) {
                             TypedInlineCall(
                                 callee = typedCallee,
@@ -619,15 +640,9 @@ public class TypeChecker(public var environment: Environment) {
                             )
                         } else {
                             TypedCall(
-                                TypedGet(
-                                    typedCallee,
-                                    this.paren.copy(type = TokenType.IDENTIFIER, "invoke"),
-                                    -1,
-                                    calleeType,
-                                    null
-                                ),
+                                callee,
                                 this.paren,
-                                finalTypedArguments,
+                                args,
                                 calleeType.returnType,
                                 calleeType.receiverType != null, // todo: handle lambdas with receivers
                             )
@@ -961,6 +976,8 @@ public class TypeChecker(public var environment: Environment) {
                                         it.receiverType != null && it.receiverType == typedInstance.type
                                     }
 
+                                    println("[LOG | TypeChecker.toTypedExpression Get]: ${c.name} -> ${name.lexeme} found $filteredOverloads")
+
                                     if (filteredOverloads.isNotEmpty()) {
                                         cvar to func.copy(
                                             name = func.name,
@@ -992,7 +1009,7 @@ public class TypeChecker(public var environment: Environment) {
                                 Quad(filteredFunctionType, typedInstance, -1, null)
                             }
                             is LambdaType -> {
-                                if (type.receiverType != typedInstance.type) {
+                                if (type.receiverType?.mangledName != typedInstance.type.mangledName) {
                                     error("Incorrect receiver types: ${type.receiverType} vs ${typedInstance.type}")
                                 }
 
@@ -1059,7 +1076,63 @@ public class TypeChecker(public var environment: Environment) {
 
                 TypedIfExpression(typedCondition, typedTrueBranch, typedFalseBranch, trueType)
             }
-            is BooleanLiteral, is DoubleLiteral, is IntLiteral, is LongLiteral, NullLiteral, is StringLiteral -> TypedLiteral(this as Literal<*>)
+            is BooleanLiteral, is DoubleLiteral, is LongLiteral, NullLiteral, is StringLiteral -> TypedLiteral(this as Literal<*>)
+            is IntLiteral -> {
+                val lit = TypedLiteral(this as Literal<*>)
+                // note: first value in the list should be the maximum depth (due to how we are traversing the environment)
+                //       so we don't need to maximize by depth
+                val fromReceiver = environment
+                    .currentReceivers()
+                    .findLiteralFunction("Int") { it }
+                    .firstOrNull()
+                    ?.let { (p, functionType, returnType, depth) ->
+                        TypedCall(
+                            TypedGet(
+                                TypedThis(
+                                    keyword = Token(TokenType.THIS, "this", -1, -1),
+                                    at = null,
+                                    label = null,
+                                    type = p.first
+                                ),
+                                name = Token(TokenType.IDENTIFIER, "literal", -1, -1),
+                                slot = functionType.slot,
+                                type = functionType.functionType,
+                                callInstance = lit
+                            ),
+                            paren = Token(TokenType.LEFT_PAREN, "(", -1, -1),
+                            arguments = listOf(lit),
+                            type = returnType,
+                            methodInvocation = true,
+                        ) to depth
+                    }
+                val fromContexts = environment
+                    .currentContextVariables()
+                    .findLiteralFunction("Int") { (depth, cvar) -> cvar to depth }
+                    .firstOrNull()
+                    ?.let { (cvar, functionType, returnType, depth) ->
+                        TypedCall(
+                            callee = TypedGet(
+                                instance = cvar,
+                                name = Token(TokenType.IDENTIFIER, "literal", -1, -1),
+                                slot = functionType.slot,
+                                type = functionType.functionType,
+                                callInstance = lit
+                            ),
+                            paren = Token(TokenType.LEFT_PAREN, "(", -1, -1),
+                            arguments = listOf(lit),
+                            type = returnType,
+                            methodInvocation = true
+                        ) to depth
+                    }
+                // println("[LOG | TypeChecker.toTypedExpression IntLiteral]:\n\t${fromReceiver}\n\t${fromContexts}")
+
+                val literalOverride = listOfNotNull(fromReceiver, fromContexts)
+                    .maxByOrNull {
+                        it.second
+                    }?.first ?: lit
+
+                literalOverride
+            }
             is Lambda -> {
                 val inline = if (expectedType == null) {
                     false
@@ -1357,6 +1430,47 @@ public class TypeChecker(public var environment: Environment) {
                         error("shadowing of a class property and function found")
                     }
                 } ?: error("Undefined variable ${this.name.lexeme}")
+            }
+        }
+    }
+
+    private inline fun <T> List<T>.findLiteralFunction(primitiveType: String, extractor: (T) -> Pair<Type, Int>): List<Quad<T, ClassType.Function, Type, Int>> = mapNotNull {
+        val (recv, depth) = extractor(it)
+        val type = when (val t = recv) {
+            is ClassType -> t
+            is FunctionType -> TODO()
+            is LambdaType -> TODO()
+            is VariableType -> environment.getClass(t.name) ?: error("Unknown class '${t.name}'")
+        }
+
+        type.functions["literal"]?.let { literalFunc ->
+            val filteredOverloads = literalFunc.functionType.overloads.filter { overload ->
+                (overload.receiverType != null && overload.receiverType.mangledName == primitiveType)
+                        && overload.arity == 0
+                        && overload.isOperator
+            }
+
+            when (val c = filteredOverloads.size) {
+                0 -> {
+                    println("[LOG | TypeChecker.findLiteralFunction]: no overloads of Int.literal() found in ${type.name}")
+                    null
+                }
+                1 -> {
+                    Quad(
+                        it,
+                        literalFunc.copy(
+                            functionType = literalFunc.functionType.copy(
+                                mutableOverloads = filteredOverloads.toMutableSet()
+                            )
+                        ),
+                        filteredOverloads.first().returnType,
+                        depth
+                    )
+                }
+                else -> {
+                    println("[LOG | TypeChecker.findLiteralFunction]: multiple ($c) overloads of Int.literal() found in ${type.name}")
+                    null
+                }
             }
         }
     }
