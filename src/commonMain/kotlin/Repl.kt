@@ -74,6 +74,12 @@ public fun repl() {
             }
         }
 
+        "String" {
+            function("plus", operator = true) {
+                listOf("String") returns "String"
+            }
+        }
+
         "Boolean" {
             for (functionName in listOf("&&", "||")) {
                 function(functionName) {
@@ -1237,20 +1243,26 @@ public fun repl() {
     //     }
     // """.trimIndent()
 
+    // val srcString = """
+    //     class Num(val num: Int) {
+    //         operator fun plus(other: Num): Num {
+    //             return Num(this.num + other.num);
+    //         }
+    //     }
+    //     fun println(num: Num) { print("Num("); print(num.num); println(")"); }
+    //     class NumContext { operator fun Int.literal(): Num = Num(this); }
+    //     fun withContext(block: context(NumContext) () -> Unit) = block(NumContext());
+    //
+    //     fun main() {
+    //         withContext {
+    //             println(3 + 4);
+    //         };
+    //     }
+    // """.trimIndent()
+
     val srcString = """
-        class Num(val num: Int) {
-            operator fun plus(other: Num): Num {
-                return Num(this.num + other.num);
-            }
-        }
-        fun println(num: Num) { print("Num("); print(num.num); println(")"); }
-        class NumContext { operator fun Int.literal(): Num = Num(this); }
-        fun withContext(block: context(NumContext) () -> Unit) = block(NumContext());
-        
         fun main() {
-            withContext {
-                println(3 + 4);
-            };
+            println("Hello" + " " + "world");
         }
     """.trimIndent()
 

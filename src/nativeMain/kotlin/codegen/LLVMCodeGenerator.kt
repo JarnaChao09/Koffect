@@ -76,7 +76,7 @@ public class LLVMCodeGenerator(moduleName: String) {
         returnType: Type,
         vararg: Boolean = false,
         block: Function.(Type) -> Unit = {}
-    ) {
+    ): Pair<Type, Function> {
         val function = this.module.function(
             name,
             parameterTypes,
@@ -85,6 +85,8 @@ public class LLVMCodeGenerator(moduleName: String) {
             block
         )
         env.addFunction(name, function)
+
+        return function
     }
 
     public fun nativeFunction(
@@ -94,7 +96,7 @@ public class LLVMCodeGenerator(moduleName: String) {
         vararg: Boolean = false,
         mangledName: String = generateMangledName(name, parameterTypes.map(Pair<*, String>::second), returnType.second),
         block: Function.(Type) -> Unit = {}
-    ) {
+    ): Pair<Type, Function> {
         val function = this.module.function(
             name,
             parameterTypes.map(Pair<Type, *>::first),
@@ -103,6 +105,23 @@ public class LLVMCodeGenerator(moduleName: String) {
             block
         )
         env.addFunction(mangledName, function)
+
+        return function
+    }
+
+    public fun nativeStruct(
+        name: String,
+        elementTypes: Array<Type>,
+        packed: Boolean = false,
+    ): Type {
+        val struct = this.context.struct(
+            elementTypes,
+            name,
+            packed
+        )
+        env.addType(name, struct)
+
+        return struct
     }
 
     public fun generate(ast: List<TypedStatement>): ThreadSafeModule {
@@ -617,6 +636,10 @@ public class LLVMCodeGenerator(moduleName: String) {
                                     }
                                     "Int", "Long" -> {
                                         builder.add(lhs, rhs)
+                                    }
+                                    "String" -> {
+                                        val (builtinConcatFunctionType, builtinConcatFunction) = env.getFunction("__string_concat") ?: error("__string_concat not found (???)")
+                                        builder.call(builtinConcatFunctionType, builtinConcatFunction.llvmRef, arrayOf(lhs, rhs))
                                     }
                                     else -> {
                                         error("invalid binary operator type") // should be unreachable

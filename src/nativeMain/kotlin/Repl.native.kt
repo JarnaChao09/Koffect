@@ -47,7 +47,7 @@ public actual fun execute(typedTree: List<TypedStatement>) {
             else -> llvm.type { void.pointer }
         }
 
-        llvm.nativeFunction(
+        val (mallocFunctionType, mallocFunction) = llvm.nativeFunction(
             name = "malloc",
             parameterTypes = listOf(llvm.type { int64 }),
             returnType = llvm.type { void.pointer },
@@ -63,6 +63,44 @@ public actual fun execute(typedTree: List<TypedStatement>) {
             parameterTypes = emptyList(),
             returnType = "Long".let { it.toLLVMType() to it },
         )
+
+        val (strlenFunctionType, strlenFunction) = llvm.nativeFunction(
+            name = "strlen",
+            parameterTypes = listOf(llvm.type { int8.pointer }),
+            returnType = llvm.type { int64 },
+        )
+        val (strcpyFunctionType, strcpyFunction) = llvm.nativeFunction(
+            name = "strcpy",
+            parameterTypes = listOf(llvm.type { int8.pointer }, llvm.type { int8.pointer }),
+            returnType = llvm.type { int8.pointer },
+        )
+        val (strcatFunctionType, strcatFunction) = llvm.nativeFunction(
+            name = "strcat",
+            parameterTypes = listOf(llvm.type { int8.pointer }, llvm.type { int8.pointer }),
+            returnType = llvm.type { int8.pointer },
+        )
+        llvm.nativeFunction(
+            "__string_concat",
+            parameterTypes = listOf(llvm.type { int8.pointer }, llvm.type { int8.pointer }),
+            returnType = llvm.type { int8.pointer },
+        ) {
+            basicBlocks.append {
+                val l = parameters[0]
+                val r = parameters[1]
+
+                val lLen = call(strlenFunctionType, strlenFunction.llvmRef, arrayOf(l), "l_len")
+                val rLen = call(strlenFunctionType, strlenFunction.llvmRef, arrayOf(r), "r_len")
+
+                val retLen = add(add(lLen, rLen), llvm.type { int64 }.constInt(1), "ret_len")
+
+                val ret = call(mallocFunctionType, mallocFunction.llvmRef, arrayOf(retLen), "ret")
+
+                call(strcpyFunctionType, strcpyFunction.llvmRef, arrayOf(ret, l), "_cpy")
+                call(strcatFunctionType, strcatFunction.llvmRef, arrayOf(ret, r), "_cat")
+
+                ret(ret)
+            }
+        }
 
         context(function: Function)
         fun String.generatePrint(newline: Boolean) {
