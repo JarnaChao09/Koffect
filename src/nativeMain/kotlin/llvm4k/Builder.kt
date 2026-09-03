@@ -12,11 +12,13 @@ import llvm.LLVMBuildCondBr
 import llvm.LLVMBuildExactSDiv
 import llvm.LLVMBuildExactUDiv
 import llvm.LLVMBuildExtractValue
+import llvm.LLVMBuildFAdd
 import llvm.LLVMBuildFCmp
 import llvm.LLVMBuildFDiv
 import llvm.LLVMBuildFMul
 import llvm.LLVMBuildFNeg
 import llvm.LLVMBuildFRem
+import llvm.LLVMBuildFSub
 import llvm.LLVMBuildGEP2
 import llvm.LLVMBuildGlobalStringPtr
 import llvm.LLVMBuildICmp
@@ -69,8 +71,16 @@ public class Builder internal constructor(private val ref: LLVMBuilderRef?) {
         return LLVMBuildAdd(this.ref, left, right, name)
     }
 
+    public fun fadd(left: Value, right: Value, name: String = ""): Value {
+        return LLVMBuildFAdd(this.ref, left, right, name)
+    }
+
     public fun sub(left: Value, right: Value, name: String = ""): Value {
         return LLVMBuildSub(this.ref, left, right, name)
+    }
+
+    public fun fsub(left: Value, right: Value, name: String = ""): Value {
+        return LLVMBuildFSub(this.ref, left, right, name)
     }
 
     public fun mul(left: Value, right: Value, name: String = ""): Value {

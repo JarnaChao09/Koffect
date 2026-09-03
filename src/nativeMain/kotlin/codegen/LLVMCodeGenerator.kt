@@ -612,7 +612,10 @@ public class LLVMCodeGenerator(moduleName: String) {
                         when (type) {
                             is VariableType -> {
                                 when (type.name) {
-                                    "Double", "Int", "Long" -> {
+                                    "Double" -> {
+                                        builder.fadd(lhs, rhs)
+                                    }
+                                    "Int", "Long" -> {
                                         builder.add(lhs, rhs)
                                     }
                                     else -> {
@@ -629,7 +632,10 @@ public class LLVMCodeGenerator(moduleName: String) {
                         when (type) {
                             is VariableType -> {
                                 when (type.name) {
-                                    "Double", "Int", "Long" -> {
+                                    "Double" -> {
+                                        builder.fsub(lhs, rhs)
+                                    }
+                                    "Int", "Long" -> {
                                         builder.sub(lhs, rhs)
                                     }
                                     else -> {

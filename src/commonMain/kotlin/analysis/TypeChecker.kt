@@ -1076,14 +1076,14 @@ public class TypeChecker(public var environment: Environment) {
 
                 TypedIfExpression(typedCondition, typedTrueBranch, typedFalseBranch, trueType)
             }
-            is BooleanLiteral, is DoubleLiteral, is LongLiteral, NullLiteral, is StringLiteral -> TypedLiteral(this as Literal<*>)
-            is IntLiteral -> {
+            is BooleanLiteral, NullLiteral, is StringLiteral -> TypedLiteral(this as Literal<*>)
+            is DoubleLiteral, is IntLiteral, is LongLiteral -> {
                 val lit = TypedLiteral(this as Literal<*>)
                 // note: first value in the list should be the maximum depth (due to how we are traversing the environment)
                 //       so we don't need to maximize by depth
                 val fromReceiver = environment
                     .currentReceivers()
-                    .findLiteralFunction("Int") { it }
+                    .findLiteralFunction(lit.type.mangledName) { it }
                     .firstOrNull()
                     ?.let { (p, functionType, returnType, depth) ->
                         TypedCall(
@@ -1107,7 +1107,7 @@ public class TypeChecker(public var environment: Environment) {
                     }
                 val fromContexts = environment
                     .currentContextVariables()
-                    .findLiteralFunction("Int") { (depth, cvar) -> cvar to depth }
+                    .findLiteralFunction(lit.type.mangledName) { (depth, cvar) -> cvar to depth }
                     .firstOrNull()
                     ?.let { (cvar, functionType, returnType, depth) ->
                         TypedCall(
