@@ -75,7 +75,7 @@ public data class FunctionType(
     ) {
         public val arity: Int = this.parameterTypes.size
 
-        public fun overloadSuffix(): String = "${this.contextTypes.joinToString("|") { it.mangledName }}/${this.parameterTypes.joinToString("|") { it.mangledName }}/${returnType.mangledName}"
+        public fun overloadSuffix(): String = "${this.receiverType?.mangledName ?: ""}/${this.contextTypes.joinToString("|") { it.mangledName }}/${this.parameterTypes.joinToString("|") { it.mangledName }}/${returnType.mangledName}"
 
         override fun toString(): String {
             return "${if (this.contextTypes.isNotEmpty()) "context(${this.contextTypes.joinToString(", ")}) " else ""}${this.receiverType?.let { "$it." } ?: ""}(${this.parameterTypes.joinToString(separator = ", ")}) -> ${this.returnType}"

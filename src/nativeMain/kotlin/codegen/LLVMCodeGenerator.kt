@@ -214,7 +214,7 @@ public class LLVMCodeGenerator(moduleName: String) {
                     ) { functionType ->
                         function(this@function, primaryConstructorName) {
                             env.addFunction(
-                                "${it.name.lexeme}/${primary?.overloadSuffix(it.name.lexeme) ?: "//${it.name.lexeme}"}",
+                                "${it.name.lexeme}/${primary?.overloadSuffix(it.name.lexeme) ?: "///${it.name.lexeme}"}",
                                 functionType to this@function
                             )
 
@@ -412,11 +412,9 @@ public class LLVMCodeGenerator(moduleName: String) {
                             scope {
                                 val b = basicBlocks.append { _ ->
                                     receiverType?.let { receiver ->
-                                        env.addVariable(
-                                            "this",
-                                            parameters[0], // note: this will always be the first parameter
-                                            receiver,
-                                            true
+                                        env.addReceiver(
+                                            it.receiver,
+                                            receiver to parameters[0],
                                         )
                                     }
                                     it.contexts.forEachIndexed { i, type ->
@@ -1325,7 +1323,7 @@ public class LLVMCodeGenerator(moduleName: String) {
     }
 
     private fun generateMangledName(name: String, parameterTypes: List<String>, returnType: String): String {
-        return "$name//${parameterTypes.joinToString("|")}/$returnType"
+        return "$name///${parameterTypes.joinToString("|")}/$returnType"
     }
 
     public fun type(block: Context.() -> Type): Type {

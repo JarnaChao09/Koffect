@@ -1105,8 +1105,8 @@ public class TypeChecker(public var environment: Environment) {
                             methodInvocation = true,
                         ) to depth
                     }
-                val fromContexts = environment
-                    .currentContextVariables()
+                val contextVariables = environment.currentContextVariables()
+                val fromContexts = contextVariables
                     .findLiteralFunction(lit.type.mangledName) { (depth, cvar) -> cvar to depth }
                     .firstOrNull()
                     ?.let { (cvar, functionType, returnType, depth) ->
@@ -1124,9 +1124,26 @@ public class TypeChecker(public var environment: Environment) {
                             methodInvocation = true
                         ) to depth
                     }
+                val fromFunction = contextVariables
+                    .topLevelLiteralFunction(lit.type.mangledName)
+                    .firstOrNull()
+                    ?.let { (contexts, foundOverload, functionType, returnType) ->
+                        TypedCall(
+                            callee = TypedVariable(
+                                name = Token(TokenType.IDENTIFIER, "literal", -1, -1),
+                                type = functionType,
+                                mangledName = "literal/${foundOverload.overloadSuffix()}"
+                            ),
+                            paren = Token(TokenType.LEFT_PAREN, "(", -1, -1),
+                            arguments = listOf(lit) + contexts,
+                            type = returnType,
+                            methodInvocation = false,
+                        ) to 0
+                    }
+
                 // println("[LOG | TypeChecker.toTypedExpression IntLiteral]:\n\t${fromReceiver}\n\t${fromContexts}")
 
-                val literalOverride = listOfNotNull(fromReceiver, fromContexts)
+                val literalOverride = listOfNotNull(fromReceiver, fromContexts, fromFunction)
                     .maxByOrNull {
                         it.second
                     }?.first ?: lit
@@ -1434,13 +1451,16 @@ public class TypeChecker(public var environment: Environment) {
         }
     }
 
-    private inline fun <T> List<T>.findLiteralFunction(primitiveType: String, extractor: (T) -> Pair<Type, Int>): List<Quad<T, ClassType.Function, Type, Int>> = mapNotNull {
+    private inline fun <T> List<T>.findLiteralFunction(
+        primitiveType: String,
+        extractor: (T) -> Pair<Type, Int>
+    ): List<Quad<T, ClassType.Function, Type, Int>> = mapNotNull {
         val (recv, depth) = extractor(it)
-        val type = when (val t = recv) {
-            is ClassType -> t
+        val type = when (recv) {
+            is ClassType -> recv
             is FunctionType -> TODO()
             is LambdaType -> TODO()
-            is VariableType -> environment.getClass(t.name) ?: error("Unknown class '${t.name}'")
+            is VariableType -> environment.getClass(recv.name) ?: error("Unknown class '${recv.name}'")
         }
 
         type.functions["literal"]?.let { literalFunc ->
@@ -1472,6 +1492,42 @@ public class TypeChecker(public var environment: Environment) {
                     null
                 }
             }
+        }
+    }
+
+    private fun List<TypedContextVariable>.topLevelLiteralFunction(
+        primitiveType: String
+    ): List<Quad<List<TypedContextVariable>, Overload, FunctionType, Type>> {
+        val (literalFuncType, _, _) = this@TypeChecker.environment.getVariable("literal") ?: return emptyList()
+        val contexts = this.groupBy { it.type }
+
+        if (literalFuncType is FunctionType) {
+            val overloads = literalFuncType.overloads
+                .filter { overload ->
+                    (overload.receiverType != null && overload.receiverType.mangledName == primitiveType)
+                            && overload.arity == 0
+                            && overload.isOperator
+                            && overload.contextTypes.all { it in contexts }
+                }
+                // .also { overloads -> println("[LOG | TypeChecker.topLevelLiteralFunction]: found overloads -> $overloads") }
+                .sortedByDescending { overload ->
+                    overload.contextTypes.size
+                }
+
+            return overloads.map { overload ->
+                Quad(
+                    overload.contextTypes.map { type ->
+                        contexts[type]!!.maxBy { it.depth }
+                    },
+                    overload,
+                    literalFuncType.copy(
+                        mutableOverloads = overloads.toMutableSet()
+                    ),
+                    overload.returnType,
+                )
+            }
+        } else {
+            return emptyList()
         }
     }
 }

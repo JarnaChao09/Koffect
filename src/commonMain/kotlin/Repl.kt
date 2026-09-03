@@ -1260,9 +1260,25 @@ public fun repl() {
     //     }
     // """.trimIndent()
 
+    // val srcString = """
+    //     fun main() {
+    //         println("Hello" + " " + "world");
+    //     }
+    // """.trimIndent()
+
     val srcString = """
+        fun oops(): Int = 42;
+        class Num(val num: Int) { operator fun plus(other: Num): Num = Num(this.num + other.num); }
+        fun println(num: Num) { print("Num("); print(num.num); println(")"); }
+        class NumContext1 {}
+        class NumContext2 {}
+        context(NumContext1) operator fun Int.literal(): Num = Num(this);
+        context(NumContext1) operator fun Double.literal(): Num = Num(oops());
+        context(NumContext1, NumContext2) operator fun Int.literal(): Num = Num(this + oops());
+        fun withContext(block: context(NumContext1, NumContext2) () -> Unit) = block(NumContext1(), NumContext2());
+        
         fun main() {
-            println("Hello" + " " + "world");
+            withContext { println(42 + 1.0); };
         }
     """.trimIndent()
 
