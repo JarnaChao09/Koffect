@@ -1266,19 +1266,35 @@ public fun repl() {
     //     }
     // """.trimIndent()
 
+    // val srcString = """
+    //     fun oops(): Int = 42;
+    //     class Num(val num: Int) { operator fun plus(other: Num): Num = Num(this.num + other.num); }
+    //     fun println(num: Num) { print("Num("); print(num.num); println(")"); }
+    //     class NumContext1 {}
+    //     class NumContext2 {}
+    //     context(NumContext1) operator fun Int.literal(): Num = Num(this);
+    //     context(NumContext1) operator fun Double.literal(): Num = Num(oops());
+    //     context(NumContext1, NumContext2) operator fun Int.literal(): Num = Num(this + oops());
+    //     fun withContext(block: context(NumContext1, NumContext2) () -> Unit) = block(NumContext1(), NumContext2());
+    //
+    //     fun main() {
+    //         withContext { println(42 + 1.0); };
+    //     }
+    // """.trimIndent()
+
     val srcString = """
-        fun oops(): Int = 42;
         class Num(val num: Int) { operator fun plus(other: Num): Num = Num(this.num + other.num); }
         fun println(num: Num) { print("Num("); print(num.num); println(")"); }
-        class NumContext1 {}
-        class NumContext2 {}
-        context(NumContext1) operator fun Int.literal(): Num = Num(this);
-        context(NumContext1) operator fun Double.literal(): Num = Num(oops());
-        context(NumContext1, NumContext2) operator fun Int.literal(): Num = Num(this + oops());
-        fun withContext(block: context(NumContext1, NumContext2) () -> Unit) = block(NumContext1(), NumContext2());
+        class NC1 {}
+        class NC2 {}
+        context(NC2) operator fun Int.literal(): Int = this * 2@;
+        context(NC1, NC2) operator fun Int.literal(): Num = Num(this * 10@ + 10@NC2);
+        fun withContext(block: context(NC1, NC2) () -> Unit) = block(NC1(), NC2());
         
         fun main() {
-            withContext { println(42 + 1.0); };
+            withContext {
+                println(3 + 4);
+            };
         }
     """.trimIndent()
 

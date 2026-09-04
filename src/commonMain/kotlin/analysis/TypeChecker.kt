@@ -1078,11 +1078,21 @@ public class TypeChecker(public var environment: Environment) {
             }
             is BooleanLiteral, NullLiteral, is StringLiteral -> TypedLiteral(this as Literal<*>)
             is DoubleLiteral, is IntLiteral, is LongLiteral -> {
+                val pinned = this.pinned?.map(parser.ast.Type::toType)
                 val lit = TypedLiteral(this as Literal<*>)
                 // note: first value in the list should be the maximum depth (due to how we are traversing the environment)
                 //       so we don't need to maximize by depth
                 val fromReceiver = environment
                     .currentReceivers()
+                    .let {
+                        if (pinned != null) {
+                            it.filter { (type, _) ->
+                                type in pinned
+                            }
+                        } else {
+                            it
+                        }
+                    }
                     .findLiteralFunction(lit.type.mangledName) { it }
                     .firstOrNull()
                     ?.let { (p, functionType, returnType, depth) ->
@@ -1105,7 +1115,17 @@ public class TypeChecker(public var environment: Environment) {
                             methodInvocation = true,
                         ) to depth
                     }
-                val contextVariables = environment.currentContextVariables()
+                val contextVariables = environment
+                    .currentContextVariables()
+                    .let {
+                        if (pinned != null) {
+                            it.filter { cvar ->
+                                cvar.type in pinned
+                            }
+                        } else {
+                            it
+                        }
+                    }
                 val fromContexts = contextVariables
                     .findLiteralFunction(lit.type.mangledName) { (depth, cvar) -> cvar to depth }
                     .firstOrNull()
@@ -1125,7 +1145,7 @@ public class TypeChecker(public var environment: Environment) {
                         ) to depth
                     }
                 val fromFunction = contextVariables
-                    .topLevelLiteralFunction(lit.type.mangledName)
+                    .topLevelLiteralFunction(lit.type.mangledName, pinned)
                     .firstOrNull()
                     ?.let { (contexts, foundOverload, functionType, returnType) ->
                         TypedCall(
@@ -1496,18 +1516,29 @@ public class TypeChecker(public var environment: Environment) {
     }
 
     private fun List<TypedContextVariable>.topLevelLiteralFunction(
-        primitiveType: String
+        primitiveType: String,
+        pinned: List<Type>?,
     ): List<Quad<List<TypedContextVariable>, Overload, FunctionType, Type>> {
         val (literalFuncType, _, _) = this@TypeChecker.environment.getVariable("literal") ?: return emptyList()
         val contexts = this.groupBy { it.type }
+        if (pinned != null) {
+            if (pinned.any { it !in contexts}) {
+                return emptyList()
+            }
+        }
 
         if (literalFuncType is FunctionType) {
             val overloads = literalFuncType.overloads
                 .filter { overload ->
-                    (overload.receiverType != null && overload.receiverType.mangledName == primitiveType)
+                    val valid = (overload.receiverType != null && overload.receiverType.mangledName == primitiveType)
                             && overload.arity == 0
                             && overload.isOperator
-                            && overload.contextTypes.all { it in contexts }
+
+                    if (pinned == null) {
+                        valid && overload.contextTypes.all { it in contexts }
+                    } else {
+                        valid && overload.contextTypes.size == pinned.size && overload.contextTypes.all { it in pinned }
+                    }
                 }
                 // .also { overloads -> println("[LOG | TypeChecker.topLevelLiteralFunction]: found overloads -> $overloads") }
                 .sortedByDescending { overload ->

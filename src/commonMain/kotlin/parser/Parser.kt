@@ -724,7 +724,22 @@ public class Parser(tokenSequence: Sequence<Token>) {
                 }
             }
             match(TokenType.IDENTIFIER) -> Variable(this.previous)
-            match(TokenType.NUMBER, TokenType.STRING) -> Literal(this.previous.literal)
+            match(TokenType.NUMBER, TokenType.STRING) -> {
+                val literal = this.previous.literal
+                if (match(TokenType.AT)) {
+                    val at = this.previous
+                    val type = buildList {
+                        if (checkCurrent(TokenType.IDENTIFIER)) {
+                            do {
+                                add(type())
+                            } while (match(TokenType.COMMA))
+                        }
+                    }
+                    Literal(literal, at, type)
+                } else {
+                    Literal(literal)
+                }
+            }
             match(TokenType.LEFT_BRACE) -> {
                 parseLambda()
             }
