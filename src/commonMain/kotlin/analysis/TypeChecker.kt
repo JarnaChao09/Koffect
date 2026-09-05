@@ -276,6 +276,9 @@ public class TypeChecker(public var environment: Environment) {
                         require(oldFunctionType is FunctionType) {
                             "Function overloads cannot shadow variables currently" // todo: update environment to allow for both variables and functions to have the same identifier
                         }
+                        // if (this.scope == Scope.CLASS_LEVEL && it.override) {
+                        //     // todo: check properly for override in inheritance tree
+                        // }
                     }
 
                     val contextTypes = it.contexts.map(parser.ast.Type::toType)
@@ -449,8 +452,8 @@ public class TypeChecker(public var environment: Environment) {
                 } ?: error("Undefined variable ${this.name.lexeme}")
             }
             is Binary -> {
-                val leftTypedExpression = this.left.toTypedExpression()
-                val rightTypedExpression = this.right.toTypedExpression()
+                var leftTypedExpression = this.left.toTypedExpression()
+                var rightTypedExpression = this.right.toTypedExpression()
 
                 val function = when (this.operator.type) {
                     TokenType.PLUS -> "plus"
@@ -467,7 +470,8 @@ public class TypeChecker(public var environment: Environment) {
                     else -> error("Custom binary operators are unsupported. Invalid Binary Operator ${this.operator.lexeme}") // should be unreachable for now
                 }
 
-                val leftTypeName = when (val leftType = leftTypedExpression.type) {
+                val leftType = leftTypedExpression.type
+                val leftTypeName = when (leftType) {
                     is VariableType -> leftType.name
                     is LambdaType -> error("Lookup of lambda types is currently not supported during type checking")
                     is FunctionType -> error("Lookup of function types is currently not supported during type checking")
@@ -482,27 +486,92 @@ public class TypeChecker(public var environment: Environment) {
                     is ClassType -> error("Lookup of class types is currently not supported during type checking")
                 }
 
-                val receiverReference = this@TypeChecker.environment.getClass(leftTypeName) ?: error("Unknown class '$leftTypeName'")
+                fun findReturnType(l: String, eq: (Type) -> Boolean): Triple<ClassType, ClassType.Function, Type>? {
+                    val receiverReference = this@TypeChecker.environment.getClass(l) ?: error("Unknown class '$leftTypeName'")
 
-                val functionReference = receiverReference.functions[function] ?: error("Unknown function '$function' with receiver type '$leftTypeName'")
+                    val functionReference = receiverReference.functions[function] ?: error("Unknown function '$function' with receiver type '$leftTypeName'")
 
-                var returnType: Type? = null
+                    for (functionOverload in functionReference.functionType.overloads) {
+                        // todo: update to check for operator status once operator distinction is added
+                        if (functionOverload.arity != 1 || !functionOverload.isOperator) {
+                            continue
+                        }
 
-                for (functionOverload in functionReference.functionType.overloads) {
-                    // todo: update to check for operator status once operator distinction is added
-                    if (functionOverload.arity != 1 || !functionOverload.isOperator) {
-                        continue
+                        if (eq(functionOverload.parameterTypes[0])) {
+                            return Triple(receiverReference, functionReference, functionOverload.returnType)
+                        }
                     }
 
-                    if (rightType == functionOverload.parameterTypes[0]) {
-                        returnType = functionOverload.returnType
-                        break
+                    return null
+                }
+
+                var potential = findReturnType(leftTypeName) { paramType -> rightType == paramType }
+
+                if (potential == null) {
+                    potential = if (leftTypeName == "String" && rightTypeName != "String") {
+                        val toStringFunc = this@TypeChecker
+                            .environment
+                            .getClass(rightTypeName)
+                            ?.functions["toString"]
+                            ?.takeIf {
+                                it.functionType.overloads.size == 1 && it.functionType.overloads.first().arity == 0
+                            }
+                        if (toStringFunc != null) {
+                            rightTypedExpression = TypedCall(
+                                TypedGet(
+                                    instance = rightTypedExpression,
+                                    name = Token(TokenType.IDENTIFIER, "toString", -3, -3),
+                                    slot = toStringFunc.slot,
+                                    type = toStringFunc.functionType,
+                                    callInstance = null,
+                                ),
+                                paren = Token(TokenType.LEFT_PAREN, "(", -3, -3),
+                                arguments = emptyList(),
+                                type = leftType,
+                                methodInvocation = true,
+                            )
+                            findReturnType("String") { paramType -> paramType.mangledName == "String" }
+                        } else {
+                            null
+                        }
+                    }
+                    else if (rightTypeName == "String" && leftTypeName != "String") {
+                        val toStringFunc = this@TypeChecker
+                            .environment
+                            .getClass(leftTypeName)
+                            ?.functions["toString"]
+                            ?.takeIf {
+                                it.functionType.overloads.size == 1 && it.functionType.overloads.first().arity == 0
+                            }
+                        if (toStringFunc != null) {
+                            rightTypedExpression = TypedCall(
+                                TypedGet(
+                                    instance = leftTypedExpression,
+                                    name = Token(TokenType.IDENTIFIER, "toString", -3, -3),
+                                    slot = toStringFunc.slot,
+                                    type = toStringFunc.functionType,
+                                    callInstance = null,
+                                ),
+                                paren = Token(TokenType.LEFT_PAREN, "(", -3, -3),
+                                arguments = emptyList(),
+                                type = leftType,
+                                methodInvocation = true,
+                            )
+                            findReturnType("String") { paramType -> paramType.mangledName == "String" }
+                        } else {
+                            null
+                        }
+                    } else {
+                        null
                     }
                 }
 
-                if (returnType == null) {
-                    error("Unable to find operator function definition on type $leftTypeName for $function with parameter $rightTypeName. Known candidates are: ${functionReference.functionType}")
+                if (potential == null) {
+                    // error("Unable to find operator function definition on type $leftTypeName for $function with parameter $rightTypeName. Known candidates are: ${functionReference.functionType}")
+                    error("Unable to find operator function definition on type $leftTypeName for $function with parameter $rightTypeName.")
                 }
+
+                val (receiverReference, functionReference, returnType) = potential
 
                 if (receiverReference.isPrimitive) {
                     TypedBinary(leftTypedExpression, this.operator, rightTypedExpression, returnType)

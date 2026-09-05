@@ -124,8 +124,13 @@ public class Parser(tokenSequence: Sequence<Token>) {
                     methods += this.functionDeclaration(contexts)
                 }
                 match(TokenType.OPERATOR) -> {
-                    expect(TokenType.FUN, "Expected function declaration after context declaration")
+                    expect(TokenType.FUN, "Expected function declaration after operator modifier")
                     methods += this.functionDeclaration(emptyList(), operator = true)
+                }
+                match(TokenType.OVERRIDE) -> {
+                    val operator = match(TokenType.OPERATOR)
+                    expect(TokenType.FUN, "Expected function declaration after override modifier")
+                    methods += this.functionDeclaration(emptyList(), operator = operator, override = true)
                 }
                 match(TokenType.FUN) -> {
                     methods += this.functionDeclaration(emptyList())
@@ -206,7 +211,12 @@ public class Parser(tokenSequence: Sequence<Token>) {
         return VariableStatement(type, name, typeAnnotation, initializer)
     }
 
-    private fun functionDeclaration(contexts: List<Type>, inline: Boolean = false, operator: Boolean = false): FunctionDeclaration {
+    private fun functionDeclaration(
+        contexts: List<Type>,
+        inline: Boolean = false,
+        operator: Boolean = false,
+        override: Boolean = false,
+    ): FunctionDeclaration {
         val (receiver, name) = run {
             val mark = this.tokens.mark()
             // note:
@@ -260,7 +270,7 @@ public class Parser(tokenSequence: Sequence<Token>) {
             else -> error("Expected a function body")
         }
 
-        return FunctionDeclaration(name, receiver, contexts, parameters, returnType, body, inline, operator)
+        return FunctionDeclaration(name, receiver, contexts, parameters, returnType, body, inline, operator, override)
     }
 
     private fun parameterList(): List<Parameter> {
@@ -739,6 +749,40 @@ public class Parser(tokenSequence: Sequence<Token>) {
                 } else {
                     Literal(literal)
                 }
+            }
+            match(TokenType.STRING_INTERPOLATION) -> {
+                var expr: Expression? = null
+                do {
+                    val literal = this.previous.literal
+
+                    val interp = expression()
+
+                    expr = if (expr == null) {
+                        Binary(
+                            Literal(literal),
+                            Token(TokenType.PLUS, "+", -2, -2),
+                            interp,
+                        )
+                    } else {
+                        Binary(
+                            expr,
+                            Token(TokenType.PLUS, "+", -2, -2),
+                            Binary(
+                                Literal(literal),
+                                Token(TokenType.PLUS, "+", -2, -2),
+                                interp,
+                            ),
+                        )
+                    }
+                } while (match(TokenType.STRING_INTERPOLATION))
+
+                expect(TokenType.STRING, "Expect end of string interpolation")
+
+                Binary(
+                    expr,
+                    Token(TokenType.PLUS, "+", -2, -2),
+                    Literal(this.previous.literal)
+                )
             }
             match(TokenType.LEFT_BRACE) -> {
                 parseLambda()

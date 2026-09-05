@@ -58,6 +58,12 @@ public actual fun execute(typedTree: List<TypedStatement>) {
             returnType = llvm.type { int32 },
             vararg = true
         )
+        val (sprintfType, sprintfFunc) = llvm.nativeFunction(
+            name = "sprintf",
+            parameterTypes = listOf(llvm.type { int8.pointer }, llvm.type { int8.pointer }),
+            returnType = llvm.type { int32 },
+            vararg = true
+        )
         llvm.nativeFunction(
             name = "clock",
             parameterTypes = emptyList(),
@@ -99,6 +105,39 @@ public actual fun execute(typedTree: List<TypedStatement>) {
                 call(strcatFunctionType, strcatFunction.llvmRef, arrayOf(ret, r), "_cat")
 
                 ret(ret)
+            }
+        }
+
+        for ((typeName, gsp) in listOf("Int" to "%d", "Long" to "%ld", "Double" to "%.16f")) {
+            llvm.nativeMethod(
+                typeName,
+                "toString",
+                parameterTypes = listOf(typeName.toLLVMType()),
+                returnType = llvm.type { int8.pointer },
+            ) {
+                basicBlocks.append {
+                    val thisRef = parameters[0]
+
+                    val buffer = call(
+                        mallocFunctionType,
+                        mallocFunction.llvmRef,
+                        arrayOf(
+                            llvm.type { int64 }.constInt(30) // note: chosen conservatively
+                        )
+                    )
+
+                    call(
+                        sprintfType,
+                        sprintfFunc.llvmRef,
+                        arrayOf(
+                            buffer,
+                            globalStringPointer(gsp),
+                            thisRef,
+                        )
+                    )
+
+                    ret(buffer)
+                }
             }
         }
 

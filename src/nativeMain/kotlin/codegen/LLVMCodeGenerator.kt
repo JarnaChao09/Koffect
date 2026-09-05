@@ -124,6 +124,26 @@ public class LLVMCodeGenerator(moduleName: String) {
         return struct
     }
 
+    public fun nativeMethod(
+        typeName: String,
+        name: String,
+        parameterTypes: List<Type>,
+        returnType: Type,
+        vararg: Boolean = false,
+        block: Function.(Type) -> Unit = {}
+    ): Pair<Type, Function> {
+        val function = this.module.function(
+            name,
+            parameterTypes,
+            returnType,
+            vararg,
+            block
+        )
+        env.addTypeMethod(typeName, function)
+
+        return function
+    }
+
     public fun generate(ast: List<TypedStatement>): ThreadSafeModule {
         generateStatements(ast, context.newBuilder(), BasicBlock(null))
 
@@ -864,7 +884,7 @@ public class LLVMCodeGenerator(moduleName: String) {
                         instanceType.mangledName,
                         // NOTE: calling a method, - 1 accounting for the "constructor method"
                         typedGet.slot - 1
-                    ) ?: error("method ${typedGet.name.lexeme} not found on $instanceType")
+                    ) ?: error("method ${typedGet.name.lexeme} not found on $instanceType (${typedGet.slot - 1})")
 
                     var currentBlock = block
                     val argumentTypes = mutableListOf<Type>()

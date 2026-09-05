@@ -52,6 +52,7 @@ public enum class TokenType {
     BIT_OR,
 
     IDENTIFIER,
+    STRING_INTERPOLATION,
     STRING,
     NUMBER,
     NULL,
@@ -67,6 +68,7 @@ public enum class TokenType {
     DELETE,
     SUSPEND,
     INLINE,
+    OVERRIDE,
     FUN,
     RETURN,
 

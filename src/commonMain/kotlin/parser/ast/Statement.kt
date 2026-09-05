@@ -38,6 +38,7 @@ public data class FunctionDeclaration(
     val body: List<Statement>,
     val inline: Boolean,
     val operator: Boolean,
+    val override: Boolean,
 ) : Declaration {
     public val arity: Int
         get() = this.parameters.size

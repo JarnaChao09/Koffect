@@ -15,6 +15,7 @@ private val defaultKeywords: Map<String, TokenType> = mapOf(
     "delete" to TokenType.DELETE,
     "suspend" to TokenType.SUSPEND,
     "inline" to TokenType.INLINE,
+    "override" to TokenType.OVERRIDE,
     "fun" to TokenType.FUN,
     "return" to TokenType.RETURN,
     "class" to TokenType.CLASS,
@@ -30,6 +31,8 @@ public class Lexer(private val source: String, private val keywords: Map<String,
     private var current: Int = 0
     private var line: Int = 1
     private var column: Int = 0
+
+    private val interpStack: ArrayDeque<Int> = ArrayDeque()
 
     public val tokens: Sequence<Token> by lazy {
         sequence {
@@ -53,8 +56,27 @@ public class Lexer(private val source: String, private val keywords: Map<String,
         return when (val char = this.advance()) {
             '(' -> this.createToken(TokenType.LEFT_PAREN)
             ')' -> this.createToken(TokenType.RIGHT_PAREN)
-            '{' -> this.createToken(TokenType.LEFT_BRACE)
-            '}' -> this.createToken(TokenType.RIGHT_BRACE)
+            '{' -> {
+                if (this.interpStack.isNotEmpty()) {
+                    this.interpStack.addFirst(this.interpStack.removeFirst() + 1)
+                }
+                this.createToken(TokenType.LEFT_BRACE)
+            }
+            '}' -> {
+                val tok = if (this.interpStack.isNotEmpty()) {
+                    val curr = this.interpStack.removeFirst() - 1
+                    if (curr == 0) {
+                        this.createString()
+                    } else {
+                        this.interpStack.addFirst(curr)
+                        this.createToken(TokenType.RIGHT_BRACE)
+                    }
+                } else {
+                    this.createToken(TokenType.RIGHT_BRACE)
+                }
+
+                tok
+            }
             '[' -> this.createToken(TokenType.LEFT_BRACKET)
             ']' -> this.createToken(TokenType.RIGHT_BRACKET)
             ',' -> this.createToken(TokenType.COMMA)
@@ -138,6 +160,19 @@ public class Lexer(private val source: String, private val keywords: Map<String,
             if (this.peek() == '\n') {
                 this.line++
                 this.column = 0
+            }
+
+            if (this.peek() == '$' && this.peek(1) == '{') {
+                val token = this.createToken(
+                    TokenType.STRING_INTERPOLATION,
+                    literal = this.source.substring((this.start + 1)..<this.current)
+                )
+                this.interpStack.addFirst(1)
+
+                this.advance() // $
+                this.advance() // {
+
+                return token
             }
 
             this.advance()

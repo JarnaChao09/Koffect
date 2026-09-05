@@ -48,6 +48,14 @@ public fun repl() {
 
         for (type in listOf("Int", "Long", "Double")) {
             type {
+                function("constructor") {
+                    emptyList<String>() returns type
+                }
+
+                function("toString") {
+                    emptyList<String>() returns "String"
+                }
+
                 for (functionName in listOf("plus", "minus", "times", "div", "mod")) {
                     function(functionName, operator = true) {
                         listOf(type) returns type
@@ -1282,19 +1290,26 @@ public fun repl() {
     //     }
     // """.trimIndent()
 
-    val srcString = """
-        class Num(val num: Int) { operator fun plus(other: Num): Num = Num(this.num + other.num); }
-        fun println(num: Num) { print("Num("); print(num.num); println(")"); }
-        class NC1 {}
-        class NC2 {}
-        context(NC2) operator fun Int.literal(): Int = this * 2@;
-        context(NC1, NC2) operator fun Int.literal(): Num = Num(this * 10@ + 10@NC2);
-        fun withContext(block: context(NC1, NC2) () -> Unit) = block(NC1(), NC2());
-        
+    // val srcString = """
+    //     class Num(val num: Int) { operator fun plus(other: Num): Num = Num(this.num + other.num); }
+    //     fun println(num: Num) { print("Num("); print(num.num); println(")"); }
+    //     class NC1 {}
+    //     class NC2 {}
+    //     context(NC2) operator fun Int.literal(): Int = this * 2@;
+    //     context(NC1, NC2) operator fun Int.literal(): Num = Num(this * 10@ + 10@NC2);
+    //     fun withContext(block: context(NC1, NC2) () -> Unit) = block(NC1(), NC2());
+    //
+    //     fun main() {
+    //         withContext {
+    //             println(3 + 4);
+    //         };
+    //     }
+    // """.trimIndent()
+
+    val srcString = $$"""
         fun main() {
-            withContext {
-                println(3 + 4);
-            };
+            val test: String = "inner value";
+            println("testing interp: ${test}, ${3 + 4}, and ${1.0}");
         }
     """.trimIndent()
 
@@ -1381,6 +1396,7 @@ public fun repl() {
     // """.trimIndent()
 
     val lexer = Lexer(srcString)
+    // lexer.tokens.forEach(::println)
     val parser = Parser(lexer.tokens)
 
     val tree = parser.parse()
