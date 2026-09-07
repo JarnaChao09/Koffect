@@ -36,6 +36,14 @@ public actual fun execute(typedTree: List<TypedStatement>) {
     try {
         val llvm = LLVMCodeGenerator("koffect main")
 
+        val closureType = llvm.nativeStruct(
+            "closure",
+            arrayOf(
+                llvm.type { void.pointer }, // lambda
+                llvm.type { void.pointer }, // environment
+            )
+        )
+
         fun String.toLLVMType() = when (this) {
             "Int" -> llvm.type { int32 }
             "Long" -> llvm.type { int64 }

@@ -7,6 +7,7 @@ import analysis.ast.TypedAssign
 import analysis.ast.TypedBinary
 import analysis.ast.TypedBooleanLiteral
 import analysis.ast.TypedCall
+import analysis.ast.TypedCapture
 import analysis.ast.TypedClassDeclaration
 import analysis.ast.TypedContextVariable
 import analysis.ast.TypedDeleteStatement
@@ -50,6 +51,8 @@ import llvm4k.ThreadSafeContext
 import llvm4k.ThreadSafeModule
 import llvm4k.Type
 import llvm4k.Value
+import kotlin.collections.orEmpty
+import kotlin.collections.plus
 
 @OptIn(ExperimentalForeignApi::class)
 public class LLVMCodeGenerator(moduleName: String) {
@@ -935,43 +938,64 @@ public class LLVMCodeGenerator(moduleName: String) {
                 }
             }
             is TypedContextVariable -> {
-                val (cValue, _) = env.getContext(root.type) ?: error("context ${root.type} not in scope (should be unreachable)")
+                if (env.isCapture(root.toString())) {
+                    val (_, captureType, captureValue) = env.getCapture(root.toString()) ?: error("captured context not found")
+                    builder.load(
+                        captureType,
+                        captureValue
+                    )
+                } else {
+                    val (cValue, _) = env.getContext(root.type)
+                        ?: error("context ${root.type} not in scope (should be unreachable)")
 
-                // NOTE: currently contexts can only be introduced as parameters to a function, so no loads are needed
-                //       currently when accessing them
-                cValue to block
+                    // NOTE: currently contexts can only be introduced as parameters to a function, so no loads are needed
+                    //       currently when accessing them
+                    cValue
+                } to block
             }
             is TypedVariable -> {
                 val name = root.mangledName
-                val value = when (val type = root.type) {
-                    is ClassType -> {
-                        // NOTE: name (mangledName) should be the name of the constructor we want
-                        val function = env.getFunction(name)
-                        function?.second?.llvmRef ?: error("no constructor for type ${type.name} ($name) found (should be unreachable)")
-                    }
-                    is FunctionType -> {
-                        val function = env.getFunction(name)
-                        function?.second?.llvmRef ?: error("no function $name found (should be unreachable)")
-                    }
-                    is LambdaType -> {
-                        val variable = env.getVariable(name)
-                        variable?.let { (value, type, parameter) ->
-                            if (parameter) {
-                                value
-                            } else {
-                                builder.load(type, value, name)
-                            }
-                        } ?: error("No lambda variable found for $name")
-                    }
-                    is VariableType -> {
-                        val variable = env.getVariable(name)
-                        variable?.let { (value, type, parameter) ->
-                            if (parameter) {
-                                value
-                            } else {
-                                builder.load(type, value, name)
-                            }
-                        } ?: error("No variable found for $name")
+                val value = if (env.isCapture(name)) {
+                    val (_, captureType, captureValue) = env.getCapture(name) ?: error("capture not found")
+                    builder.load(
+                        captureType,
+                        captureValue
+                    )
+                } else {
+                    when (val type = root.type) {
+                        is ClassType -> {
+                            // NOTE: name (mangledName) should be the name of the constructor we want
+                            val function = env.getFunction(name)
+                            function?.second?.llvmRef
+                                ?: error("no constructor for type ${type.name} ($name) found (should be unreachable)")
+                        }
+
+                        is FunctionType -> {
+                            val function = env.getFunction(name)
+                            function?.second?.llvmRef ?: error("no function $name found (should be unreachable)")
+                        }
+
+                        is LambdaType -> {
+                            val variable = env.getVariable(name)
+                            variable?.let { (value, type, parameter) ->
+                                if (parameter) {
+                                    value
+                                } else {
+                                    builder.load(type, value, name)
+                                }
+                            } ?: error("No lambda variable found for $name")
+                        }
+
+                        is VariableType -> {
+                            val variable = env.getVariable(name)
+                            variable?.let { (value, type, parameter) ->
+                                if (parameter) {
+                                    value
+                                } else {
+                                    builder.load(type, value, name)
+                                }
+                            } ?: error("No variable found for $name")
+                        }
                     }
                 }
 
@@ -998,7 +1022,11 @@ public class LLVMCodeGenerator(moduleName: String) {
                     is FunctionType -> TODO("function type get not implemented")
                     is LambdaType -> {
                         if (root.name.lexeme == "invoke") {
-                            dfs(instance, builder, block)
+                            val (closureValue, closureBlock) = dfs(instance, builder, block)
+
+                            builder.positionAtEnd(closureBlock)
+
+                            builder.extractValue(closureValue, 0U) to closureBlock
                         } else {
                             TODO("lambda type get (for non-invoke) not implemented")
                         }
@@ -1071,19 +1099,29 @@ public class LLVMCodeGenerator(moduleName: String) {
             }
             is TypedInlineCall -> TODO()
             is TypedLambda -> {
-                require(root.captures.isEmpty()) {
-                    "closures currently not supported on LLVM backend"
+                val captures = root.captures.toList()
+                val envTypes = captures.map {
+                    when (it) {
+                        is TypedContextVariable -> it.type.toLLVMType(true)
+                        is TypedVariable -> it.type.toLLVMType(true)
+                    }
                 }
 
                 val receiverType = root.receiver?.toLLVMType(true)
                 val contextTypes = root.contexts.map { it.toLLVMType(true) }
                 val parameterTypes = root.parameters.map { it.type.toLLVMType(true) }
 
-                val offset = if (receiverType != null) 1 else 0
+                val offset = if (receiverType != null) 2 else 1
 
                 val lambdaType = root.type.toLLVMType(false)
+                val closureType = root.type.toLLVMType(true)
 
                 val lambdaName = "${functionName}_lambda_${root.contexts.size + root.parameters.size}"
+
+                val envType = context.struct(
+                    envTypes.toTypedArray(),
+                    name = "lambda_env"
+                )
 
                 val (lambdaLLVMType, lambdaLLVMValue) = module.function(
                     name = "lambda",
@@ -1092,8 +1130,21 @@ public class LLVMCodeGenerator(moduleName: String) {
                     function(this@function, lambdaName) {
                         scope {
                             val b = basicBlocks.append { _ ->
+                                val e = extractValue(parameters[0], 1U)
+                                captures.forEachIndexed { index, capture ->
+                                    val captureValue = gepInbounds(
+                                        type = envType,
+                                        pointer = e,
+                                        indices = arrayOf(
+                                            context.int32.constInt(0),
+                                            context.int32.constInt(index)
+                                        ),
+                                    )
+
+                                    env.addCapture(capture, envTypes[index], captureValue)
+                                }
                                 receiverType?.let { type ->
-                                    env.addReceiver(root.receiver, type to parameters[0])
+                                    env.addReceiver(root.receiver, type to parameters[1])
                                 }
                                 root.contexts.forEachIndexed { i, type ->
                                     val contextType = contextTypes[i]
@@ -1132,7 +1183,43 @@ public class LLVMCodeGenerator(moduleName: String) {
 
                 builder.positionAtEnd(block)
 
-                lambdaLLVMValue.llvmRef to block
+                val closure = builder.alloca(closureType)
+                val lambdaPointer = builder.gep(closureType, closure, arrayOf(context.int32.constInt(0), context.int32.constInt(0)))
+                builder.store(lambdaLLVMValue.llvmRef, lambdaPointer)
+
+                val (mallocType, mallocFunction) = env.getFunction("malloc") ?: error("cannot find malloc")
+                val envValue = builder.call(
+                    mallocType,
+                    mallocFunction.llvmRef,
+                    arrayOf(envType.size),
+                )
+                captures.forEachIndexed { index, capture ->
+                    val loc = builder.gepInbounds(
+                        envType,
+                        envValue,
+                        arrayOf(context.int32.constInt(0), context.int32.constInt(index))
+                    )
+                    when (capture) {
+                        is TypedContextVariable -> {
+                            builder.store(
+                                env.getContext(capture.type)?.first ?: error("context $capture not found"),
+                                loc
+                            )
+                        }
+                        is TypedVariable -> {
+                            builder.store(
+                                env.getVariable(capture.mangledName)?.first ?: error("variable $capture not found"),
+                                loc
+                            )
+                        }
+                    }
+                }
+                val envPointer = builder.gep(closureType, closure, arrayOf(context.int32.constInt(0), context.int32.constInt(1)))
+                builder.store(envValue, envPointer)
+
+                val closureReg = builder.load(closureType, closure)
+
+                closureReg to block
             }
             is TypedBooleanLiteral -> {
                 context.int1.constInt(if (root.value) 1 else 0) to block
@@ -1282,20 +1369,20 @@ public class LLVMCodeGenerator(moduleName: String) {
             }
             is FunctionType -> TODO()
             is LambdaType -> {
-                Type.Function(
-                    context,
-                    parameterTypes =
-                        type.receiverType?.let { listOf(it.toLLVMType(true)) }.orEmpty()
-                                + type.contextTypes.map { it.toLLVMType(true) }
-                                + type.parameterTypes.map { it.toLLVMType(true) },
-                    returnType = type.returnType.toLLVMType(true),
-                    vararg = false,
-                ).let {
-                    if (convertToPointer) {
-                        it.pointer
-                    } else {
-                        it
-                    }
+                val closureType = env.getType("closure") ?: error("Closure type not found")
+                if (convertToPointer) {
+                    closureType
+                } else {
+                    Type.Function(
+                        context,
+                        parameterTypes =
+                            listOf(closureType)
+                                    + type.receiverType?.let { listOf(it.toLLVMType(true)) }.orEmpty()
+                                    + type.contextTypes.map { it.toLLVMType(true) }
+                                    + type.parameterTypes.map { it.toLLVMType(true) },
+                        returnType = type.returnType.toLLVMType(true),
+                        vararg = false,
+                    )
                 }
             }
             is VariableType -> {
@@ -1358,6 +1445,7 @@ public class LLVMCodeGenerator(moduleName: String) {
 @OptIn(ExperimentalForeignApi::class)
 private class LLVMEnvironment(val enclosing: LLVMEnvironment?) {
     private val variables: MutableMap<String, Triple<Value, Type, Boolean>> = mutableMapOf()
+    private val captures: MutableMap<String, Triple<TypedCapture, Type, Value>> = mutableMapOf()
     private val receivers: MutableMap<analysis.ast.Type, Pair<Type, Value>> = mutableMapOf()
     private val contexts: MutableMap<analysis.ast.Type, Pair<Value, Type>> = mutableMapOf()
     private val functions: MutableMap<String, Pair<Type, Function>> = mutableMapOf()
@@ -1375,6 +1463,32 @@ private class LLVMEnvironment(val enclosing: LLVMEnvironment?) {
         return this.variables.getOrElse(name) {
             this.enclosing?.getVariable(name)
         }
+    }
+
+    fun addCapture(capture: TypedCapture, valueType: Type, value: Value) {
+        val name = when (capture) {
+            is TypedContextVariable -> capture.toString()
+            is TypedVariable -> capture.name.lexeme
+        }
+
+        captures[name] = Triple(capture, valueType, value)
+    }
+
+    fun isCapture(name: String): Boolean {
+        return name in captures
+    }
+
+    fun getCapture(name: String): Triple<TypedCapture, Type, Value>? {
+        return captures[name]
+    }
+
+    fun getCapture(capture: TypedCapture): Triple<TypedCapture, Type, Value>? {
+        val name = when (capture) {
+            is TypedContextVariable -> capture.toString()
+            is TypedVariable -> capture.name.lexeme
+        }
+
+        return captures[name]
     }
 
     fun addReceiver(type: analysis.ast.Type, value: Pair<Type, Value>) {

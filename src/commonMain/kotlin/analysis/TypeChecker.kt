@@ -544,7 +544,7 @@ public class TypeChecker(public var environment: Environment) {
                                 it.functionType.overloads.size == 1 && it.functionType.overloads.first().arity == 0
                             }
                         if (toStringFunc != null) {
-                            rightTypedExpression = TypedCall(
+                            leftTypedExpression = TypedCall(
                                 TypedGet(
                                     instance = leftTypedExpression,
                                     name = Token(TokenType.IDENTIFIER, "toString", -3, -3),
@@ -678,10 +678,16 @@ public class TypeChecker(public var environment: Environment) {
                         }
 
                         val (callee, args) = if (typedCallee is TypedGet) {
-                            TypedVariable(
-                                typedCallee.name,
-                                typedCallee.type,
-                            ) to listOf(typedCallee.instance) + finalTypedArguments
+                            TypedGet(
+                                TypedVariable(
+                                    typedCallee.name,
+                                    typedCallee.type,
+                                ),
+                                this.paren.copy(type = TokenType.IDENTIFIER, "invoke"),
+                                -1,
+                                calleeType,
+                                null
+                            ) to listOf(typedCallee, typedCallee.instance) + finalTypedArguments
                         } else {
                             TypedGet(
                                 typedCallee,
@@ -689,7 +695,7 @@ public class TypeChecker(public var environment: Environment) {
                                 -1,
                                 calleeType,
                                 null
-                            ) to finalTypedArguments
+                            ) to listOf(typedCallee) + finalTypedArguments
                         }
 
                         if (calleeType.inline) {

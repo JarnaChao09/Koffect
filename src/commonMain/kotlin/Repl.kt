@@ -1306,10 +1306,37 @@ public fun repl() {
     //     }
     // """.trimIndent()
 
+    // val srcString = $$"""
+    //     fun main() {
+    //         val test: String = "inner value";
+    //         println("testing interp: ${test}, ${3 + 4}, and ${1.0}");
+    //     }
+    // """.trimIndent()
+
+    // val srcString = $$"""
+    //     class Num(val num: Int) {
+    //         operator fun plus(other: Num): Num = Num(this.num + other.num);
+    //         override fun toString(): String = "Num(${this.num})";
+    //     }
+    //
+    //     fun main() {
+    //         val n: Num = Num(5);
+    //         println("${n}");
+    //     }
+    // """.trimIndent()
+
     val srcString = $$"""
+        fun withInt(i: Int, block: context(Int) () -> Unit) = block(i);
+        fun withDouble(d: Double, block: context(Double) () -> Unit) = block(d);
+        
+        context(Int, Double) fun foo() { println("foo with ${this@Int} and ${this@Double}"); }
+        
         fun main() {
-            val test: String = "inner value";
-            println("testing interp: ${test}, ${3 + 4}, and ${1.0}");
+            withInt(3) {
+                withDouble(4.0) {
+                    foo();
+                };
+            };
         }
     """.trimIndent()
 
