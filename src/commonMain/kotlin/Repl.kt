@@ -1328,13 +1328,16 @@ public fun repl() {
     val srcString = $$"""
         fun withInt(i: Int, block: context(Int) () -> Unit) = block(i);
         fun withDouble(d: Double, block: context(Double) () -> Unit) = block(d);
+        fun withString(s: String, block: context(String) () -> Unit) = block(s);
         
-        context(Int, Double) fun foo() { println("foo with ${this@Int} and ${this@Double}"); }
+        context(Int, Double, String) fun foo() { println("foo with ${this@Int} and ${this@Double} and ${this@String}"); }
         
         fun main() {
             withInt(3) {
                 withDouble(4.0) {
-                    foo();
+                    withString("test") {
+                        foo();
+                    };
                 };
             };
         }

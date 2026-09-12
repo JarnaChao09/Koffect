@@ -1181,7 +1181,9 @@ public class LLVMCodeGenerator(moduleName: String) {
                     }
                 }
 
-                builder.positionAtEnd(block)
+                var retBlock = block
+
+                builder.positionAtEnd(retBlock)
 
                 val closure = builder.alloca(closureType)
                 val lambdaPointer = builder.gep(closureType, closure, arrayOf(context.int32.constInt(0), context.int32.constInt(0)))
@@ -1199,18 +1201,26 @@ public class LLVMCodeGenerator(moduleName: String) {
                         envValue,
                         arrayOf(context.int32.constInt(0), context.int32.constInt(index))
                     )
-                    when (capture) {
+                    retBlock = when (capture) {
                         is TypedContextVariable -> {
+                            val (value, b1) = dfs(capture, builder, block)
+                            builder.positionAtEnd(b1)
                             builder.store(
-                                env.getContext(capture.type)?.first ?: error("context $capture not found"),
+                                value,
                                 loc
                             )
+
+                            b1
                         }
                         is TypedVariable -> {
+                            val (value, b1) = dfs(capture, builder, block)
+                            builder.positionAtEnd(b1)
                             builder.store(
-                                env.getVariable(capture.mangledName)?.first ?: error("variable $capture not found"),
+                                value,
                                 loc
                             )
+
+                            b1
                         }
                     }
                 }
@@ -1219,7 +1229,7 @@ public class LLVMCodeGenerator(moduleName: String) {
 
                 val closureReg = builder.load(closureType, closure)
 
-                closureReg to block
+                closureReg to retBlock
             }
             is TypedBooleanLiteral -> {
                 context.int1.constInt(if (root.value) 1 else 0) to block
